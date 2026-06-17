@@ -1,0 +1,44 @@
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: #0a0a0c;
+  color: #f4f4f5;
+  font-family: Heebo, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+#root { height: 100%; }
+
+/* Phone-frame app shell — fills the viewport, capped for larger screens.
+   position:relative anchors the absolutely-positioned nav / FAB / sheet / overlay. */
+.app {
+  width: 100%;
+  max-width: 480px;
+  height: 100dvh;
+  margin: 0 auto;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Animations from the prototype. */
+@keyframes sheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ringDraw { from { stroke-dashoffset: 490; } }
+@keyframes pop { 0% { transform: scale(.94); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.pc-scroll { scrollbar-width: none; }
+.pc-scroll::-webkit-scrollbar { display: none; }
+
+input::placeholder { color: #5f5f68; }
+input { -webkit-appearance: none; }
+
+/* Hover states (the prototype's style-hover, as classes). */
+.h-gear:hover { background: #1e1e23 !important; color: #f4f4f5 !important; }
+.h-del:hover { background: #241619 !important; color: #fb7185 !important; }
+.h-fab:hover { filter: brightness(1.06); }
+.h-newfood:hover { background: #1a2a22 !important; }
+.h-quick:hover { border-color: #34d399 !important; background: #16201b !important; }
+.h-pencil:hover { background: #1e1e23 !important; color: #8a8a93 !important; }
+.h-drop:hover { border-color: #34d399 !important; }

@@ -1,0 +1,6 @@
+project_id = "procount"
+
+# The edge function requires a valid Supabase JWT (magic-link session) — only a
+# logged-in user can spend AI credit. This is the default; pinned here for clarity.
+[functions.analyze-food-photo]
+verify_jwt = true
