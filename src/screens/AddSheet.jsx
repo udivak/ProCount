@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { X, Camera, Info } from "../lib/icons.jsx";
 
 const input = { width: "100%", background: "#18181c", border: "1px solid #2a2a30", borderRadius: 14, padding: 14, color: "#f4f4f5", fontSize: 16, fontFamily: "inherit", outline: "none" };
@@ -8,6 +8,10 @@ const CONF = { low: "נמוכה", medium: "בינונית", high: "גבוהה" }
 // Add sheet — Quick / Manual / Photo. Opens over the active tab (design §2, "must be fast").
 export default function AddSheet({ tab, onTab, onClose, foods, form, onField, onToggleSave, onSubmit, onQuickAdd, photo, onPickPhoto }) {
   const fileRef = useRef(null);
+  const [q, setQ] = useState("");
+  // ponytail: client-side substring filter on name; the list is tiny, no debounce needed.
+  const ql = q.trim().toLowerCase();
+  const shown = ql ? foods.filter((f) => (f.name || "").toLowerCase().includes(ql)) : foods;
 
   const tabBtn = (key, text) => {
     const active = tab === key;
@@ -40,17 +44,25 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, onField, on
             foods.length === 0 ? (
               <div style={{ textAlign: "center", color: "#5f5f68", fontSize: 14, padding: "20px 0" }}>אין מאכלים שמורים — הוסף דרך "ידני" עם סימון "שמור"</div>
             ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                {foods.map((f) => (
-                  <button key={f.id} className="h-quick" onClick={() => onQuickAdd(f)} style={{ textAlign: "right", border: "1px solid #232328", background: "#18181c", borderRadius: 16, padding: 14, cursor: "pointer", fontFamily: "inherit", display: "flex", flexDirection: "column", gap: 8 }}>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: "#f4f4f5", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.name}</div>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <span style={{ fontSize: 15, fontWeight: 800, color: "#34d399" }}>{f.protein}g</span>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: "#7a7a82" }}>{f.calories} קל'</span>
-                    </div>
-                  </button>
-                ))}
-              </div>
+              <>
+                <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="חיפוש מאכל…" aria-label="חיפוש מאכל"
+                  style={{ ...input, marginBottom: 12 }} />
+                {shown.length === 0 ? (
+                  <div style={{ textAlign: "center", color: "#5f5f68", fontSize: 14, padding: "20px 0" }}>לא נמצא מאכל בשם זה</div>
+                ) : (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                    {shown.map((f) => (
+                      <button key={f.id} className="h-quick" onClick={() => onQuickAdd(f)} style={{ textAlign: "right", border: "1px solid #232328", background: "#18181c", borderRadius: 16, padding: 14, cursor: "pointer", fontFamily: "inherit", display: "flex", flexDirection: "column", gap: 8 }}>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: "#f4f4f5", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.name}</div>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                          <span style={{ fontSize: 15, fontWeight: 800, color: "#34d399" }}>{f.protein}g</span>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: "#7a7a82" }}>{f.calories} קל'</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
             )
           )}
 
