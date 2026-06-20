@@ -39,12 +39,12 @@ export function useData(session) {
     return { data, error };
   }, [today]);
 
-  const addQuick = useCallback((food) => {
-    const qty = Number(food.default_qty) || 1;
+  const addQuick = useCallback((food, qty = 1) => {
+    const n = Number(qty) || 1; // servings; foods store per-1-serving macros
     return addEntry({
       name: food.name,
-      protein_g: (Number(food.protein_g) || 0) * qty,
-      calories: (Number(food.calories) || 0) * qty,
+      protein_g: (Number(food.protein_g) || 0) * n,
+      calories: (Number(food.calories) || 0) * n,
       source: "saved",
       food_id: food.id,
     });

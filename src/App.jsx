@@ -80,7 +80,7 @@ export default function App({ session }) {
   const openAddManual = () => { setForm(blankForm()); setAddTab("manual"); setAddOpen(true); };
   const onTab = (tab) => { setAddTab(tab); setPhoto({ state: "idle", note: "", error: null }); };
 
-  const quickAdd = (foodRow) => { data.addQuick(foodRow.raw || foodRow); setAddOpen(false); };
+  const quickAdd = (foodRow, qty) => { data.addQuick(foodRow.raw || foodRow, qty); setAddOpen(false); };
 
   const submitAdd = async () => {
     if (addTab === "photo") await data.addAi(form);

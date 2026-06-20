@@ -4,6 +4,8 @@ import { X, Camera, Info } from "../lib/icons.jsx";
 const input = { width: "100%", background: "#18181c", border: "1px solid #2a2a30", borderRadius: 14, padding: 14, color: "#f4f4f5", fontSize: 16, fontFamily: "inherit", outline: "none" };
 const label = { fontSize: 13, fontWeight: 600, color: "#8a8a93", display: "block", marginBottom: 7 };
 const CONF = { low: "נמוכה", medium: "בינונית", high: "גבוהה" };
+const stepBtn = { width: 46, height: 46, border: "1px solid #2a2a30", background: "#1e1e23", color: "#f4f4f5", borderRadius: 14, fontSize: 24, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center" };
+const round = (n) => Math.round(Number(n) || 0);
 
 // Add sheet — Quick / Manual / Photo. Opens over the active tab (design §2, "must be fast").
 export default function AddSheet({ tab, onTab, onClose, foods, form, onField, onToggleSave, onSubmit, onQuickAdd, photo, onPickPhoto }) {
@@ -12,6 +14,8 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, onField, on
   // ponytail: client-side substring filter on name; the list is tiny, no debounce needed.
   const ql = q.trim().toLowerCase();
   const shown = ql ? foods.filter((f) => (f.name || "").toLowerCase().includes(ql)) : foods;
+  const [picking, setPicking] = useState(null); // food tapped from the grid, awaiting a quantity
+  const [qty, setQty] = useState(1);
 
   const tabBtn = (key, text) => {
     const active = tab === key;
@@ -41,7 +45,9 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, onField, on
 
         <div className="pc-scroll" style={{ flex: 1, overflowY: "auto", padding: "14px 20px 28px" }}>
           {tab === "quick" && (
-            foods.length === 0 ? (
+            picking ? (
+              <QtyPanel food={picking} qty={qty} setQty={setQty} onBack={() => setPicking(null)} onAdd={() => onQuickAdd(picking, qty)} />
+            ) : foods.length === 0 ? (
               <div style={{ textAlign: "center", color: "#5f5f68", fontSize: 14, padding: "20px 0" }}>אין מאכלים שמורים — הוסף דרך "ידני" עם סימון "שמור"</div>
             ) : (
               <>
@@ -52,7 +58,7 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, onField, on
                 ) : (
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                     {shown.map((f) => (
-                      <button key={f.id} className="h-quick" onClick={() => onQuickAdd(f)} style={{ textAlign: "right", border: "1px solid #232328", background: "#18181c", borderRadius: 16, padding: 14, cursor: "pointer", fontFamily: "inherit", display: "flex", flexDirection: "column", gap: 8 }}>
+                      <button key={f.id} className="h-quick" onClick={() => { setPicking(f); setQty(Number(f.raw?.default_qty) || 1); }} style={{ textAlign: "right", border: "1px solid #232328", background: "#18181c", borderRadius: 16, padding: 14, cursor: "pointer", fontFamily: "inherit", display: "flex", flexDirection: "column", gap: 8 }}>
                         <div style={{ fontSize: 14, fontWeight: 700, color: "#f4f4f5", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.name}</div>
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                           <span style={{ fontSize: 15, fontWeight: 800, color: "#34d399" }}>{f.protein}g</span>
@@ -118,6 +124,38 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, onField, on
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// Quantity step: choose how many servings of a saved food to log (foods store per-1 macros).
+function QtyPanel({ food, qty, setQty, onBack, onAdd }) {
+  const p = Number(food.raw?.protein_g) || food.protein || 0;
+  const c = Number(food.raw?.calories) || food.calories || 0;
+  const n = Number(qty) || 1;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+      <button onClick={onBack} style={{ alignSelf: "flex-start", background: "none", border: "none", color: "#8a8a93", fontFamily: "inherit", fontSize: 14, fontWeight: 700, cursor: "pointer", padding: 0 }}>‹ חזרה לרשימה</button>
+
+      <div style={{ textAlign: "center" }}>
+        <div style={{ fontSize: 20, fontWeight: 800, color: "#f4f4f5" }}>{food.name}</div>
+        <div style={{ fontSize: 13, color: "#6f6f78", marginTop: 4 }}>{round(p)}g חלבון · {round(c)} קל' ל{food.unit || "מנה"}</div>
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 18 }}>
+        <button onClick={() => setQty(Math.max(1, n - 1))} aria-label="הפחת כמות" style={stepBtn}>−</button>
+        <input value={qty} onChange={(e) => setQty(e.target.value.replace(/[^\d.]/g, ""))} inputMode="decimal" aria-label="כמות"
+          style={{ width: 76, textAlign: "center", background: "#18181c", border: "1px solid #2a2a30", borderRadius: 14, padding: 12, color: "#f4f4f5", fontSize: 26, fontWeight: 800, fontFamily: "inherit", outline: "none" }} />
+        <button onClick={() => setQty(n + 1)} aria-label="הוסף כמות" style={{ ...stepBtn, border: "1px solid #21302a", background: "#16201b", color: "#34d399" }}>+</button>
+      </div>
+
+      <div style={{ textAlign: "center", background: "#16201b", border: "1px solid #21302a", borderRadius: 14, padding: "12px 14px" }}>
+        <span style={{ fontSize: 18, fontWeight: 800, color: "#34d399" }}>{round(p * n)}g</span>
+        <span style={{ color: "#7a7a82", margin: "0 8px" }}>·</span>
+        <span style={{ fontSize: 15, fontWeight: 700, color: "#fbbf24" }}>{round(c * n)} קל'</span>
+      </div>
+
+      <button onClick={onAdd} style={{ border: "none", fontFamily: "inherit", background: "linear-gradient(180deg,#34d399,#1f9d6f)", color: "#06120c", fontSize: 16, fontWeight: 800, padding: 15, borderRadius: 15, cursor: "pointer" }}>הוסף לרישום</button>
     </div>
   );
 }
