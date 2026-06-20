@@ -1,23 +1,31 @@
 import { useState } from "react";
 import { supabase } from "./lib/supabase.js";
 
-// Passwordless magic-link sign-in (design §7).
+// Email + password. No SMTP: "Confirm email" is OFF in the Supabase dashboard,
+// so signUp returns a session immediately and no email is ever sent.
+// ponytail: no password reset (needs SMTP) — reset from the dashboard if needed.
 export default function Login() {
+  const [mode, setMode] = useState("login"); // "login" | "signup"
   const [email, setEmail] = useState("");
-  const [sent, setSent] = useState(false);
+  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!email.trim() || busy) return;
+    if (!email.trim() || !password || busy) return;
     setBusy(true);
-    await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: { emailRedirectTo: window.location.origin },
-    });
+    setError("");
+    const creds = { email: email.trim(), password };
+    const { error } = mode === "login"
+      ? await supabase.auth.signInWithPassword(creds)
+      : await supabase.auth.signUp(creds);
     setBusy(false);
-    setSent(true);
+    if (error) setError(translate(error.message));
+    // success → Root's onAuthStateChange renders <App/>; nothing to do here.
   };
+
+  const inputStyle = { textAlign: "center", background: "#18181c", border: "1px solid #2a2a30", borderRadius: 14, padding: 15, color: "#f4f4f5", fontSize: 16, fontFamily: "inherit", outline: "none" };
 
   return (
     <div className="app" style={{ justifyContent: "center", padding: "0 28px" }}>
@@ -32,31 +40,33 @@ export default function Login() {
         <div style={{ fontSize: 14, fontWeight: 600, color: "#6f6f78", marginTop: 6 }}>מעקב חלבון וקלוריות</div>
       </div>
 
-      {sent ? (
-        <div style={{ textAlign: "center", background: "#161619", border: "1px solid #232328", borderRadius: 20, padding: "22px 20px" }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: "#34d399", marginBottom: 6 }}>בדוק את המייל ✉️</div>
-          <div style={{ fontSize: 14, color: "#8a8a93", lineHeight: 1.5 }}>שלחנו קישור התחברות אל<br />{email.trim()}</div>
-        </div>
-      ) : (
-        <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="כתובת מייל"
-            dir="ltr"
-            style={{ textAlign: "center", background: "#18181c", border: "1px solid #2a2a30", borderRadius: 14, padding: 15, color: "#f4f4f5", fontSize: 16, fontFamily: "inherit", outline: "none" }}
-          />
-          <button
-            type="submit"
-            disabled={busy}
-            style={{ border: "none", fontFamily: "inherit", background: "linear-gradient(180deg,#34d399,#1f9d6f)", color: "#06120c", fontSize: 16, fontWeight: 800, padding: 15, borderRadius: 14, cursor: "pointer", opacity: busy ? 0.6 : 1 }}
-          >
-            {busy ? "שולח…" : "שלח קישור התחברות"}
-          </button>
-          <div style={{ textAlign: "center", fontSize: 12, color: "#5f5f68", marginTop: 4 }}>ללא סיסמה · קישור חד-פעמי למייל</div>
-        </form>
-      )}
+      <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+          placeholder="כתובת מייל" dir="ltr" autoComplete="email" style={inputStyle} />
+        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+          placeholder="סיסמה" dir="ltr"
+          autoComplete={mode === "login" ? "current-password" : "new-password"} style={inputStyle} />
+
+        {error && <div style={{ textAlign: "center", fontSize: 13, color: "#fb7185" }}>{error}</div>}
+
+        <button type="submit" disabled={busy}
+          style={{ border: "none", fontFamily: "inherit", background: "linear-gradient(180deg,#34d399,#1f9d6f)", color: "#06120c", fontSize: 16, fontWeight: 800, padding: 15, borderRadius: 14, cursor: "pointer", opacity: busy ? 0.6 : 1 }}>
+          {busy ? "…" : mode === "login" ? "התחברות" : "הרשמה"}
+        </button>
+
+        <button type="button"
+          onClick={() => { setMode(mode === "login" ? "signup" : "login"); setError(""); }}
+          style={{ background: "none", border: "none", fontFamily: "inherit", textAlign: "center", fontSize: 13, color: "#6f6f78", cursor: "pointer", marginTop: 4 }}>
+          {mode === "login" ? "אין לך חשבון? הרשמה" : "יש לך חשבון? התחברות"}
+        </button>
+      </form>
     </div>
   );
 }
+
+// Map the common Supabase auth errors to Hebrew; fall back to the raw message.
+const translate = (m) =>
+  /invalid login credentials/i.test(m) ? "מייל או סיסמה שגויים"
+  : /already registered/i.test(m) ? "המשתמש כבר רשום"
+  : /at least 6/i.test(m) ? "הסיסמה חייבת לכלול לפחות 6 תווים"
+  : m;

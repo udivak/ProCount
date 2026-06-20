@@ -41,8 +41,8 @@ deno test supabase/functions/analyze-food-photo/
 
 ## Auth
 
-Supabase Auth, magic-link (passwordless). Enable the Email provider and turn on
-magic links in the dashboard; no extra backend code needed.
+Supabase Auth, email + password. Enable the Email provider and turn **Confirm
+email** OFF (the free tier has no SMTP); no extra backend code needed.
 
 ## Client → function contract
 

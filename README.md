@@ -7,7 +7,7 @@ Personal, single-user PWA for daily **protein** and **calorie** tracking. Hebrew
 ## Stack
 
 - **Frontend:** React + Vite, packaged as a PWA (`vite-plugin-pwa`). Inline-styled, no UI framework.
-- **Backend:** Supabase — Postgres with RLS, Auth (passwordless magic link), and one Edge Function (`analyze-food-photo`) that proxies Claude vision and holds the API key server-side.
+- **Backend:** Supabase — Postgres with RLS, Auth (email + password), and one Edge Function (`analyze-food-photo`) that proxies Claude vision and holds the API key server-side.
 - **AI:** `claude-sonnet-4-6` via the Anthropic Messages API with structured output.
 
 ## Structure
@@ -16,7 +16,7 @@ Personal, single-user PWA for daily **protein** and **calorie** tracking. Hebrew
 src/
   App.jsx            shell: header, bottom nav, FAB, view-model, sheet/overlay wiring
   Root.jsx           auth gate
-  Login.jsx          magic-link sign-in
+  Login.jsx          email + password sign-in
   FoodEditor.jsx     add / edit / delete a saved food
   store.js           useData hook — load + mutations + photo → edge function
   lib/
@@ -37,7 +37,9 @@ design_handoff_procount/          visual design reference (Claude Design)
 
 ```sh
 npm install
-cp .env.example .env.local      # fill VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY
+# create .env.local with your Supabase values (Settings → API):
+#   VITE_SUPABASE_URL=https://YOUR-PROJECT.supabase.co
+#   VITE_SUPABASE_ANON_KEY=YOUR-ANON-KEY
 npm run dev
 ```
 
@@ -61,7 +63,7 @@ The Edge function requires an `ANTHROPIC_API_KEY` secret. The daily cost-brake c
 ## Before shipping to prod
 
 1. Set the `ANTHROPIC_API_KEY` secret on the Edge function (else the photo tab falls back to manual entry).
-2. Auth → URL Configuration: add the production origin to **Site URL** and **Redirect URLs**.
+2. Auth → Sign In / Providers → Email: turn **Confirm email** OFF — the free tier has no SMTP, so signup must not require email verification.
 3. Disable open sign-ups after creating your account (this is a single-user app).
 4. Host the static build and set `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` in the host's env.
 
