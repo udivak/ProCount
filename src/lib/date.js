@@ -29,3 +29,17 @@ export function weekdayLabel(dateStr, todayStr = todayLocal()) {
   const letters = ["א׳", "ב׳", "ג׳", "ד׳", "ה׳", "ו׳", "ש׳"]; // Sun..Sat
   return letters[new Date(dateStr + "T00:00:00").getDay()];
 }
+
+// Move a YYYY-MM-DD by ±delta days (handles month/year rollover via Date math).
+export function shiftDate(dateStr, delta) {
+  const d = new Date(dateStr + "T00:00:00");
+  d.setDate(d.getDate() + delta);
+  return todayLocal(d);
+}
+
+// Header-style label for a selected day: "היום" / "אתמול" / "יום רביעי, 18 ביוני".
+export function dayLabel(dateStr, todayStr = todayLocal()) {
+  if (dateStr === todayStr) return "היום";
+  if (dateStr === shiftDate(todayStr, -1)) return "אתמול";
+  return headerDate(new Date(dateStr + "T00:00:00"));
+}

@@ -8,7 +8,7 @@ const stepBtn = { width: 46, height: 46, border: "1px solid #2a2a30", background
 const round = (n) => Math.round(Number(n) || 0);
 
 // Add sheet — Quick / Manual / Photo. Opens over the active tab (design §2, "must be fast").
-export default function AddSheet({ tab, onTab, onClose, foods, form, onField, onToggleSave, onSubmit, onQuickAdd, photo, onPickPhoto }) {
+export default function AddSheet({ tab, onTab, onClose, foods, form, onField, onToggleSave, onSubmit, onQuickAdd, photo, onPickPhoto, date, onDate, minDate, maxDate }) {
   const fileRef = useRef(null);
   const [q, setQ] = useState("");
   // ponytail: client-side substring filter on name; the list is tiny, no debounce needed.
@@ -40,6 +40,11 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, onField, on
             {tabBtn("quick", "מהיר")}
             {tabBtn("manual", "ידני")}
             {tabBtn("photo", "צילום")}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 12 }}>
+            <label htmlFor="add-date" style={label}>תאריך</label>
+            <input id="add-date" type="date" value={date} min={minDate} max={maxDate} onChange={(e) => onDate(e.target.value)}
+              style={{ background: "#18181c", border: "1px solid #2a2a30", borderRadius: 12, padding: "10px 12px", color: "#f4f4f5", fontSize: 15, fontFamily: "inherit", outline: "none", colorScheme: "dark" }} />
           </div>
         </div>
 

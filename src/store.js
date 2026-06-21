@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase, FUNCTIONS_URL } from "./lib/supabase.js";
 import { todayLocal, lastNDates } from "./lib/date.js";
 
-const RANGE_DAYS = 35; // enough for the 7-day chart + streak look-back
+export const RANGE_DAYS = 35; // enough for the 7-day chart + streak look-back; also the day-nav look-back
 
 // Central data layer: loads entries/foods/goal for the signed-in user and exposes
 // mutations. Writes are local-optimistic (update state, then persist) so the UI
@@ -32,14 +32,15 @@ export function useData(session) {
     return () => { alive = false; };
   }, []);
 
-  const addEntry = useCallback(async (row) => {
+  // date is the YYYY-MM-DD to log onto; defaults to today (retro entries pass a past day).
+  const addEntry = useCallback(async (row, date) => {
     const { data, error } = await supabase
-      .from("entries").insert({ ...row, eaten_on: today }).select().single();
+      .from("entries").insert({ ...row, eaten_on: date || today }).select().single();
     if (!error && data) setEntries((cur) => [data, ...cur]);
     return { data, error };
   }, [today]);
 
-  const addQuick = useCallback((food, qty = 1) => {
+  const addQuick = useCallback((food, qty = 1, date) => {
     const n = Number(qty) || 1; // servings; foods store per-1-serving macros
     return addEntry({
       name: food.name,
@@ -47,14 +48,14 @@ export function useData(session) {
       calories: (Number(food.calories) || 0) * n,
       source: "saved",
       food_id: food.id,
-    });
+    }, date);
   }, [addEntry]);
 
-  const addManual = useCallback(async ({ name, protein, calories, save }) => {
+  const addManual = useCallback(async ({ name, protein, calories, save }, date) => {
     const p = parseFloat(protein) || 0;
     const c = parseFloat(calories) || 0;
     const nm = (name || "").trim() || "רישום ללא שם";
-    await addEntry({ name: nm, protein_g: p, calories: c, source: "manual" });
+    await addEntry({ name: nm, protein_g: p, calories: c, source: "manual" }, date);
     if (save) {
       const { data } = await supabase
         .from("foods").insert({ name: nm, unit: "מותאם", protein_g: p, calories: c }).select().single();
@@ -62,13 +63,13 @@ export function useData(session) {
     }
   }, [addEntry]);
 
-  const addAi = useCallback(({ name, protein, calories }) =>
+  const addAi = useCallback(({ name, protein, calories }, date) =>
     addEntry({
       name: (name || "").trim() || "רישום ללא שם",
       protein_g: parseFloat(protein) || 0,
       calories: parseFloat(calories) || 0,
       source: "ai",
-    }), [addEntry]);
+    }, date), [addEntry]);
 
   const deleteEntry = useCallback(async (id) => {
     setEntries((cur) => cur.filter((e) => e.id !== id));

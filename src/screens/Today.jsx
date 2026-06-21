@@ -1,13 +1,20 @@
 import { Flame, Trash } from "../lib/icons.jsx";
 
-// Home screen — "ring" variation (design default). Protein ring + calories strip + today's entries.
-export default function Today({ totals, goal, ringOffset, remaining, entries, onDelete }) {
+// Home screen — "ring" variation (design default). Protein ring + calories strip + the day's entries.
+export default function Today({ totals, goal, ringOffset, remaining, entries, onDelete, dayLabel, onPrev, onNext, canPrev, canNext }) {
   return (
     <div>
+      {/* day navigator — dir=rtl: prev (older) sits right with ›, next (newer) left with ‹ */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+        <DayArrow chevron="›" label="יום קודם" disabled={!canPrev} onClick={onPrev} />
+        <div style={{ fontSize: 16, fontWeight: 800, color: "#f4f4f5" }}>{dayLabel}</div>
+        <DayArrow chevron="‹" label="יום הבא" disabled={!canNext} onClick={onNext} />
+      </div>
+
       {/* hero ring card */}
       <div style={{ background: "linear-gradient(160deg,#16201b,#121214)", border: "1px solid #21302a", borderRadius: 28, padding: "26px 20px 22px", display: "flex", flexDirection: "column", alignItems: "center", position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", top: -60, right: -40, width: 180, height: 180, background: "radial-gradient(circle,rgba(52,211,153,.16),transparent 70%)", pointerEvents: "none" }} />
-        <div style={{ fontSize: 13, fontWeight: 600, color: "#7bd6ad", marginBottom: 14 }}>חלבון היום</div>
+        <div style={{ fontSize: 13, fontWeight: 600, color: "#7bd6ad", marginBottom: 14 }}>חלבון</div>
         <div style={{ position: "relative", width: 208, height: 208, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <svg width="208" height="208" viewBox="0 0 208 208" style={{ position: "absolute", transform: "rotate(-90deg)" }}>
             <circle cx="104" cy="104" r="78" fill="none" stroke="#1c2a24" strokeWidth="16" />
@@ -32,7 +39,7 @@ export default function Today({ totals, goal, ringOffset, remaining, entries, on
             <Flame size={20} />
           </div>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "#6f6f78" }}>קלוריות היום</div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "#6f6f78" }}>קלוריות</div>
             <div style={{ fontSize: 13, color: "#5f5f68" }}>ללא יעד · מספר רץ</div>
           </div>
         </div>
@@ -41,12 +48,12 @@ export default function Today({ totals, goal, ringOffset, remaining, entries, on
 
       {/* today entries */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "24px 4px 12px" }}>
-        <div style={{ fontSize: 16, fontWeight: 700 }}>מה אכלת היום</div>
+        <div style={{ fontSize: 16, fontWeight: 700 }}>מה אכלת</div>
         <div style={{ fontSize: 13, fontWeight: 600, color: "#6f6f78" }}>{totals.count} פריטים</div>
       </div>
 
       {entries.length === 0 ? (
-        <div style={{ textAlign: "center", color: "#5f5f68", fontSize: 14, padding: "24px 0" }}>עוד לא רשמת היום — לחץ ＋ כדי להתחיל</div>
+        <div style={{ textAlign: "center", color: "#5f5f68", fontSize: 14, padding: "24px 0" }}>לא רשמת ביום הזה — לחץ ＋ כדי להוסיף</div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {entries.map((e) => (
@@ -68,5 +75,14 @@ export default function Today({ totals, goal, ringOffset, remaining, entries, on
         </div>
       )}
     </div>
+  );
+}
+
+function DayArrow({ chevron, label, disabled, onClick }) {
+  return (
+    <button onClick={onClick} disabled={disabled} aria-label={label}
+      style={{ width: 40, height: 40, border: "1px solid #232328", borderRadius: 12, background: "#161619", color: disabled ? "#3a3a42" : "#c4c4c9", fontSize: 22, fontWeight: 700, fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.5 : 1 }}>
+      {chevron}
+    </button>
   );
 }

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { useData } from "./store.js";
-import { headerDate, lastNDates, weekdayLabel } from "./lib/date.js";
+import { useData, RANGE_DAYS } from "./store.js";
+import { headerDate, lastNDates, weekdayLabel, shiftDate, dayLabel } from "./lib/date.js";
 import { dailyTotals, remainingProtein, pct, streak, proteinByDay, weekSeries, avgCaloriesPerActiveDay, average } from "./lib/nutrition.js";
 import { Gear, Home, Chart, ListIcon, Plus } from "./lib/icons.jsx";
 import Today from "./screens/Today.jsx";
@@ -30,11 +30,20 @@ export default function App({ session }) {
   const [form, setForm] = useState(blankForm());
   const [photo, setPhoto] = useState({ state: "idle", note: "", error: null });
   const [editFood, setEditFood] = useState(null); // null | {} (new) | foodRow (edit)
+  const [selectedDay, setSelectedDay] = useState(today); // which day the Today screen shows
+  const [addDate, setAddDate] = useState(today); // which day the add sheet logs onto
+
+  // ponytail: nav clamped to the loaded window; fetch older entries on demand if you ever need >35 days back.
+  const oldest = lastNDates(RANGE_DAYS)[0];
+  const canPrev = selectedDay > oldest;       // YYYY-MM-DD string compare is chronological
+  const canNext = selectedDay < today;
+  const prevDay = () => { if (canPrev) setSelectedDay(shiftDate(selectedDay, -1)); };
+  const nextDay = () => { if (canNext) setSelectedDay(shiftDate(selectedDay, 1)); };
 
   // ---- view model (mirrors the prototype's renderVals, from real data) ----
   const vm = useMemo(() => {
-    const todays = entries.filter((e) => e.eaten_on === today);
-    const t = dailyTotals(entries, today);
+    const todays = entries.filter((e) => e.eaten_on === selectedDay);
+    const t = dailyTotals(entries, selectedDay);
     const pctVal = pct(t.protein, goal);
 
     const todayEntries = todays.map((e) => {
@@ -69,23 +78,25 @@ export default function App({ session }) {
       streak: streak(proteinByDay(entries), goal),
       calAvg: avgCaloriesPerActiveDay(entries, dates).toLocaleString(),
       foodVm,
-      aiQuota: Math.max(0, 6 - todays.filter((e) => e.source === "ai").length),
+      // quota is per real today (the server enforces the daily AI limit on the real calendar day)
+      aiQuota: Math.max(0, 6 - entries.filter((e) => e.eaten_on === today && e.source === "ai").length),
     };
-  }, [entries, foods, goal, today]);
+  }, [entries, foods, goal, today, selectedDay]);
 
   const header = { today: { sub: headerDate(), title: "ProCount" }, trends: { sub: "מעקב לאורך זמן", title: "מגמות" }, foods: { sub: "התבניות שלי", title: "מאכלים שלי" } }[screen];
 
   // ---- actions ----
-  const openAdd = () => { setForm(blankForm()); setPhoto({ state: "idle", note: "", error: null }); setAddTab("quick"); setAddOpen(true); };
-  const openAddManual = () => { setForm(blankForm()); setAddTab("manual"); setAddOpen(true); };
+  const openAdd = () => { setForm(blankForm()); setAddDate(selectedDay); setPhoto({ state: "idle", note: "", error: null }); setAddTab("quick"); setAddOpen(true); };
+  const openAddManual = () => { setForm(blankForm()); setAddDate(selectedDay); setAddTab("manual"); setAddOpen(true); };
   const onTab = (tab) => { setAddTab(tab); setPhoto({ state: "idle", note: "", error: null }); };
 
-  const quickAdd = (foodRow, qty) => { data.addQuick(foodRow.raw || foodRow, qty); setAddOpen(false); };
+  const quickAdd = (foodRow, qty) => { data.addQuick(foodRow.raw || foodRow, qty, addDate); setSelectedDay(addDate); setAddOpen(false); };
 
   const submitAdd = async () => {
-    if (addTab === "photo") await data.addAi(form);
-    else await data.addManual(form);
+    if (addTab === "photo") await data.addAi(form, addDate);
+    else await data.addManual(form, addDate);
     setForm(blankForm());
+    setSelectedDay(addDate); // jump the view to the day we just logged onto
     setAddOpen(false);
   };
 
@@ -118,7 +129,7 @@ export default function App({ session }) {
       </div>
 
       <div className="pc-scroll" style={{ flex: 1, overflowY: "auto", padding: "0 20px calc(110px + env(safe-area-inset-bottom))" }}>
-        {screen === "today" && <Today totals={vm.totals} goal={goal} ringOffset={vm.ringOffset} remaining={vm.remaining} entries={vm.todayEntries} onDelete={data.deleteEntry} />}
+        {screen === "today" && <Today totals={vm.totals} goal={goal} ringOffset={vm.ringOffset} remaining={vm.remaining} entries={vm.todayEntries} onDelete={data.deleteEntry} dayLabel={dayLabel(selectedDay, today)} onPrev={prevDay} onNext={nextDay} canPrev={canPrev} canNext={canNext} />}
         {screen === "trends" && <Trends goal={goal} streak={vm.streak} avg={vm.avg} bars={vm.bars} goalY={vm.goalY} calAvg={vm.calAvg} />}
         {screen === "foods" && <MyFoods foods={vm.foodVm} onNew={openAddManual} onEdit={(f) => setEditFood(f.raw)} />}
       </div>
@@ -138,7 +149,8 @@ export default function App({ session }) {
       {addOpen && (
         <AddSheet tab={addTab} onTab={onTab} onClose={() => setAddOpen(false)} foods={vm.foodVm} form={form}
           onField={(k, v) => setForm((f) => ({ ...f, [k]: v }))} onToggleSave={() => setForm((f) => ({ ...f, save: !f.save }))}
-          onSubmit={submitAdd} onQuickAdd={quickAdd} photo={{ ...photo, quota: vm.aiQuota }} onPickPhoto={pickPhoto} />
+          onSubmit={submitAdd} onQuickAdd={quickAdd} photo={{ ...photo, quota: vm.aiQuota }} onPickPhoto={pickPhoto}
+          date={addDate} onDate={setAddDate} minDate={oldest} maxDate={today} />
       )}
 
       {settingsOpen && (
