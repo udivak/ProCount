@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { ChevronLeft } from "../lib/icons.jsx";
 
 // Settings — full-screen overlay from the header gear. Protein goal + account.
-export default function Settings({ goal, email, onBack, onDec, onInc, onSignOut }) {
+export default function Settings({ goal, name, email, onBack, onName, onDec, onInc, onSignOut }) {
+  const [nameInput, setNameInput] = useState(name || "");
   return (
     <div style={{ position: "absolute", inset: 0, zIndex: 60, background: "#0a0a0c", animation: "fadeIn .2s ease", display: "flex", flexDirection: "column" }}>
       <div style={{ flex: "none", padding: "18px 20px 14px", display: "flex", alignItems: "center", gap: 14 }}>
@@ -25,6 +27,12 @@ export default function Settings({ goal, email, onBack, onDec, onInc, onSignOut 
         </div>
 
         <div style={{ background: "#161619", border: "1px solid #232328", borderRadius: 20, overflow: "hidden" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "17px 18px", borderBottom: "1px solid #202024" }}>
+            <span style={{ fontSize: 15, fontWeight: 600 }}>שם</span>
+            <input value={nameInput} onChange={(e) => setNameInput(e.target.value)} onBlur={() => onName(nameInput.trim())}
+              placeholder="השם שלך" maxLength={24}
+              style={{ background: "none", border: "none", textAlign: "left", color: "#f4f4f5", fontSize: 14, fontFamily: "inherit", outline: "none" }} />
+          </div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "17px 18px", borderBottom: "1px solid #202024" }}>
             <span style={{ fontSize: 15, fontWeight: 600 }}>חשבון</span>
             <span style={{ fontSize: 14, color: "#6f6f78" }} dir="ltr">{email}</span>

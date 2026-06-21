@@ -11,6 +11,7 @@ export function useData(session) {
   const [entries, setEntries] = useState([]); // last RANGE_DAYS, newest first
   const [foods, setFoods] = useState([]);
   const [goal, setGoalState] = useState(160);
+  const [name, setNameState] = useState("");
   const [loading, setLoading] = useState(true);
   const today = todayLocal();
 
@@ -21,12 +22,13 @@ export function useData(session) {
       const [e, f, p] = await Promise.all([
         supabase.from("entries").select("*").gte("eaten_on", since).order("created_at", { ascending: false }),
         supabase.from("foods").select("*").order("created_at", { ascending: false }),
-        supabase.from("profile").select("protein_goal_g").maybeSingle(),
+        supabase.from("profile").select("protein_goal_g, name").maybeSingle(),
       ]);
       if (!alive) return;
       setEntries(e.data || []);
       setFoods(f.data || []);
       if (p.data?.protein_goal_g > 0) setGoalState(Number(p.data.protein_goal_g));
+      if (p.data?.name) setNameState(p.data.name);
       setLoading(false);
     })();
     return () => { alive = false; };
@@ -102,6 +104,12 @@ export function useData(session) {
     await supabase.from("profile").upsert({ protein_goal_g: g }, { onConflict: "user_id" });
   }, []);
 
+  const setName = useCallback(async (n) => {
+    const v = (n || "").trim();
+    setNameState(v);
+    await supabase.from("profile").upsert({ name: v || null }, { onConflict: "user_id" });
+  }, []);
+
   // Compress client-side then POST to the edge function. Returns { estimate } or { error }.
   const analyzePhoto = useCallback(async (file) => {
     const image = await compressToBase64(file);
@@ -118,8 +126,8 @@ export function useData(session) {
   const signOut = useCallback(() => supabase.auth.signOut(), []);
 
   return {
-    loading, entries, foods, goal, today, email: session.user.email,
-    addQuick, addManual, addAi, deleteEntry, saveFood, deleteFood, setGoal, analyzePhoto, signOut,
+    loading, entries, foods, goal, name, today, email: session.user.email,
+    addQuick, addManual, addAi, deleteEntry, saveFood, deleteFood, setGoal, setName, analyzePhoto, signOut,
   };
 }
 

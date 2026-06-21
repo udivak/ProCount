@@ -43,3 +43,13 @@ export function dayLabel(dateStr, todayStr = todayLocal()) {
   if (dateStr === shiftDate(todayStr, -1)) return "אתמול";
   return headerDate(new Date(dateStr + "T00:00:00"));
 }
+
+// Time-of-day Hebrew greeting. Hours: 5–11 morning, 12–16 noon, 17–20 evening, else night.
+export function greeting(name, d = new Date()) {
+  const h = d.getHours();
+  const part = h >= 5 && h < 12 ? "בוקר טוב"
+    : h >= 12 && h < 17 ? "צהריים טוב"
+    : h >= 17 && h < 21 ? "ערב טוב"
+    : "לילה טוב";
+  return name ? `${part}, ${name}` : part;
+}

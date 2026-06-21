@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useData, RANGE_DAYS } from "./store.js";
-import { headerDate, lastNDates, weekdayLabel, shiftDate, dayLabel } from "./lib/date.js";
+import { headerDate, lastNDates, weekdayLabel, shiftDate, dayLabel, greeting } from "./lib/date.js";
 import { dailyTotals, remainingProtein, pct, streak, proteinByDay, weekSeries, avgCaloriesPerActiveDay, average } from "./lib/nutrition.js";
 import { Gear, Home, Chart, ListIcon, Plus } from "./lib/icons.jsx";
 import Today from "./screens/Today.jsx";
@@ -83,7 +83,7 @@ export default function App({ session }) {
     };
   }, [entries, foods, goal, today, selectedDay]);
 
-  const header = { today: { sub: headerDate(), title: "ProCount" }, trends: { sub: "מעקב לאורך זמן", title: "מגמות" }, foods: { sub: "התבניות שלי", title: "מאכלים שלי" } }[screen];
+  const header = { today: { sub: headerDate(), title: "ProCount", greet: greeting(data.name || data.email.split("@")[0]) }, trends: { sub: "מעקב לאורך זמן", title: "מגמות" }, foods: { sub: "התבניות שלי", title: "מאכלים שלי" } }[screen];
 
   // ---- actions ----
   const openAdd = () => { setForm(blankForm()); setAddDate(selectedDay); setPhoto({ state: "idle", note: "", error: null }); setAddTab("quick"); setAddOpen(true); };
@@ -122,6 +122,8 @@ export default function App({ session }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: "#6f6f78", letterSpacing: ".02em" }}>{header.sub}</div>
           <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-.01em" }}>{header.title}</div>
+          {/* ponytail: greeting recomputes on render via new Date(); no live ticking — refreshes on next re-render, good enough. */}
+          {header.greet && <div style={{ fontSize: 13, fontWeight: 600, color: "#34d399", letterSpacing: ".01em" }}>{header.greet}</div>}
         </div>
         <button className="h-gear" aria-label="הגדרות" onClick={() => setSettingsOpen(true)} style={{ width: 42, height: 42, border: "none", borderRadius: 14, background: "#161619", color: "#8a8a93", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
           <Gear size={20} />
@@ -154,7 +156,7 @@ export default function App({ session }) {
       )}
 
       {settingsOpen && (
-        <Settings goal={goal} email={data.email} onBack={() => setSettingsOpen(false)}
+        <Settings goal={goal} name={data.name} email={data.email} onName={data.setName} onBack={() => setSettingsOpen(false)}
           onDec={() => data.setGoal(Math.max(80, goal - 5))} onInc={() => data.setGoal(Math.min(260, goal + 5))} onSignOut={data.signOut} />
       )}
 
