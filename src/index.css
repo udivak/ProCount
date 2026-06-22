@@ -1,7 +1,12 @@
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-html, body { margin: 0; height: 100%; }
+html, body {
+  margin: 0;
+  height: 100dvh;            /* dynamic viewport; tracks Chrome's toolbar show/hide */
+  background: #0a0a0c;       /* covers safe-area-inset-top behind the status bar */
+  overflow: hidden;          /* document is not a scroll container */
+  overscroll-behavior: none; /* no rubber-band elastic effect */
+}
 body {
-  background: #0a0a0c;
   color: #f4f4f5;
   font-family: Heebo, sans-serif;
   -webkit-font-smoothing: antialiased;
