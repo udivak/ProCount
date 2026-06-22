@@ -1,7 +1,7 @@
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body {
   margin: 0;
-  height: 100dvh;            /* dynamic viewport; tracks Chrome's toolbar show/hide */
+  height: 100%;
   background: #0a0a0c;       /* covers safe-area-inset-top behind the status bar */
   overflow: hidden;          /* document is not a scroll container */
   overscroll-behavior: none; /* no rubber-band elastic effect */
@@ -14,13 +14,17 @@ body {
 #root { height: 100%; }
 
 /* Phone-frame app shell — fills the viewport, capped for larger screens.
-   position:relative anchors the absolutely-positioned nav / FAB / sheet / overlay. */
+   position:fixed + inset:0 locks the shell to the visual viewport in BOTH Chrome
+   browser tabs and home-screen standalone mode. (height:100dvh under-reports the
+   screen in iOS standalone, leaving a blank gap below the nav; height:100vh/100%
+   over-reports it in a browser tab, hiding the nav behind the toolbar.) It also
+   anchors the absolutely-positioned nav / FAB / sheet / overlay. */
 .app {
+  position: fixed;
+  inset: 0;
   width: 100%;
   max-width: 480px;
-  height: 100dvh;
-  margin: 0 auto;
-  position: relative;
+  margin: 0 auto;       /* centre the shell on wide screens (inset l/r:0 + max-width) */
   overflow: hidden;
   display: flex;
   flex-direction: column;
