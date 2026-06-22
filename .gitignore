@@ -10,3 +10,4 @@ foods.csv
 *.log
 .vercel/
 CLAUDE.md
+bug-pwa-fullscreen-overscroll.md
