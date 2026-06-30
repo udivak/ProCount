@@ -1,7 +1,7 @@
 // Run: npm test   (node --test)
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { dailyTotals, remainingProtein, pct, streak, weekSeries } from "./nutrition.js";
+import { dailyTotals, remainingProtein, pct, streak, weekSeries, proteinPer100g } from "./nutrition.js";
 
 test("dailyTotals sums one day, ignores others", () => {
   const e = [
@@ -41,6 +41,18 @@ test("streak: counts today when met, stops at first miss", () => {
 
 test("streak is zero with no goal", () => {
   assert.equal(streak({ "2026-06-18": 999 }, 0), 0);
+});
+
+test("proteinPer100g derives from grams eaten", () => {
+  assert.equal(proteinPer100g(75, 250), 30); // 250g chicken breast → 30g/100g
+  assert.equal(proteinPer100g(31, 100), 31);
+});
+
+test("proteinPer100g returns null for missing/zero/negative grams", () => {
+  assert.equal(proteinPer100g(75, null), null);
+  assert.equal(proteinPer100g(75, 0), null);
+  assert.equal(proteinPer100g(75, undefined), null);
+  assert.equal(proteinPer100g(75, -10), null);
 });
 
 test("weekSeries fills missing days with zero, in order", () => {

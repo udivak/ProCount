@@ -53,11 +53,12 @@ export function useData(session) {
     }, date);
   }, [addEntry]);
 
-  const addManual = useCallback(async ({ name, protein, calories, save }, date) => {
+  const addManual = useCallback(async ({ name, protein, calories, grams, save }, date) => {
     const p = parseFloat(protein) || 0;
     const c = parseFloat(calories) || 0;
+    const g = grams === "" || grams == null ? null : parseFloat(grams) || null;
     const nm = (name || "").trim() || "רישום ללא שם";
-    await addEntry({ name: nm, protein_g: p, calories: c, source: "manual" }, date);
+    await addEntry({ name: nm, protein_g: p, calories: c, grams: g, source: "manual" }, date);
     if (save) {
       const { data } = await supabase
         .from("foods").insert({ name: nm, unit: "מותאם", protein_g: p, calories: c }).select().single();
@@ -65,11 +66,12 @@ export function useData(session) {
     }
   }, [addEntry]);
 
-  const addAi = useCallback(({ name, protein, calories }, date) =>
+  const addAi = useCallback(({ name, protein, calories, grams }, date) =>
     addEntry({
       name: (name || "").trim() || "רישום ללא שם",
       protein_g: parseFloat(protein) || 0,
       calories: parseFloat(calories) || 0,
+      grams: grams === "" || grams == null ? null : parseFloat(grams) || null,
       source: "ai",
     }, date), [addEntry]);
 
