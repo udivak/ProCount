@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase, FUNCTIONS_URL } from "./lib/supabase.js";
 import { todayLocal, lastNDates } from "./lib/date.js";
+import { gramsPerServing } from "./lib/nutrition.js";
 
 export const RANGE_DAYS = 35; // enough for the 7-day chart + streak look-back; also the day-nav look-back
 
@@ -44,10 +45,12 @@ export function useData(session) {
 
   const addQuick = useCallback((food, qty = 1, date) => {
     const n = Number(qty) || 1; // servings; foods store per-1-serving macros
+    const perServingG = gramsPerServing(food.unit); // grams if the unit is gram-denominated, else null
     return addEntry({
       name: food.name,
       protein_g: (Number(food.protein_g) || 0) * n,
       calories: (Number(food.calories) || 0) * n,
+      grams: perServingG != null ? perServingG * n : null,
       source: "saved",
       food_id: food.id,
     }, date);
