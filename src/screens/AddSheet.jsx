@@ -183,6 +183,10 @@ function ManualForm({ form, onField, onToggleSave, onSubmit, cta, showSave }) {
           <input value={form.calories} onChange={(e) => onField("calories", e.target.value)} inputMode="decimal" aria-label="קלוריות" placeholder="0" style={{ ...input, color: "#fbbf24", fontSize: 18, fontWeight: 800 }} />
         </div>
       </div>
+      <div>
+        <label style={label}>כמות שנאכלה (גרם) {"(אופציונלי)"}</label>
+        <input value={form.grams || ""} onChange={(e) => onField("grams", e.target.value)} inputMode="decimal" aria-label="כמות שנאכלה בגרמים" placeholder="למשל: 250" style={input} />
+      </div>
       {showSave && (
         <button onClick={onToggleSave} style={{ display: "flex", alignItems: "center", gap: 10, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", padding: 2 }}>
           <span style={{ width: 22, height: 22, borderRadius: 7, border: `2px solid ${form.save ? "#34d399" : "#3a3a42"}`, background: form.save ? "#34d399" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#06120c" }}>{form.save ? "✓" : ""}</span>

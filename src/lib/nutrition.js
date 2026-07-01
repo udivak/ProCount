@@ -63,6 +63,24 @@ export function average(values) {
   return values.length ? Math.round(values.reduce((a, b) => a + b, 0) / values.length) : 0;
 }
 
+// Protein per 100g of food eaten, derived from total protein and grams eaten.
+// Returns null when grams is missing/zero/negative (legacy or quick-add entries)
+// so the UI can show "—" instead of Infinity/NaN.
+export function proteinPer100g(proteinG, grams) {
+  const g = Number(grams);
+  if (!(g > 0)) return null;
+  return ((Number(proteinG) || 0) / g) * 100;
+}
+
+// Grams in one serving of a saved food, read from its free-text unit ("100 גרם" → 100).
+// ponytail: heuristic parse — a number immediately followed by a grams token. Non-gram
+// units ("מנה", "2 ביצים") return null so quick-add leaves grams unknown ("—"). Upgrade
+// path: a structured serving_g column on foods if units ever get too varied to parse.
+export function gramsPerServing(unit) {
+  const m = String(unit || "").match(/(\d+(?:\.\d+)?)\s*(?:גרם|גר|g)/i);
+  return m ? Number(m[1]) : null;
+}
+
 function isoLocal(d) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");

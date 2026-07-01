@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase, FUNCTIONS_URL } from "./lib/supabase.js";
 import { todayLocal, lastNDates } from "./lib/date.js";
+import { gramsPerServing } from "./lib/nutrition.js";
 
 export const RANGE_DAYS = 35; // enough for the 7-day chart + streak look-back; also the day-nav look-back
 
@@ -44,20 +45,23 @@ export function useData(session) {
 
   const addQuick = useCallback((food, qty = 1, date) => {
     const n = Number(qty) || 1; // servings; foods store per-1-serving macros
+    const perServingG = gramsPerServing(food.unit); // grams if the unit is gram-denominated, else null
     return addEntry({
       name: food.name,
       protein_g: (Number(food.protein_g) || 0) * n,
       calories: (Number(food.calories) || 0) * n,
+      grams: perServingG != null ? perServingG * n : null,
       source: "saved",
       food_id: food.id,
     }, date);
   }, [addEntry]);
 
-  const addManual = useCallback(async ({ name, protein, calories, save }, date) => {
+  const addManual = useCallback(async ({ name, protein, calories, grams, save }, date) => {
     const p = parseFloat(protein) || 0;
     const c = parseFloat(calories) || 0;
+    const g = grams === "" || grams == null ? null : parseFloat(grams) || null;
     const nm = (name || "").trim() || "רישום ללא שם";
-    await addEntry({ name: nm, protein_g: p, calories: c, source: "manual" }, date);
+    await addEntry({ name: nm, protein_g: p, calories: c, grams: g, source: "manual" }, date);
     if (save) {
       const { data } = await supabase
         .from("foods").insert({ name: nm, unit: "מותאם", protein_g: p, calories: c }).select().single();
@@ -65,11 +69,12 @@ export function useData(session) {
     }
   }, [addEntry]);
 
-  const addAi = useCallback(({ name, protein, calories }, date) =>
+  const addAi = useCallback(({ name, protein, calories, grams }, date) =>
     addEntry({
       name: (name || "").trim() || "רישום ללא שם",
       protein_g: parseFloat(protein) || 0,
       calories: parseFloat(calories) || 0,
+      grams: grams === "" || grams == null ? null : parseFloat(grams) || null,
       source: "ai",
     }, date), [addEntry]);
 

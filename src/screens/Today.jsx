@@ -1,7 +1,7 @@
 import { Flame, Trash } from "../lib/icons.jsx";
 
 // Home screen — "ring" variation (design default). Protein ring + calories strip + the day's entries.
-export default function Today({ totals, goal, ringOffset, remaining, entries, onDelete, dayLabel, onPrev, onNext, canPrev, canNext }) {
+export default function Today({ totals, goal, ringOffset, remaining, entries, onDelete, onSelect, dayLabel, onPrev, onNext, canPrev, canNext }) {
   return (
     <div>
       {/* day navigator — dir=rtl: prev (older) sits right with ›, next (newer) left with ‹ */}
@@ -57,7 +57,7 @@ export default function Today({ totals, goal, ringOffset, remaining, entries, on
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {entries.map((e) => (
-            <div key={e.id} style={{ display: "flex", alignItems: "center", gap: 12, background: "#161619", border: "1px solid #1f1f24", borderRadius: 18, padding: "14px 16px" }}>
+            <div key={e.id} onClick={() => onSelect(e)} role="button" tabIndex={0} aria-label={`פרטי ${e.name}`} style={{ display: "flex", alignItems: "center", gap: 12, background: "#161619", border: "1px solid #1f1f24", borderRadius: 18, padding: "14px 16px", cursor: "pointer" }}>
               <div style={{ width: 38, height: 38, borderRadius: 11, background: e.iconBg, color: e.iconColor, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flex: "none" }}>{e.tag}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 15, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{e.name}</div>
@@ -67,7 +67,7 @@ export default function Today({ totals, goal, ringOffset, remaining, entries, on
                 <div style={{ fontSize: 16, fontWeight: 800, color: "#34d399" }}>{e.protein}g</div>
                 <div style={{ fontSize: 11, fontWeight: 600, color: "#7a7a82" }}>{e.calories} קל'</div>
               </div>
-              <button className="h-del" aria-label="מחק רישום" onClick={() => onDelete(e.id)} style={{ width: 40, height: 40, border: "none", borderRadius: 11, background: "transparent", color: "#4f4f57", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flex: "none" }}>
+              <button className="h-del" aria-label="מחק רישום" onClick={(ev) => { ev.stopPropagation(); onDelete(e.id); }} style={{ width: 40, height: 40, border: "none", borderRadius: 11, background: "transparent", color: "#4f4f57", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flex: "none" }}>
                 <Trash size={16} />
               </button>
             </div>

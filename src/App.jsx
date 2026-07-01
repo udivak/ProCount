@@ -9,6 +9,7 @@ import MyFoods from "./screens/MyFoods.jsx";
 import AddSheet from "./screens/AddSheet.jsx";
 import Settings from "./screens/Settings.jsx";
 import FoodEditor from "./FoodEditor.jsx";
+import ItemDetailModal from "./ItemDetailModal.jsx";
 
 const SCALE = 200, CHART_H = 132;
 const SOURCE = {
@@ -17,7 +18,7 @@ const SOURCE = {
   ai: { tag: "AI", iconBg: "rgba(167,139,250,.14)", iconColor: "#a78bfa", sub: "מצילום · AI" },
 };
 const round = (n) => Math.round(Number(n) || 0);
-const blankForm = () => ({ name: "", protein: "", calories: "", save: false });
+const blankForm = () => ({ name: "", protein: "", calories: "", grams: "", save: false });
 
 export default function App({ session }) {
   const data = useData(session);
@@ -30,6 +31,7 @@ export default function App({ session }) {
   const [form, setForm] = useState(blankForm());
   const [photo, setPhoto] = useState({ state: "idle", note: "", error: null });
   const [editFood, setEditFood] = useState(null); // null | {} (new) | foodRow (edit)
+  const [selectedEntry, setSelectedEntry] = useState(null); // null | a todayEntries vm item (detail modal)
   const [selectedDay, setSelectedDay] = useState(today); // which day the Today screen shows
   const [addDate, setAddDate] = useState(today); // which day the add sheet logs onto
 
@@ -48,7 +50,7 @@ export default function App({ session }) {
 
     const todayEntries = todays.map((e) => {
       const s = SOURCE[e.source] || SOURCE.manual;
-      return { id: e.id, name: e.name || "רישום ללא שם", sub: s.sub, tag: s.tag, iconBg: s.iconBg, iconColor: s.iconColor, protein: round(e.protein_g), calories: round(e.calories) };
+      return { id: e.id, name: e.name || "רישום ללא שם", sub: s.sub, tag: s.tag, iconBg: s.iconBg, iconColor: s.iconColor, protein: round(e.protein_g), calories: round(e.calories), grams: e.grams == null ? null : Number(e.grams), proteinRaw: Number(e.protein_g) || 0 };
     });
 
     const dates = lastNDates(7);
@@ -105,7 +107,7 @@ export default function App({ session }) {
     setPhoto({ state: "loading", note: "", error: null });
     const r = await data.analyzePhoto(file);
     if (r.estimate) {
-      setForm({ name: r.estimate.name || "", protein: String(round(r.estimate.protein_g)), calories: String(round(r.estimate.calories)), save: false });
+      setForm({ name: r.estimate.name || "", protein: String(round(r.estimate.protein_g)), calories: String(round(r.estimate.calories)), grams: "", save: false });
       setPhoto({ state: "done", note: r.estimate.note || "", confidence: r.estimate.confidence, error: null });
     } else {
       // fall back to manual entry (design §6.5)
@@ -131,12 +133,12 @@ export default function App({ session }) {
       </div>
 
       <div className="pc-scroll" style={{ flex: 1, overflowY: "auto", padding: "0 20px calc(110px + env(safe-area-inset-bottom))" }}>
-        {screen === "today" && <Today totals={vm.totals} goal={goal} ringOffset={vm.ringOffset} remaining={vm.remaining} entries={vm.todayEntries} onDelete={data.deleteEntry} dayLabel={dayLabel(selectedDay, today)} onPrev={prevDay} onNext={nextDay} canPrev={canPrev} canNext={canNext} />}
+        {screen === "today" && <Today totals={vm.totals} goal={goal} ringOffset={vm.ringOffset} remaining={vm.remaining} entries={vm.todayEntries} onDelete={data.deleteEntry} onSelect={setSelectedEntry} dayLabel={dayLabel(selectedDay, today)} onPrev={prevDay} onNext={nextDay} canPrev={canPrev} canNext={canNext} />}
         {screen === "trends" && <Trends goal={goal} streak={vm.streak} avg={vm.avg} bars={vm.bars} goalY={vm.goalY} calAvg={vm.calAvg} />}
         {screen === "foods" && <MyFoods foods={vm.foodVm} onNew={openAddManual} onEdit={(f) => setEditFood(f.raw)} />}
       </div>
 
-      {!addOpen && !settingsOpen && !editFood && (
+      {!addOpen && !settingsOpen && !editFood && !selectedEntry && (
         <button className="h-fab" onClick={openAdd} style={{ position: "absolute", bottom: "calc(90px + env(safe-area-inset-bottom))", left: "50%", transform: "translateX(-50%)", zIndex: 30, display: "flex", alignItems: "center", gap: 8, border: "none", fontFamily: "inherit", background: "linear-gradient(180deg,#34d399,#1f9d6f)", color: "#06120c", fontSize: 16, fontWeight: 800, padding: "15px 28px", borderRadius: 999, cursor: "pointer", boxShadow: "0 8px 28px rgba(52,211,153,.45),0 2px 8px rgba(0,0,0,.4)" }}>
           <Plus size={20} sw={3} /> הוסף
         </button>
@@ -161,6 +163,8 @@ export default function App({ session }) {
       )}
 
       {editFood && <FoodEditor food={editFood} onSave={async (v) => { await data.saveFood(v); setEditFood(null); }} onDelete={async (id) => { await data.deleteFood(id); setEditFood(null); }} onClose={() => setEditFood(null)} />}
+
+      {selectedEntry && <ItemDetailModal entry={selectedEntry} onClose={() => setSelectedEntry(null)} />}
     </div>
   );
 }
