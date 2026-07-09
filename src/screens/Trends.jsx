@@ -1,7 +1,18 @@
 import { Flame } from "../lib/icons.jsx";
 
 // Trends — streak + weekly average, protein bar chart with goal line, calories secondary.
-export default function Trends({ goal, streak, avg, bars, goalY, calAvg }) {
+export default function Trends({ goal, streak, avg, bars, goalY, calAvg, heading, range, onRange }) {
+  const pill = (active) => ({
+    fontFamily: "inherit",
+    border: "none",
+    cursor: "pointer",
+    fontSize: 12,
+    fontWeight: active ? 700 : 600,
+    color: active ? "#0a0a0c" : "#8a8a93",
+    background: active ? "#34d399" : "#1e1e23",
+    padding: "5px 12px",
+    borderRadius: 999,
+  });
   return (
     <div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
@@ -25,10 +36,10 @@ export default function Trends({ goal, streak, avg, bars, goalY, calAvg }) {
 
       <div style={{ background: "#161619", border: "1px solid #232328", borderRadius: 22, padding: "20px 18px 16px", marginBottom: 14 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
-          <div style={{ fontSize: 15, fontWeight: 700 }}>חלבון · 7 ימים</div>
+          <div style={{ fontSize: 15, fontWeight: 700 }}>{heading}</div>
           <div style={{ display: "flex", gap: 6 }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: "#0a0a0c", background: "#34d399", padding: "5px 12px", borderRadius: 999 }}>שבוע</span>
-            <span style={{ fontSize: 12, fontWeight: 600, color: "#8a8a93", background: "#1e1e23", padding: "5px 12px", borderRadius: 999 }}>חודש</span>
+            <button type="button" aria-pressed={range === "week"} onClick={() => onRange("week")} style={pill(range === "week")}>שבוע</button>
+            <button type="button" aria-pressed={range === "month"} onClick={() => onRange("month")} style={pill(range === "month")}>חודש</button>
           </div>
         </div>
         <div style={{ position: "relative", height: 148, display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 8 }}>
