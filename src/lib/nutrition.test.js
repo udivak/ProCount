@@ -1,7 +1,7 @@
 // Run: npm test   (node --test)
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { dailyTotals, remainingProtein, pct, streak, weekSeries, proteinPer100g, gramsPerServing } from "./nutrition.js";
+import { dailyTotals, remainingProtein, pct, streak, weekSeries, weeklyAverageSeries, proteinPer100g, gramsPerServing } from "./nutrition.js";
 
 test("dailyTotals sums one day, ignores others", () => {
   const e = [
@@ -41,6 +41,23 @@ test("streak: counts today when met, stops at first miss", () => {
 
 test("streak is zero with no goal", () => {
   assert.equal(streak({ "2026-06-18": 999 }, 0), 0);
+});
+
+test("weeklyAverageSeries averages protein per day, counting empty days as zero", () => {
+  const entries = [
+    { eaten_on: "2026-06-15", protein_g: 70 },
+    { eaten_on: "2026-06-16", protein_g: 70 },
+    { eaten_on: "2026-06-17", protein_g: 70 },
+  ];
+  const weeks = [
+    ["2026-06-15", "2026-06-16", "2026-06-17", "2026-06-18", "2026-06-19", "2026-06-20", "2026-06-21"],
+    ["2026-06-22", "2026-06-23", "2026-06-24", "2026-06-25", "2026-06-26", "2026-06-27", "2026-06-28"],
+  ];
+  const s = weeklyAverageSeries(entries, weeks);
+  assert.equal(s.length, 2);
+  assert.equal(s[0].protein, 30); // round(210/7)
+  assert.equal(s[1].protein, 0);  // no entries that week
+  assert.deepEqual(s[0].dates, weeks[0]);
 });
 
 test("proteinPer100g derives from grams eaten", () => {

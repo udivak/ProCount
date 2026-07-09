@@ -23,6 +23,25 @@ export function lastNDates(n, from = new Date()) {
   return out;
 }
 
+// Last n calendar weeks, each an array of 7 dates (YYYY-MM-DD, oldest first),
+// weeks ordered oldest→newest, the last week ending today.
+export function lastNWeeks(n, from = new Date()) {
+  const days = lastNDates(n * 7, from);
+  const weeks = [];
+  for (let i = 0; i < n; i++) weeks.push(days.slice(i * 7, i * 7 + 7));
+  return weeks;
+}
+
+// Short range label for a week bucket: "1.7–7.7" (or "1–7.7" when same month).
+export function weekRangeLabel(dates) {
+  if (!dates || !dates.length) return "";
+  const a = new Date(dates[0] + "T00:00:00");
+  const b = new Date(dates[dates.length - 1] + "T00:00:00");
+  const am = a.getMonth(), bm = b.getMonth();
+  const start = am === bm ? `${a.getDate()}` : `${a.getDate()}.${am + 1}`;
+  return `${start}–${b.getDate()}.${bm + 1}`;
+}
+
 // Hebrew single-letter weekday for a YYYY-MM-DD; "היום" when it's today.
 export function weekdayLabel(dateStr, todayStr = todayLocal()) {
   if (dateStr === todayStr) return "היום";

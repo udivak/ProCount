@@ -47,6 +47,17 @@ export function weekSeries(entries, dates) {
   return dates.map((date) => ({ date, protein: byDay[date] || 0 }));
 }
 
+// Average protein per day for each week bucket (sum ÷ days in bucket, empty days
+// count as zero) — comparable to the daily goal line. `weeks` is an array of
+// date-string arrays (see lastNWeeks), returned in the same order.
+export function weeklyAverageSeries(entries, weeks) {
+  const byDay = proteinByDay(entries);
+  return weeks.map((dates) => {
+    const sum = dates.reduce((a, d) => a + (byDay[d] || 0), 0);
+    return { dates, protein: dates.length ? Math.round(sum / dates.length) : 0 };
+  });
+}
+
 // Mean calories per day with at least one entry, over the given dates.
 export function avgCaloriesPerActiveDay(entries, dates) {
   const set = new Set(dates);

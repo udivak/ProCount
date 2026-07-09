@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useData, RANGE_DAYS } from "./store.js";
-import { headerDate, lastNDates, weekdayLabel, shiftDate, dayLabel, greeting } from "./lib/date.js";
-import { dailyTotals, remainingProtein, pct, streak, proteinByDay, weekSeries, avgCaloriesPerActiveDay, average } from "./lib/nutrition.js";
+import { headerDate, lastNDates, lastNWeeks, weekdayLabel, weekRangeLabel, shiftDate, dayLabel, greeting } from "./lib/date.js";
+import { dailyTotals, remainingProtein, pct, streak, proteinByDay, weekSeries, weeklyAverageSeries, avgCaloriesPerActiveDay, average } from "./lib/nutrition.js";
 import { Gear, Home, Chart, ListIcon, Plus } from "./lib/icons.jsx";
 import Today from "./screens/Today.jsx";
 import Trends from "./screens/Trends.jsx";
@@ -32,6 +32,7 @@ export default function App({ session }) {
   const [photo, setPhoto] = useState({ state: "idle", note: "", error: null });
   const [editFood, setEditFood] = useState(null); // null | {} (new) | foodRow (edit)
   const [selectedEntry, setSelectedEntry] = useState(null); // null | a todayEntries vm item (detail modal)
+  const [chartRange, setChartRange] = useState("week"); // "week" | "month" — Trends bar chart range
   const [selectedDay, setSelectedDay] = useState(today); // which day the Today screen shows
   const [addDate, setAddDate] = useState(today); // which day the add sheet logs onto
 
@@ -55,17 +56,23 @@ export default function App({ session }) {
 
     const dates = lastNDates(7);
     const series = weekSeries(entries, dates);
-    const bars = series.map((d) => {
-      const isToday = d.date === today;
-      const met = d.protein >= goal;
-      return {
-        label: weekdayLabel(d.date, today),
-        h: Math.max(2, Math.round((Math.min(d.protein, SCALE) / SCALE) * CHART_H)),
-        color: isToday ? "linear-gradient(180deg,#6ee7b7,#34d399)" : met ? "#2a9d6f" : "#2b2b31",
-        glow: isToday ? "0 0 12px rgba(52,211,153,.5)" : "none",
-        labelColor: isToday ? "#34d399" : "#6f6f78",
-      };
+    // Bar height/color share one formula across ranges so the daily goal line stays comparable.
+    const bar = (protein, current, met, label) => ({
+      label,
+      h: Math.max(2, Math.round((Math.min(protein, SCALE) / SCALE) * CHART_H)),
+      color: current ? "linear-gradient(180deg,#6ee7b7,#34d399)" : met ? "#2a9d6f" : "#2b2b31",
+      glow: current ? "0 0 12px rgba(52,211,153,.5)" : "none",
+      labelColor: current ? "#34d399" : "#6f6f78",
     });
+    let bars, heading;
+    if (chartRange === "month") {
+      const weeks = weeklyAverageSeries(entries, lastNWeeks(4));
+      bars = weeks.map((w, i) => bar(w.protein, i === weeks.length - 1, w.protein >= goal, weekRangeLabel(w.dates)));
+      heading = "חלבון · 4 שבועות";
+    } else {
+      bars = series.map((d) => bar(d.protein, d.date === today, d.protein >= goal, weekdayLabel(d.date, today)));
+      heading = "חלבון · 7 ימים";
+    }
 
     const foodVm = foods.map((f) => ({ id: f.id, name: f.name, unit: f.unit || "מותאם", protein: round(f.protein_g), calories: round(f.calories), raw: f }));
 
@@ -75,6 +82,7 @@ export default function App({ session }) {
       ringOffset: Math.round(490 * (1 - pctVal)),
       todayEntries,
       bars,
+      heading,
       goalY: Math.round((Math.min(goal, SCALE) / SCALE) * CHART_H),
       avg: average(series.map((d) => d.protein)),
       streak: streak(proteinByDay(entries), goal),
@@ -83,7 +91,7 @@ export default function App({ session }) {
       // quota is per real today (the server enforces the daily AI limit on the real calendar day)
       aiQuota: Math.max(0, 6 - entries.filter((e) => e.eaten_on === today && e.source === "ai").length),
     };
-  }, [entries, foods, goal, today, selectedDay]);
+  }, [entries, foods, goal, today, selectedDay, chartRange]);
 
   const header = { today: { sub: headerDate(), title: "ProCount", greet: greeting(data.name || data.email.split("@")[0]) }, trends: { sub: "מעקב לאורך זמן", title: "מגמות" }, foods: { sub: "התבניות שלי", title: "מאכלים שלי" } }[screen];
 
@@ -134,7 +142,7 @@ export default function App({ session }) {
 
       <div className="pc-scroll" style={{ flex: 1, overflowY: "auto", padding: "0 20px calc(110px + env(safe-area-inset-bottom))" }}>
         {screen === "today" && <Today totals={vm.totals} goal={goal} ringOffset={vm.ringOffset} remaining={vm.remaining} entries={vm.todayEntries} onDelete={data.deleteEntry} onSelect={setSelectedEntry} dayLabel={dayLabel(selectedDay, today)} onPrev={prevDay} onNext={nextDay} canPrev={canPrev} canNext={canNext} />}
-        {screen === "trends" && <Trends goal={goal} streak={vm.streak} avg={vm.avg} bars={vm.bars} goalY={vm.goalY} calAvg={vm.calAvg} />}
+        {screen === "trends" && <Trends goal={goal} streak={vm.streak} avg={vm.avg} bars={vm.bars} goalY={vm.goalY} calAvg={vm.calAvg} heading={vm.heading} range={chartRange} onRange={setChartRange} />}
         {screen === "foods" && <MyFoods foods={vm.foodVm} onNew={openAddManual} onEdit={(f) => setEditFood(f.raw)} />}
       </div>
 
