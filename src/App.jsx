@@ -10,6 +10,7 @@ import AddSheet from "./screens/AddSheet.jsx";
 import Settings from "./screens/Settings.jsx";
 import FoodEditor from "./FoodEditor.jsx";
 import ItemDetailModal from "./ItemDetailModal.jsx";
+import ConfirmDialog from "./ConfirmDialog.jsx";
 
 const SCALE = 200, CHART_H = 132;
 const SOURCE = {
@@ -32,6 +33,7 @@ export default function App({ session }) {
   const [photo, setPhoto] = useState({ state: "idle", note: "", error: null });
   const [editFood, setEditFood] = useState(null); // null | {} (new) | foodRow (edit)
   const [selectedEntry, setSelectedEntry] = useState(null); // null | a todayEntries vm item (detail modal)
+  const [confirm, setConfirm] = useState(null); // null | { title, body, confirmLabel, onConfirm } — delete guard
   const [chartRange, setChartRange] = useState("week"); // "week" | "month" — Trends bar chart range
   const [selectedDay, setSelectedDay] = useState(today); // which day the Today screen shows
   const [addDate, setAddDate] = useState(today); // which day the add sheet logs onto
@@ -141,12 +143,12 @@ export default function App({ session }) {
       </div>
 
       <div className="pc-scroll" style={{ flex: 1, overflowY: "auto", padding: "0 20px calc(110px + env(safe-area-inset-bottom))" }}>
-        {screen === "today" && <Today totals={vm.totals} goal={goal} ringOffset={vm.ringOffset} remaining={vm.remaining} entries={vm.todayEntries} onDelete={data.deleteEntry} onSelect={setSelectedEntry} dayLabel={dayLabel(selectedDay, today)} onPrev={prevDay} onNext={nextDay} canPrev={canPrev} canNext={canNext} />}
+        {screen === "today" && <Today totals={vm.totals} goal={goal} ringOffset={vm.ringOffset} remaining={vm.remaining} entries={vm.todayEntries} onDelete={(id) => setConfirm({ title: "מחיקת רישום", body: "הרישום יימחק מהיום.", confirmLabel: "מחק", onConfirm: () => data.deleteEntry(id) })} onSelect={setSelectedEntry} dayLabel={dayLabel(selectedDay, today)} onPrev={prevDay} onNext={nextDay} canPrev={canPrev} canNext={canNext} />}
         {screen === "trends" && <Trends goal={goal} streak={vm.streak} avg={vm.avg} bars={vm.bars} goalY={vm.goalY} calAvg={vm.calAvg} heading={vm.heading} range={chartRange} onRange={setChartRange} />}
         {screen === "foods" && <MyFoods foods={vm.foodVm} onNew={openAddManual} onEdit={(f) => setEditFood(f.raw)} />}
       </div>
 
-      {!addOpen && !settingsOpen && !editFood && !selectedEntry && (
+      {!addOpen && !settingsOpen && !editFood && !selectedEntry && !confirm && (
         <button className="h-fab" onClick={openAdd} style={{ position: "absolute", bottom: "calc(90px + env(safe-area-inset-bottom))", left: "50%", transform: "translateX(-50%)", zIndex: 30, display: "flex", alignItems: "center", gap: 8, border: "none", fontFamily: "inherit", background: "linear-gradient(180deg,#34d399,#1f9d6f)", color: "#06120c", fontSize: 16, fontWeight: 800, padding: "15px 28px", borderRadius: 999, cursor: "pointer", boxShadow: "0 8px 28px rgba(52,211,153,.45),0 2px 8px rgba(0,0,0,.4)" }}>
           <Plus size={20} sw={3} /> הוסף
         </button>
@@ -170,9 +172,13 @@ export default function App({ session }) {
           onDec={() => data.setGoal(Math.max(80, goal - 5))} onInc={() => data.setGoal(Math.min(260, goal + 5))} onSignOut={data.signOut} />
       )}
 
-      {editFood && <FoodEditor food={editFood} onSave={async (v) => { await data.saveFood(v); setEditFood(null); }} onDelete={async (id) => { await data.deleteFood(id); setEditFood(null); }} onClose={() => setEditFood(null)} />}
+      {editFood && <FoodEditor food={editFood} onSave={async (v) => { await data.saveFood(v); setEditFood(null); }} onDelete={(id) => setConfirm({ title: "מחיקת מאכל", body: "המאכל יימחק מהרשימה שלך.", confirmLabel: "מחק", onConfirm: async () => { await data.deleteFood(id); setEditFood(null); } })} onClose={() => setEditFood(null)} />}
 
       {selectedEntry && <ItemDetailModal entry={selectedEntry} onClose={() => setSelectedEntry(null)} />}
+
+      {confirm && <ConfirmDialog title={confirm.title} body={confirm.body} confirmLabel={confirm.confirmLabel}
+        onConfirm={async () => { await confirm.onConfirm(); setConfirm(null); }}
+        onCancel={() => setConfirm(null)} />}
     </div>
   );
 }
