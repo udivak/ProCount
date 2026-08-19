@@ -2,12 +2,13 @@ import { useMemo, useState } from "react";
 import { useData, RANGE_DAYS } from "./store.js";
 import { headerDate, lastNDates, lastNWeeks, weekdayLabel, weekRangeLabel, shiftDate, dayLabel, greeting } from "./lib/date.js";
 import { dailyTotals, remainingProtein, pct, streak, proteinByDay, weekSeries, weeklyAverageSeries, avgCaloriesPerActiveDay, average } from "./lib/nutrition.js";
-import { Gear, Home, Chart, ListIcon, Plus } from "./lib/icons.jsx";
+import { Gear, Home, Chart, ListIcon, Plus, Utensils } from "./lib/icons.jsx";
 import Today from "./screens/Today.jsx";
 import Trends from "./screens/Trends.jsx";
 import MyFoods from "./screens/MyFoods.jsx";
 import AddSheet from "./screens/AddSheet.jsx";
 import Settings from "./screens/Settings.jsx";
+import MealPlan from "./screens/MealPlan.jsx";
 import FoodEditor from "./FoodEditor.jsx";
 import ItemDetailModal from "./ItemDetailModal.jsx";
 import ConfirmDialog from "./ConfirmDialog.jsx";
@@ -95,7 +96,7 @@ export default function App({ session }) {
     };
   }, [entries, foods, goal, today, selectedDay, chartRange]);
 
-  const header = { today: { sub: headerDate(), title: "ProCount", greet: greeting(data.name || data.email.split("@")[0]) }, trends: { sub: "מעקב לאורך זמן", title: "מגמות" }, foods: { sub: "התבניות שלי", title: "מאכלים שלי" } }[screen];
+  const header = { today: { sub: headerDate(), title: "ProCount", greet: greeting(data.name || data.email.split("@")[0]) }, trends: { sub: "מעקב לאורך זמן", title: "מגמות" }, foods: { sub: "התבניות שלי", title: "מאכלים שלי" }, mealPlan: { sub: "התזונה שלך", title: "תפריט" } }[screen];
 
   // ---- actions ----
   const openAdd = () => { setForm(blankForm()); setAddDate(selectedDay); setPhoto({ state: "idle", note: "", error: null }); setAddTab("quick"); setAddOpen(true); };
@@ -146,6 +147,7 @@ export default function App({ session }) {
         {screen === "today" && <Today totals={vm.totals} goal={goal} ringOffset={vm.ringOffset} remaining={vm.remaining} entries={vm.todayEntries} onDelete={(id) => setConfirm({ title: "מחיקת רישום", body: "הרישום יימחק מהיום.", confirmLabel: "מחק", onConfirm: () => data.deleteEntry(id) })} onSelect={setSelectedEntry} dayLabel={dayLabel(selectedDay, today)} onPrev={prevDay} onNext={nextDay} canPrev={canPrev} canNext={canNext} />}
         {screen === "trends" && <Trends goal={goal} streak={vm.streak} avg={vm.avg} bars={vm.bars} goalY={vm.goalY} calAvg={vm.calAvg} heading={vm.heading} range={chartRange} onRange={setChartRange} />}
         {screen === "foods" && <MyFoods foods={vm.foodVm} onNew={openAddManual} onEdit={(f) => setEditFood(f.raw)} />}
+        {screen === "mealPlan" && <MealPlan />}
       </div>
 
       {!addOpen && !settingsOpen && !editFood && !selectedEntry && !confirm && (
@@ -156,6 +158,7 @@ export default function App({ session }) {
 
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: "calc(80px + env(safe-area-inset-bottom))", background: "rgba(10,10,12,.92)", backdropFilter: "blur(16px)", borderTop: "1px solid #1c1c20", display: "flex", alignItems: "stretch", padding: "8px 16px calc(22px + env(safe-area-inset-bottom))", zIndex: 20 }}>
         <NavBtn color={screen === "today" ? "#34d399" : "#6f6f78"} label="היום" onClick={() => goTo("today")}><Home size={24} /></NavBtn>
+        <NavBtn color={screen === "mealPlan" ? "#34d399" : "#6f6f78"} label="תפריט" onClick={() => goTo("mealPlan")}><Utensils size={24} /></NavBtn>
         <NavBtn color={screen === "trends" ? "#34d399" : "#6f6f78"} label="מגמות" onClick={() => goTo("trends")}><Chart size={24} /></NavBtn>
         <NavBtn color={screen === "foods" ? "#34d399" : "#6f6f78"} label="מאכלים" onClick={() => goTo("foods")}><ListIcon size={24} /></NavBtn>
       </div>
