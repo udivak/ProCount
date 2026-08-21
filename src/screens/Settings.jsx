@@ -5,28 +5,28 @@ import { ChevronLeft } from "../lib/icons.jsx";
 export default function Settings({ goal, name, email, onBack, onName, onDec, onInc, onSignOut }) {
   const [nameInput, setNameInput] = useState(name || "");
   return (
-    <div style={{ position: "absolute", inset: 0, zIndex: 60, background: "#0a0a0c", animation: "fadeIn .2s ease", display: "flex", flexDirection: "column" }}>
-      <div style={{ flex: "none", padding: "18px 20px 14px", display: "flex", alignItems: "center", gap: 14 }}>
-        <button onClick={onBack} aria-label="חזרה" style={{ width: 40, height: 40, border: "none", borderRadius: 12, background: "#161619", color: "#c4c4c9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+    <div style={{ position: "absolute", inset: 0, zIndex: 60, background: "#070a0a", animation: "fadeIn .2s ease", display: "flex", flexDirection: "column" }}>
+      <div style={{ flex: "none", padding: "calc(18px + env(safe-area-inset-top)) 20px 14px", display: "flex", alignItems: "center", gap: 14 }}>
+        <button onClick={onBack} aria-label="חזרה" style={{ width: 40, height: 40, border: "none", borderRadius: 12, background: "#101516", color: "#c4c4c9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
           <ChevronLeft size={20} />
         </button>
-        <div style={{ fontSize: 22, fontWeight: 800 }}>הגדרות</div>
+        <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: ".02em" }}>הגדרות</div>
       </div>
 
       <div style={{ flex: 1, overflowY: "auto", padding: "8px 20px 30px" }}>
-        <div style={{ background: "#161619", border: "1px solid #232328", borderRadius: 20, padding: 20, marginBottom: 14 }}>
+        <div style={{ background: "#101516", border: "1px solid #232328", borderRadius: 20, padding: 20, marginBottom: 14 }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: "#6f6f78", marginBottom: 14 }}>יעד חלבון יומי</div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <button onClick={onDec} aria-label="הפחת יעד" style={{ width: 46, height: 46, border: "1px solid #2a2a30", background: "#1e1e23", color: "#f4f4f5", borderRadius: 14, fontSize: 22, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>−</button>
+            <button onClick={onDec} aria-label="הפחת יעד" style={{ width: 46, height: 46, border: "1px solid #26302f", background: "#1e1e23", color: "#f4f4f5", borderRadius: 14, fontSize: 22, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>−</button>
             <div style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
               <span style={{ fontSize: 40, fontWeight: 900, letterSpacing: "-.02em" }}>{goal}</span>
               <span style={{ fontSize: 16, fontWeight: 700, color: "#6f6f78" }}>גרם</span>
             </div>
-            <button onClick={onInc} aria-label="הגדל יעד" style={{ width: 46, height: 46, border: "1px solid #21302a", background: "#16201b", color: "#34d399", borderRadius: 14, fontSize: 22, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>+</button>
+            <button onClick={onInc} aria-label="הגדל יעד" style={{ width: 46, height: 46, border: "1px solid #1f3831", background: "#101918", color: "#39e6b2", borderRadius: 14, fontSize: 22, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>+</button>
           </div>
         </div>
 
-        <div style={{ background: "#161619", border: "1px solid #232328", borderRadius: 20, overflow: "hidden" }}>
+        <div style={{ background: "#101516", border: "1px solid #232328", borderRadius: 20, overflow: "hidden" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "17px 18px", borderBottom: "1px solid #202024" }}>
             <span style={{ fontSize: 15, fontWeight: 600 }}>שם</span>
             <input value={nameInput} onChange={(e) => setNameInput(e.target.value)} onBlur={() => onName(nameInput.trim())}

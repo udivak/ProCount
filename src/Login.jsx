@@ -25,15 +25,15 @@ export default function Login() {
     // success → Root's onAuthStateChange renders <App/>; nothing to do here.
   };
 
-  const inputStyle = { textAlign: "center", background: "#18181c", border: "1px solid #2a2a30", borderRadius: 14, padding: 15, color: "#f4f4f5", fontSize: 16, fontFamily: "inherit", outline: "none" };
+  const inputStyle = { textAlign: "center", background: "#111718", border: "1px solid #26302f", borderRadius: 14, padding: 15, color: "#f4f4f5", fontSize: 16, fontFamily: "inherit", outline: "none" };
 
   return (
     <div className="app" style={{ justifyContent: "center", padding: "0 28px" }}>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 32 }}>
         <div style={{ width: 64, height: 64, borderRadius: 20, background: "rgba(52,211,153,.12)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 18 }}>
           <svg width="34" height="34" viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="12" r="9" stroke="#1c2a24" strokeWidth="2.5" />
-            <path d="M12 3a9 9 0 0 1 7 14.7" stroke="#34d399" strokeWidth="2.5" strokeLinecap="round" />
+            <circle cx="12" cy="12" r="9" stroke="#173129" strokeWidth="2.5" />
+            <path d="M12 3a9 9 0 0 1 7 14.7" stroke="#39e6b2" strokeWidth="2.5" strokeLinecap="round" />
           </svg>
         </div>
         <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: "-.02em" }}>ProCount</div>
@@ -50,7 +50,7 @@ export default function Login() {
         {error && <div style={{ textAlign: "center", fontSize: 13, color: "#fb7185" }}>{error}</div>}
 
         <button type="submit" disabled={busy}
-          style={{ border: "none", fontFamily: "inherit", background: "linear-gradient(180deg,#34d399,#1f9d6f)", color: "#06120c", fontSize: 16, fontWeight: 800, padding: 15, borderRadius: 14, cursor: "pointer", opacity: busy ? 0.6 : 1 }}>
+          style={{ border: "none", fontFamily: "inherit", background: "linear-gradient(180deg,#39e6b2,#16a985)", color: "#03120d", fontSize: 16, fontWeight: 800, padding: 15, borderRadius: 14, cursor: "pointer", opacity: busy ? 0.6 : 1 }}>
           {busy ? "…" : mode === "login" ? "התחברות" : "הרשמה"}
         </button>
 
