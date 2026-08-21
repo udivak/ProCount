@@ -58,6 +58,9 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, onField, on
               <>
                 <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="חיפוש מאכל…" aria-label="חיפוש מאכל"
                   style={{ ...input, marginBottom: 12 }} />
+                <button onClick={() => onTab("manual")} style={{ width: "100%", marginBottom: 14, border: "1px dashed #2d6354", background: "#0e1c19", color: "#39e6b2", borderRadius: 14, padding: "11px 14px", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 800 }}>
+                  + מאכל שלא במאגר · הזנה מהירה ליחידה אחת
+                </button>
                 {shown.length === 0 ? (
                   <div style={{ textAlign: "center", color: "#5f5f68", fontSize: 14, padding: "20px 0" }}>לא נמצא מאכל בשם זה</div>
                 ) : (
@@ -183,9 +186,9 @@ function ManualForm({ form, onField, onToggleSave, onSubmit, cta, showSave }) {
           <input value={form.calories} onChange={(e) => onField("calories", e.target.value)} inputMode="decimal" aria-label="קלוריות" placeholder="0" style={{ ...input, color: "#25b9ff", fontSize: 18, fontWeight: 800 }} />
         </div>
       </div>
-      <div>
-        <label style={label}>כמות שנאכלה (גרם) {"(אופציונלי)"}</label>
-        <input value={form.grams || ""} onChange={(e) => onField("grams", e.target.value)} inputMode="decimal" aria-label="כמות שנאכלה בגרמים" placeholder="למשל: 250" style={input} />
+      <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#697874", fontSize: 12, fontWeight: 700 }}>
+        <span style={{ width: 22, height: 22, display: "grid", placeItems: "center", borderRadius: 7, background: "#1f3831", color: "#39e6b2" }}>1</span>
+        הערכים יישמרו עבור יחידה אחת
       </div>
       {showSave && (
         <button onClick={onToggleSave} style={{ display: "flex", alignItems: "center", gap: 10, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", padding: 2 }}>
