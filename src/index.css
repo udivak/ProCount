@@ -2,12 +2,12 @@
 html, body {
   margin: 0;
   height: 100dvh;            /* dynamic viewport; tracks Chrome's toolbar show/hide */
-  background: #0a0a0c;       /* covers safe-area-inset-top behind the status bar */
+  background: #070a0a;       /* covers safe-area-inset-top behind the status bar */
   overflow: hidden;          /* document is not a scroll container */
   overscroll-behavior: none; /* no rubber-band elastic effect */
 }
 body {
-  color: #f4f4f5;
+  color: #f4f7f6;
   font-family: Heebo, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
@@ -38,12 +38,14 @@ body {
 
 input::placeholder { color: #5f5f68; }
 input { -webkit-appearance: none; }
+input:focus { border-color: #39e6b2 !important; box-shadow: 0 0 0 3px rgba(57,230,178,.12); }
+button:focus-visible { outline: 2px solid #39e6b2; outline-offset: 2px; }
 
 /* Hover states (the prototype's style-hover, as classes). */
 .h-gear:hover { background: #1e1e23 !important; color: #f4f4f5 !important; }
 .h-del:hover { background: #241619 !important; color: #fb7185 !important; }
-.h-fab:hover { filter: brightness(1.06); }
+.h-fab:hover { filter: brightness(1.08); transform: translateX(-50%) scale(1.04) !important; }
 .h-newfood:hover { background: #1a2a22 !important; }
-.h-quick:hover { border-color: #34d399 !important; background: #16201b !important; }
+.h-quick:hover { border-color: #39e6b2 !important; background: #101918 !important; }
 .h-pencil:hover { background: #1e1e23 !important; color: #8a8a93 !important; }
-.h-drop:hover { border-color: #34d399 !important; }
+.h-drop:hover { border-color: #39e6b2 !important; }
