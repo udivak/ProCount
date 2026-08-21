@@ -79,7 +79,7 @@ export default function MealPlan() {
         {meals.map((meal, index) => <MealCard key={meal.time} meal={meal} index={index} />)}
       </div>
 
-      <section style={{ marginTop: 20, background: "#161619", border: "1px solid #232328", borderRadius: 20, padding: 18 }}>
+      <section style={{ marginTop: 20, marginBottom: 34, background: "#161619", border: "1px solid #232328", borderRadius: 20, padding: 18 }}>
         <div style={{ fontSize: 15, fontWeight: 800, marginBottom: 12 }}>כללי היום</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: 13, lineHeight: 1.45, color: "#b4b4bc" }}>
           <div><strong style={{ color: "#34d399" }}>תנועה:</strong> כוון ל־8,000 צעדים ביום בממוצע.</div>

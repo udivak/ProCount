@@ -134,7 +134,7 @@ export default function App({ session }) {
       <div style={{ flex: "none", padding: "calc(18px + env(safe-area-inset-top)) 20px 10px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: "#6f6f78", letterSpacing: ".02em" }}>{header.sub}</div>
-          <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: ".02em", textTransform: "uppercase" }}>{header.title}</div>
+          <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: ".02em" }}>{header.title}</div>
           {/* ponytail: greeting recomputes on render via new Date(); no live ticking — refreshes on next re-render, good enough. */}
           {header.greet && <div style={{ fontSize: 13, fontWeight: 600, color: "#39e6b2", letterSpacing: ".01em" }}>{header.greet}</div>}
         </div>
@@ -150,7 +150,7 @@ export default function App({ session }) {
         {screen === "mealPlan" && <MealPlan />}
       </div>
 
-      {!addOpen && !settingsOpen && !editFood && !selectedEntry && !confirm && (
+      {!addOpen && !settingsOpen && !editFood && !selectedEntry && !confirm && screen !== "mealPlan" && (
         <button className="h-fab" onClick={openAdd} aria-label="הוסף מזון" style={{ position: "absolute", bottom: "calc(92px + env(safe-area-inset-bottom))", left: "50%", transform: "translateX(-50%)", zIndex: 30, width: 68, height: 68, display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #071a14", fontFamily: "inherit", background: "#39e6b2", color: "#03120d", borderRadius: "50%", cursor: "pointer", boxShadow: "0 0 0 6px rgba(57,230,178,.12), 0 8px 30px rgba(57,230,178,.48)" }}>
           <Plus size={30} sw={3} />
         </button>
