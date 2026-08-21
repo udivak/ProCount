@@ -58,16 +58,19 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, onField, on
               <>
                 <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="חיפוש מאכל…" aria-label="חיפוש מאכל"
                   style={{ ...input, marginBottom: 12 }} />
+                <button onClick={() => onTab("manual")} style={{ width: "100%", marginBottom: 14, border: "1px dashed #2d6354", background: "#0e1c19", color: "#39e6b2", borderRadius: 14, padding: "11px 14px", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 800 }}>
+                  + מאכל שלא במאגר · הזנה מהירה ליחידה אחת
+                </button>
                 {shown.length === 0 ? (
                   <div style={{ textAlign: "center", color: "#5f5f68", fontSize: 14, padding: "20px 0" }}>לא נמצא מאכל בשם זה</div>
                 ) : (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10 }}>
                     {shown.map((f) => (
                       <button key={f.id} className="h-quick" onClick={() => { setPicking(f); setQty(Number(f.raw?.default_qty) || 1); }} style={{ textAlign: "right", border: "1px solid #232328", background: "#111718", borderRadius: 16, padding: 14, cursor: "pointer", fontFamily: "inherit", display: "flex", flexDirection: "column", gap: 8 }}>
                         <div style={{ fontSize: 14, fontWeight: 700, color: "#f4f4f5", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.name}</div>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                          <span style={{ fontSize: 15, fontWeight: 800, color: "#39e6b2" }}>{f.protein}g</span>
-                          <span style={{ fontSize: 12, fontWeight: 600, color: "#7a7a82" }}>{f.calories} קל'</span>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", direction: "ltr" }}>
+                          <span style={{ fontSize: 13, fontWeight: 800, color: "#39e6b2", direction: "rtl" }}>{f.protein}g חלבון</span>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: "#7a7a82", direction: "rtl" }}>{f.calories} קל׳</span>
                         </div>
                       </button>
                     ))}
@@ -144,7 +147,7 @@ function QtyPanel({ food, qty, setQty, onBack, onAdd }) {
 
       <div style={{ textAlign: "center" }}>
         <div style={{ fontSize: 20, fontWeight: 800, color: "#f4f4f5" }}>{food.name}</div>
-        <div style={{ fontSize: 13, color: "#6f6f78", marginTop: 4 }}>{round(p)}g חלבון · {round(c)} קל' ל{food.unit || "מנה"}</div>
+        <div style={{ fontSize: 13, color: "#6f6f78", marginTop: 4, direction: "rtl" }}>{round(p)}g חלבון · {round(c)} קל׳ ל{food.unit || "מנה"}</div>
       </div>
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 18 }}>
@@ -154,10 +157,10 @@ function QtyPanel({ food, qty, setQty, onBack, onAdd }) {
         <button onClick={() => setQty(n + 1)} aria-label="הוסף כמות" style={{ ...stepBtn, border: "1px solid #1f3831", background: "#101918", color: "#39e6b2" }}>+</button>
       </div>
 
-      <div style={{ textAlign: "center", background: "#101918", border: "1px solid #1f3831", borderRadius: 14, padding: "12px 14px" }}>
-        <span style={{ fontSize: 18, fontWeight: 800, color: "#39e6b2" }}>{round(p * n)}g</span>
+      <div style={{ textAlign: "center", background: "#101918", border: "1px solid #1f3831", borderRadius: 14, padding: "12px 14px", direction: "rtl" }}>
+        <span style={{ fontSize: 18, fontWeight: 800, color: "#39e6b2" }}>{round(p * n)}g חלבון</span>
         <span style={{ color: "#7a7a82", margin: "0 8px" }}>·</span>
-        <span style={{ fontSize: 15, fontWeight: 700, color: "#25b9ff" }}>{round(c * n)} קל'</span>
+        <span style={{ fontSize: 15, fontWeight: 700, color: "#25b9ff" }}>{round(c * n)} קל׳</span>
       </div>
 
       <button onClick={onAdd} style={{ border: "none", fontFamily: "inherit", background: "linear-gradient(180deg,#39e6b2,#16a985)", color: "#03120d", fontSize: 16, fontWeight: 800, padding: 15, borderRadius: 15, cursor: "pointer" }}>הוסף לרישום</button>
@@ -183,9 +186,9 @@ function ManualForm({ form, onField, onToggleSave, onSubmit, cta, showSave }) {
           <input value={form.calories} onChange={(e) => onField("calories", e.target.value)} inputMode="decimal" aria-label="קלוריות" placeholder="0" style={{ ...input, color: "#25b9ff", fontSize: 18, fontWeight: 800 }} />
         </div>
       </div>
-      <div>
-        <label style={label}>כמות שנאכלה (גרם) {"(אופציונלי)"}</label>
-        <input value={form.grams || ""} onChange={(e) => onField("grams", e.target.value)} inputMode="decimal" aria-label="כמות שנאכלה בגרמים" placeholder="למשל: 250" style={input} />
+      <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#697874", fontSize: 12, fontWeight: 700 }}>
+        <span style={{ width: 22, height: 22, display: "grid", placeItems: "center", borderRadius: 7, background: "#1f3831", color: "#39e6b2" }}>1</span>
+        הערכים יישמרו עבור יחידה אחת
       </div>
       {showSave && (
         <button onClick={onToggleSave} style={{ display: "flex", alignItems: "center", gap: 10, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", padding: 2 }}>

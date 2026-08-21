@@ -41,6 +41,36 @@ input { -webkit-appearance: none; }
 input:focus { border-color: #39e6b2 !important; box-shadow: 0 0 0 3px rgba(57,230,178,.12); }
 button:focus-visible { outline: 2px solid #39e6b2; outline-offset: 2px; }
 
+.today-neon { padding-top: 2px; }
+.today-daybar { display: flex; align-items: center; justify-content: space-between; margin: 4px 0 16px; }
+.today-daylabel { font-size: 17px; font-weight: 900; color: #f4f7f6; }
+.today-daycenter { display:flex; flex-direction:column; align-items:center; gap:3px; }.back-today { border:0; background:transparent; color:#39e6b2; font:700 11px Heebo,sans-serif; cursor:pointer; padding:0; }
+.day-arrow-neon { width: 42px; height: 42px; border: 1px solid #26302f; border-radius: 13px; background: #101516; color: #a6b0ae; font: 700 23px Heebo,sans-serif; cursor: pointer; }
+.day-arrow-neon:disabled { opacity: .35; cursor: default; }
+.hero-neon { position: relative; overflow: hidden; border: 1px solid #203532; border-radius: 27px; background: #0d1212; padding: 27px 18px 22px; text-align: center; }
+.hero-glow { position: absolute; width: 170px; height: 170px; right: -38px; top: -52px; background: radial-gradient(circle,rgba(57,230,178,.18),transparent 68%); pointer-events: none; }
+.hero-kicker { position: relative; color: #39e6b2; font-size: 13px; font-weight: 900; letter-spacing: .04em; }
+.arc-wrap { position: relative; width: 236px; height: 155px; margin: 10px auto 0; }
+.arc-wrap svg { width: 236px; height: 155px; overflow: visible; }
+.arc-value { position: absolute; inset: 63px 0 auto; display: flex; flex-direction: column; align-items: center; line-height: 1; }
+.arc-value strong { font-size: 58px; font-weight: 900; letter-spacing: -.05em; }
+.arc-value span { margin-top: 9px; color: #8a9994; font-size: 14px; font-weight: 700; }
+.hero-remaining { position: relative; color: #39e6b2; font-size: 14px; font-weight: 800; }
+.metric-row { display: flex; align-items: stretch; gap: 16px; margin: 12px 0 20px; padding: 15px 14px; border: 1px solid #203532; border-radius: 18px; background: #101718; }
+.metric { flex: 1; min-width: 0; text-align: center; }.metric-value { font-size: 29px; font-weight: 900; line-height: 1; }.metric-value.protein { color: #39e6b2; }.metric-value.calories { color: #25b9ff; }
+.metric-label { display: flex; align-items: center; justify-content: center; gap: 4px; color: #8a9994; font-size: 12px; font-weight: 700; margin-top: 6px; }.metric-sub { color: #53615d; font-size: 11px; margin-top: 2px; }.metric-bar { height: 5px; margin-top: 9px; border-radius: 99px; background: #26302f; overflow: hidden; }.metric-bar i { display: block; height: 100%; border-radius: inherit; }.metric-divider { width: 1px; background: #26302f; }
+.insight-neon { display: flex; align-items: center; gap: 13px; margin-bottom: 21px; padding: 15px 16px; border: 1px solid #203532; border-radius: 18px; background: #0f1515; }.insight-icon { width: 44px; height: 44px; border: 1px solid #39e6b2; border-radius: 50%; display: grid; place-items: center; color: #39e6b2; font-size: 21px; flex: none; }.insight-neon strong,.insight-neon span { display: block; text-align: right; }.insight-neon strong { font-size: 15px; }.insight-neon span { color: #7e8b87; font-size: 12px; margin-top: 3px; }
+.entries-head { display: flex; align-items: center; justify-content: space-between; margin: 0 4px 10px; }.entries-head strong { font-size: 17px; }.entries-head span { color: #65716e; font-size: 12px; font-weight: 700; }.empty-neon { padding: 22px 0; color: #65716e; text-align: center; font-size: 14px; }.meal-list { border-top: 1px solid #1c2826; }.meal-row { display: flex; align-items: center; gap: 11px; min-height: 66px; border-bottom: 1px solid #1c2826; cursor: pointer; }.meal-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; box-shadow: 0 0 9px currentColor; }.meal-copy { flex: 1; min-width: 0; text-align: right; }.meal-copy strong,.meal-copy span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.meal-copy strong { font-size: 14px; }.meal-copy span { color: #65716e; font-size: 11px; margin-top: 2px; }.meal-macros { min-width: 50px; text-align: left; }.meal-macros b { display: block; color: #39e6b2; font-size: 15px; }.meal-macros small { color: #65716e; font-size: 10px; }.meal-delete { width: 28px !important; height: 28px !important; }
+
+/* Entry macro labels: keep protein and calories unambiguous in RTL. */
+.meal-macros { min-width: 76px; text-align: left; }
+.meal-macros b { display:block; color:#39e6b2; font-size:13px; white-space:nowrap; }
+.meal-macros small { display:block; color:#65716e; font-size:11px; white-space:nowrap; }
+.meal-macros em { font-style:normal; font-weight:900; font-variant-numeric:tabular-nums; }
+
+/* Trends visual system. */
+.trends-intro { display:flex; align-items:center; justify-content:space-between; margin:4px 4px 16px; }.trends-eyebrow { color:#697874; font-size:12px; font-weight:700; }.trends-intro h2 { margin:2px 0 0; font-size:25px; letter-spacing:-.02em; }.trend-spark { width:42px; height:42px; display:grid; place-items:center; border:1px solid #20463b; border-radius:14px; color:#39e6b2; background:#0e1c19; font-size:22px; box-shadow:0 0 20px rgba(57,230,178,.12); }.trend-stat { background:#101516; border:1px solid #203532; border-radius:20px; padding:18px; }.trend-stat-hot { background:linear-gradient(145deg,#11251f,#101516); box-shadow:inset 0 1px rgba(57,230,178,.12); }.trend-chart { background:#101516; border:1px solid #203532; border-radius:22px; padding:20px 18px 16px; margin-bottom:14px; box-shadow:0 8px 28px rgba(0,0,0,.16); }.trend-calories { background:#101516; border:1px solid #203532; border-radius:22px; padding:18px; display:flex; align-items:center; justify-content:space-between; }.trends-neon button[aria-pressed="true"] { box-shadow:0 0 14px rgba(57,230,178,.28); }
+
 /* Hover states (the prototype's style-hover, as classes). */
 .h-gear:hover { background: #1e1e23 !important; color: #f4f4f5 !important; }
 .h-del:hover { background: #241619 !important; color: #fb7185 !important; }

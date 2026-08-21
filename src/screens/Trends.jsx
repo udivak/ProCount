@@ -14,9 +14,10 @@ export default function Trends({ goal, streak, avg, bars, goalY, calAvg, heading
     borderRadius: 999,
   });
   return (
-    <div>
+    <div className="trends-neon">
+      <div className="trends-intro"><div><div className="trends-eyebrow">מעקב לאורך זמן</div><h2>המגמות שלך</h2></div><div className="trend-spark">↗</div></div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
-        <div style={{ background: "#101718", border: "1px solid #203532", borderRadius: 20, padding: 18 }}>
+        <div className="trend-stat trend-stat-hot">
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
             <span style={{ color: "#39e6b2", display: "flex" }}><Flame size={18} /></span>
             <span style={{ fontSize: 12, fontWeight: 600, color: "#6f6f78" }}>רצף ימים</span>
@@ -24,7 +25,7 @@ export default function Trends({ goal, streak, avg, bars, goalY, calAvg, heading
           <div style={{ fontSize: 34, fontWeight: 900, letterSpacing: "-.02em" }}>{streak}</div>
           <div style={{ fontSize: 12, color: "#6f6f78", marginTop: 2 }}>ימים ברצף ביעד</div>
         </div>
-        <div style={{ background: "#101516", border: "1px solid #232328", borderRadius: 20, padding: 18 }}>
+        <div className="trend-stat">
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
             <span style={{ width: 18, height: 18, borderRadius: 6, background: "rgba(52,211,153,.15)", display: "flex", alignItems: "center", justifyContent: "center", color: "#39e6b2", fontSize: 11, fontWeight: 800 }}>Ø</span>
             <span style={{ fontSize: 12, fontWeight: 600, color: "#6f6f78" }}>ממוצע שבועי</span>
@@ -34,7 +35,7 @@ export default function Trends({ goal, streak, avg, bars, goalY, calAvg, heading
         </div>
       </div>
 
-      <div style={{ background: "#101516", border: "1px solid #232328", borderRadius: 22, padding: "20px 18px 16px", marginBottom: 14 }}>
+      <div className="trend-chart">
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
           <div style={{ fontSize: 15, fontWeight: 700 }}>{heading}</div>
           <div style={{ display: "flex", gap: 6 }}>
@@ -54,7 +55,7 @@ export default function Trends({ goal, streak, avg, bars, goalY, calAvg, heading
         </div>
       </div>
 
-      <div style={{ background: "#101516", border: "1px solid #232328", borderRadius: 22, padding: 18, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <div className="trend-calories">
         <div>
           <div style={{ fontSize: 13, fontWeight: 600, color: "#6f6f78", marginBottom: 6 }}>קלוריות · ממוצע שבועי</div>
           <div style={{ fontSize: 26, fontWeight: 800, color: "#25b9ff", letterSpacing: "-.02em" }}>{calAvg}</div>
