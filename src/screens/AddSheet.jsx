@@ -122,7 +122,7 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, onField, on
                       {photo.note && <div style={{ fontSize: 12, color: "#8a8a93", marginTop: 1 }}>{photo.note} · ניתן לתקן</div>}
                     </div>
                   </div>
-                  <ManualForm form={form} onField={onField} onSubmit={onSubmit} cta="אשר והוסף" />
+                  <ManualForm form={form} onField={onField} onToggleSave={onToggleSave} onSubmit={onSubmit} cta="אשר והוסף" showSave />
                 </div>
               )}
             </div>
