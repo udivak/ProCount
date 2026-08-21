@@ -61,7 +61,7 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, onField, on
                 {shown.length === 0 ? (
                   <div style={{ textAlign: "center", color: "#5f5f68", fontSize: 14, padding: "20px 0" }}>לא נמצא מאכל בשם זה</div>
                 ) : (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10 }}>
                     {shown.map((f) => (
                       <button key={f.id} className="h-quick" onClick={() => { setPicking(f); setQty(Number(f.raw?.default_qty) || 1); }} style={{ textAlign: "right", border: "1px solid #232328", background: "#111718", borderRadius: 16, padding: 14, cursor: "pointer", fontFamily: "inherit", display: "flex", flexDirection: "column", gap: 8 }}>
                         <div style={{ fontSize: 14, fontWeight: 700, color: "#f4f4f5", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.name}</div>
