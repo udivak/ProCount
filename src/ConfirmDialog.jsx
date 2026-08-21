@@ -5,7 +5,7 @@ export default function ConfirmDialog({ title, body, confirmLabel = "מחק", on
   return (
     <div style={{ position: "absolute", inset: 0, zIndex: 70, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
       <div onClick={onCancel} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,.6)", animation: "fadeIn .2s ease" }} />
-      <div style={{ position: "relative", width: "100%", maxWidth: 340, background: "#121215", border: "1px solid #2a2a30", borderRadius: 22, padding: 24, animation: "pop .2s ease" }}>
+      <div style={{ position: "relative", width: "100%", maxWidth: 340, background: "#0b1112", border: "1px solid #26302f", borderRadius: 22, padding: 24, animation: "pop .2s ease" }}>
         <div style={{ fontSize: 19, fontWeight: 800, color: "#f4f4f5", marginBottom: body ? 8 : 20 }}>{title}</div>
         {body && <div style={{ fontSize: 14, fontWeight: 500, color: "#8a8a93", marginBottom: 22, lineHeight: 1.5 }}>{body}</div>}
         <div style={{ display: "flex", gap: 10 }}>

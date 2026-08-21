@@ -1,10 +1,10 @@
 import { useRef, useState } from "react";
 import { X, Camera, Info } from "../lib/icons.jsx";
 
-const input = { width: "100%", background: "#18181c", border: "1px solid #2a2a30", borderRadius: 14, padding: 14, color: "#f4f4f5", fontSize: 16, fontFamily: "inherit", outline: "none" };
+const input = { width: "100%", background: "#111718", border: "1px solid #26302f", borderRadius: 14, padding: 14, color: "#f4f4f5", fontSize: 16, fontFamily: "inherit", outline: "none" };
 const label = { fontSize: 13, fontWeight: 600, color: "#8a8a93", display: "block", marginBottom: 7 };
 const CONF = { low: "נמוכה", medium: "בינונית", high: "גבוהה" };
-const stepBtn = { width: 46, height: 46, border: "1px solid #2a2a30", background: "#1e1e23", color: "#f4f4f5", borderRadius: 14, fontSize: 24, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center" };
+const stepBtn = { width: 46, height: 46, border: "1px solid #26302f", background: "#1e1e23", color: "#f4f4f5", borderRadius: 14, fontSize: 24, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center" };
 const round = (n) => Math.round(Number(n) || 0);
 
 // Add sheet — Quick / Manual / Photo. Opens over the active tab (design §2, "must be fast").
@@ -20,14 +20,14 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, onField, on
   const tabBtn = (key, text) => {
     const active = tab === key;
     return (
-      <button onClick={() => onTab(key)} style={{ flex: 1, border: "none", fontFamily: "inherit", fontSize: 13, fontWeight: 700, padding: 9, borderRadius: 10, cursor: "pointer", background: active ? "#2c2c33" : "transparent", color: active ? "#f4f4f5" : "#8a8a93" }}>{text}</button>
+      <button onClick={() => onTab(key)} style={{ flex: 1, border: "none", fontFamily: "inherit", fontSize: 13, fontWeight: 800, padding: 9, borderRadius: 10, cursor: "pointer", background: active ? "#39e6b2" : "transparent", color: active ? "#03120d" : "#8a8a93" }}>{text}</button>
     );
   };
 
   return (
     <div style={{ position: "absolute", inset: 0, zIndex: 50, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
       <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,.6)", animation: "fadeIn .2s ease" }} />
-      <div style={{ position: "relative", background: "#121215", borderTop: "1px solid #2a2a30", borderRadius: "26px 26px 0 0", maxHeight: "90%", display: "flex", flexDirection: "column", animation: "sheetUp .28s cubic-bezier(.2,.8,.2,1)" }}>
+      <div style={{ position: "relative", background: "#0b1112", borderTop: "1px solid #26302f", borderRadius: "26px 26px 0 0", maxHeight: "90%", display: "flex", flexDirection: "column", animation: "sheetUp .28s cubic-bezier(.2,.8,.2,1)" }}>
         <div style={{ flex: "none", padding: "14px 20px 8px" }}>
           <div style={{ width: 40, height: 4, borderRadius: 99, background: "#33333a", margin: "0 auto 16px" }} />
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
@@ -44,7 +44,7 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, onField, on
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 12 }}>
             <label htmlFor="add-date" style={label}>תאריך</label>
             <input id="add-date" type="date" value={date} min={minDate} max={maxDate} onChange={(e) => onDate(e.target.value)}
-              style={{ background: "#18181c", border: "1px solid #2a2a30", borderRadius: 12, padding: "10px 12px", color: "#f4f4f5", fontSize: 15, fontFamily: "inherit", outline: "none", colorScheme: "dark" }} />
+              style={{ background: "#111718", border: "1px solid #26302f", borderRadius: 12, padding: "10px 12px", color: "#f4f4f5", fontSize: 15, fontFamily: "inherit", outline: "none", colorScheme: "dark" }} />
           </div>
         </div>
 
@@ -63,10 +63,10 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, onField, on
                 ) : (
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                     {shown.map((f) => (
-                      <button key={f.id} className="h-quick" onClick={() => { setPicking(f); setQty(Number(f.raw?.default_qty) || 1); }} style={{ textAlign: "right", border: "1px solid #232328", background: "#18181c", borderRadius: 16, padding: 14, cursor: "pointer", fontFamily: "inherit", display: "flex", flexDirection: "column", gap: 8 }}>
+                      <button key={f.id} className="h-quick" onClick={() => { setPicking(f); setQty(Number(f.raw?.default_qty) || 1); }} style={{ textAlign: "right", border: "1px solid #232328", background: "#111718", borderRadius: 16, padding: 14, cursor: "pointer", fontFamily: "inherit", display: "flex", flexDirection: "column", gap: 8 }}>
                         <div style={{ fontSize: 14, fontWeight: 700, color: "#f4f4f5", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.name}</div>
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                          <span style={{ fontSize: 15, fontWeight: 800, color: "#34d399" }}>{f.protein}g</span>
+                          <span style={{ fontSize: 15, fontWeight: 800, color: "#39e6b2" }}>{f.protein}g</span>
                           <span style={{ fontSize: 12, fontWeight: 600, color: "#7a7a82" }}>{f.calories} קל'</span>
                         </div>
                       </button>
@@ -88,7 +88,7 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, onField, on
               {photo.state === "idle" && (
                 <div>
                   <button className="h-drop" onClick={() => fileRef.current?.click()} style={{ width: "100%", border: "2px dashed #2e2e36", background: "#141417", borderRadius: 20, padding: "38px 20px", cursor: "pointer", fontFamily: "inherit", display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
-                    <div style={{ width: 64, height: 64, borderRadius: 20, background: "rgba(52,211,153,.12)", display: "flex", alignItems: "center", justifyContent: "center", color: "#34d399" }}>
+                    <div style={{ width: 64, height: 64, borderRadius: 20, background: "rgba(52,211,153,.12)", display: "flex", alignItems: "center", justifyContent: "center", color: "#39e6b2" }}>
                       <Camera size={30} />
                     </div>
                     <div style={{ textAlign: "center" }}>
@@ -108,17 +108,17 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, onField, on
 
               {photo.state === "loading" && (
                 <div style={{ padding: "48px 20px", display: "flex", flexDirection: "column", alignItems: "center", gap: 18 }}>
-                  <div style={{ width: 48, height: 48, border: "4px solid #1e2e26", borderTopColor: "#34d399", borderRadius: "50%", animation: "spin .8s linear infinite" }} />
+                  <div style={{ width: 48, height: 48, border: "4px solid #1e2e26", borderTopColor: "#39e6b2", borderRadius: "50%", animation: "spin .8s linear infinite" }} />
                   <div style={{ fontSize: 15, fontWeight: 700, color: "#c4c4c9" }}>מנתח את התמונה...</div>
                 </div>
               )}
 
               {photo.state === "done" && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#16201b", border: "1px solid #21302a", borderRadius: 14, padding: "12px 14px" }}>
-                    <span style={{ width: 30, height: 30, borderRadius: 8, background: "rgba(52,211,153,.15)", color: "#34d399", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800 }}>AI</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#101918", border: "1px solid #1f3831", borderRadius: 14, padding: "12px 14px" }}>
+                    <span style={{ width: 30, height: 30, borderRadius: 8, background: "rgba(52,211,153,.15)", color: "#39e6b2", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800 }}>AI</span>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: "#34d399" }}>זוהה · ודאות {CONF[photo.confidence] || "בינונית"}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "#39e6b2" }}>זוהה · ודאות {CONF[photo.confidence] || "בינונית"}</div>
                       {photo.note && <div style={{ fontSize: 12, color: "#8a8a93", marginTop: 1 }}>{photo.note} · ניתן לתקן</div>}
                     </div>
                   </div>
@@ -150,17 +150,17 @@ function QtyPanel({ food, qty, setQty, onBack, onAdd }) {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 18 }}>
         <button onClick={() => setQty(Math.max(1, n - 1))} aria-label="הפחת כמות" style={stepBtn}>−</button>
         <input value={qty} onChange={(e) => setQty(e.target.value.replace(/[^\d.]/g, ""))} inputMode="decimal" aria-label="כמות"
-          style={{ width: 76, textAlign: "center", background: "#18181c", border: "1px solid #2a2a30", borderRadius: 14, padding: 12, color: "#f4f4f5", fontSize: 26, fontWeight: 800, fontFamily: "inherit", outline: "none" }} />
-        <button onClick={() => setQty(n + 1)} aria-label="הוסף כמות" style={{ ...stepBtn, border: "1px solid #21302a", background: "#16201b", color: "#34d399" }}>+</button>
+          style={{ width: 76, textAlign: "center", background: "#111718", border: "1px solid #26302f", borderRadius: 14, padding: 12, color: "#f4f4f5", fontSize: 26, fontWeight: 800, fontFamily: "inherit", outline: "none" }} />
+        <button onClick={() => setQty(n + 1)} aria-label="הוסף כמות" style={{ ...stepBtn, border: "1px solid #1f3831", background: "#101918", color: "#39e6b2" }}>+</button>
       </div>
 
-      <div style={{ textAlign: "center", background: "#16201b", border: "1px solid #21302a", borderRadius: 14, padding: "12px 14px" }}>
-        <span style={{ fontSize: 18, fontWeight: 800, color: "#34d399" }}>{round(p * n)}g</span>
+      <div style={{ textAlign: "center", background: "#101918", border: "1px solid #1f3831", borderRadius: 14, padding: "12px 14px" }}>
+        <span style={{ fontSize: 18, fontWeight: 800, color: "#39e6b2" }}>{round(p * n)}g</span>
         <span style={{ color: "#7a7a82", margin: "0 8px" }}>·</span>
-        <span style={{ fontSize: 15, fontWeight: 700, color: "#fbbf24" }}>{round(c * n)} קל'</span>
+        <span style={{ fontSize: 15, fontWeight: 700, color: "#25b9ff" }}>{round(c * n)} קל'</span>
       </div>
 
-      <button onClick={onAdd} style={{ border: "none", fontFamily: "inherit", background: "linear-gradient(180deg,#34d399,#1f9d6f)", color: "#06120c", fontSize: 16, fontWeight: 800, padding: 15, borderRadius: 15, cursor: "pointer" }}>הוסף לרישום</button>
+      <button onClick={onAdd} style={{ border: "none", fontFamily: "inherit", background: "linear-gradient(180deg,#39e6b2,#16a985)", color: "#03120d", fontSize: 16, fontWeight: 800, padding: 15, borderRadius: 15, cursor: "pointer" }}>הוסף לרישום</button>
     </div>
   );
 }
@@ -176,11 +176,11 @@ function ManualForm({ form, onField, onToggleSave, onSubmit, cta, showSave }) {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         <div>
           <label style={label}>חלבון (גרם)</label>
-          <input value={form.protein} onChange={(e) => onField("protein", e.target.value)} inputMode="decimal" aria-label="חלבון בגרמים" placeholder="0" style={{ ...input, color: "#34d399", fontSize: 18, fontWeight: 800 }} />
+          <input value={form.protein} onChange={(e) => onField("protein", e.target.value)} inputMode="decimal" aria-label="חלבון בגרמים" placeholder="0" style={{ ...input, color: "#39e6b2", fontSize: 18, fontWeight: 800 }} />
         </div>
         <div>
           <label style={label}>קלוריות</label>
-          <input value={form.calories} onChange={(e) => onField("calories", e.target.value)} inputMode="decimal" aria-label="קלוריות" placeholder="0" style={{ ...input, color: "#fbbf24", fontSize: 18, fontWeight: 800 }} />
+          <input value={form.calories} onChange={(e) => onField("calories", e.target.value)} inputMode="decimal" aria-label="קלוריות" placeholder="0" style={{ ...input, color: "#25b9ff", fontSize: 18, fontWeight: 800 }} />
         </div>
       </div>
       <div>
@@ -189,11 +189,11 @@ function ManualForm({ form, onField, onToggleSave, onSubmit, cta, showSave }) {
       </div>
       {showSave && (
         <button onClick={onToggleSave} style={{ display: "flex", alignItems: "center", gap: 10, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", padding: 2 }}>
-          <span style={{ width: 22, height: 22, borderRadius: 7, border: `2px solid ${form.save ? "#34d399" : "#3a3a42"}`, background: form.save ? "#34d399" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#06120c" }}>{form.save ? "✓" : ""}</span>
+          <span style={{ width: 22, height: 22, borderRadius: 7, border: `2px solid ${form.save ? "#39e6b2" : "#3a3a42"}`, background: form.save ? "#39e6b2" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#03120d" }}>{form.save ? "✓" : ""}</span>
           <span style={{ fontSize: 14, fontWeight: 600, color: "#c4c4c9" }}>שמור למאכלים שלי</span>
         </button>
       )}
-      <button onClick={onSubmit} style={{ marginTop: 4, border: "none", fontFamily: "inherit", background: "linear-gradient(180deg,#34d399,#1f9d6f)", color: "#06120c", fontSize: 16, fontWeight: 800, padding: 15, borderRadius: 15, cursor: "pointer" }}>{cta}</button>
+      <button onClick={onSubmit} style={{ marginTop: 4, border: "none", fontFamily: "inherit", background: "linear-gradient(180deg,#39e6b2,#16a985)", color: "#03120d", fontSize: 16, fontWeight: 800, padding: 15, borderRadius: 15, cursor: "pointer" }}>{cta}</button>
     </div>
   );
 }

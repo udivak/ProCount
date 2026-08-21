@@ -13,16 +13,16 @@ export default function ItemDetailModal({ entry, onClose }) {
   const per100 = proteinPer100g(entry.proteinRaw, entry.grams);
   const rows = [
     { k: "כמות שנאכלה", v: entry.grams != null ? `${round(entry.grams)} גרם` : dash },
-    { k: "חלבון ל-100 גרם", v: per100 != null ? `${round(per100)} גרם` : dash, color: "#34d399" },
-    { k: "סך חלבון שנאכל", v: `${round(entry.proteinRaw)} גרם`, color: "#34d399" },
-    { k: "קלוריות", v: `${entry.calories} קל'`, color: "#fbbf24" },
+    { k: "חלבון ל-100 גרם", v: per100 != null ? `${round(per100)} גרם` : dash, color: "#39e6b2" },
+    { k: "סך חלבון שנאכל", v: `${round(entry.proteinRaw)} גרם`, color: "#39e6b2" },
+    { k: "קלוריות", v: `${entry.calories} קל'`, color: "#25b9ff" },
     { k: "מקור", v: entry.sub },
   ];
 
   return (
     <div style={{ position: "absolute", inset: 0, zIndex: 56, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
       <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,.6)", animation: "fadeIn .2s ease" }} />
-      <div style={{ position: "relative", background: "#121215", borderTop: "1px solid #2a2a30", borderRadius: "26px 26px 0 0", maxHeight: "90%", display: "flex", flexDirection: "column", animation: "sheetUp .28s cubic-bezier(.2,.8,.2,1)" }}>
+      <div style={{ position: "relative", background: "#0b1112", borderTop: "1px solid #26302f", borderRadius: "26px 26px 0 0", maxHeight: "90%", display: "flex", flexDirection: "column", animation: "sheetUp .28s cubic-bezier(.2,.8,.2,1)" }}>
         <div style={{ flex: "none", padding: "14px 20px 8px" }}>
           <div style={{ width: 40, height: 4, borderRadius: 99, background: "#33333a", margin: "0 auto 16px" }} />
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
@@ -41,7 +41,7 @@ export default function ItemDetailModal({ entry, onClose }) {
 
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
             {rows.map((r) => (
-              <div key={r.k} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "13px 16px", background: "#161619", border: "1px solid #1f1f24", borderRadius: 14 }}>
+              <div key={r.k} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "13px 16px", background: "#101516", border: "1px solid #1f1f24", borderRadius: 14 }}>
                 <span style={label}>{r.k}</span>
                 <span style={{ fontSize: 16, fontWeight: 800, color: r.color || "#f4f4f5" }}>{r.v}</span>
               </div>

@@ -14,7 +14,7 @@ import ConfirmDialog from "./ConfirmDialog.jsx";
 
 const SCALE = 200, CHART_H = 132;
 const SOURCE = {
-  saved: { tag: "מהיר", iconBg: "rgba(52,211,153,.12)", iconColor: "#34d399", sub: "מהיר" },
+  saved: { tag: "מהיר", iconBg: "rgba(52,211,153,.12)", iconColor: "#39e6b2", sub: "מהיר" },
   manual: { tag: "ידני", iconBg: "rgba(96,165,250,.12)", iconColor: "#60a5fa", sub: "הזנה ידנית" },
   ai: { tag: "AI", iconBg: "rgba(167,139,250,.14)", iconColor: "#a78bfa", sub: "מצילום · AI" },
 };
@@ -62,9 +62,9 @@ export default function App({ session }) {
     const bar = (protein, current, met, label) => ({
       label,
       h: Math.max(2, Math.round((Math.min(protein, SCALE) / SCALE) * CHART_H)),
-      color: current ? "linear-gradient(180deg,#6ee7b7,#34d399)" : met ? "#2a9d6f" : "#2b2b31",
+      color: current ? "linear-gradient(180deg,#6ee7b7,#39e6b2)" : met ? "#2a9d6f" : "#2b2b31",
       glow: current ? "0 0 12px rgba(52,211,153,.5)" : "none",
-      labelColor: current ? "#34d399" : "#6f6f78",
+      labelColor: current ? "#39e6b2" : "#6f6f78",
     });
     let bars, heading;
     if (chartRange === "month") {
@@ -133,11 +133,11 @@ export default function App({ session }) {
       <div style={{ flex: "none", padding: "calc(18px + env(safe-area-inset-top)) 20px 10px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: "#6f6f78", letterSpacing: ".02em" }}>{header.sub}</div>
-          <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-.01em" }}>{header.title}</div>
+          <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: ".02em", textTransform: "uppercase" }}>{header.title}</div>
           {/* ponytail: greeting recomputes on render via new Date(); no live ticking — refreshes on next re-render, good enough. */}
-          {header.greet && <div style={{ fontSize: 13, fontWeight: 600, color: "#34d399", letterSpacing: ".01em" }}>{header.greet}</div>}
+          {header.greet && <div style={{ fontSize: 13, fontWeight: 600, color: "#39e6b2", letterSpacing: ".01em" }}>{header.greet}</div>}
         </div>
-        <button className="h-gear" aria-label="הגדרות" onClick={() => setSettingsOpen(true)} style={{ width: 42, height: 42, border: "none", borderRadius: 14, background: "#161619", color: "#8a8a93", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+        <button className="h-gear" aria-label="הגדרות" onClick={() => setSettingsOpen(true)} style={{ width: 42, height: 42, border: "none", borderRadius: 14, background: "#101516", color: "#8a8a93", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
           <Gear size={20} />
         </button>
       </div>
@@ -149,15 +149,15 @@ export default function App({ session }) {
       </div>
 
       {!addOpen && !settingsOpen && !editFood && !selectedEntry && !confirm && (
-        <button className="h-fab" onClick={openAdd} style={{ position: "absolute", bottom: "calc(90px + env(safe-area-inset-bottom))", left: "50%", transform: "translateX(-50%)", zIndex: 30, display: "flex", alignItems: "center", gap: 8, border: "none", fontFamily: "inherit", background: "linear-gradient(180deg,#34d399,#1f9d6f)", color: "#06120c", fontSize: 16, fontWeight: 800, padding: "15px 28px", borderRadius: 999, cursor: "pointer", boxShadow: "0 8px 28px rgba(52,211,153,.45),0 2px 8px rgba(0,0,0,.4)" }}>
-          <Plus size={20} sw={3} /> הוסף
+        <button className="h-fab" onClick={openAdd} aria-label="הוסף מזון" style={{ position: "absolute", bottom: "calc(92px + env(safe-area-inset-bottom))", left: "50%", transform: "translateX(-50%)", zIndex: 30, width: 68, height: 68, display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #071a14", fontFamily: "inherit", background: "#39e6b2", color: "#03120d", borderRadius: "50%", cursor: "pointer", boxShadow: "0 0 0 6px rgba(57,230,178,.12), 0 8px 30px rgba(57,230,178,.48)" }}>
+          <Plus size={30} sw={3} />
         </button>
       )}
 
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: "calc(80px + env(safe-area-inset-bottom))", background: "rgba(10,10,12,.92)", backdropFilter: "blur(16px)", borderTop: "1px solid #1c1c20", display: "flex", alignItems: "stretch", padding: "8px 16px calc(22px + env(safe-area-inset-bottom))", zIndex: 20 }}>
-        <NavBtn color={screen === "today" ? "#34d399" : "#6f6f78"} label="היום" onClick={() => goTo("today")}><Home size={24} /></NavBtn>
-        <NavBtn color={screen === "trends" ? "#34d399" : "#6f6f78"} label="מגמות" onClick={() => goTo("trends")}><Chart size={24} /></NavBtn>
-        <NavBtn color={screen === "foods" ? "#34d399" : "#6f6f78"} label="מאכלים" onClick={() => goTo("foods")}><ListIcon size={24} /></NavBtn>
+        <NavBtn color={screen === "today" ? "#39e6b2" : "#6f6f78"} label="היום" onClick={() => goTo("today")}><Home size={24} /></NavBtn>
+        <NavBtn color={screen === "trends" ? "#39e6b2" : "#6f6f78"} label="מגמות" onClick={() => goTo("trends")}><Chart size={24} /></NavBtn>
+        <NavBtn color={screen === "foods" ? "#39e6b2" : "#6f6f78"} label="מאכלים" onClick={() => goTo("foods")}><ListIcon size={24} /></NavBtn>
       </div>
 
       {addOpen && (
