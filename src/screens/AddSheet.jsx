@@ -8,7 +8,9 @@ const stepBtn = { width: 46, height: 46, border: "1px solid #26302f", background
 const round = (n) => Math.round(Number(n) || 0);
 
 // Add sheet — Quick / Manual / Photo. Opens over the active tab (design §2, "must be fast").
-export default function AddSheet({ tab, onTab, onClose, foods, form, onField, onToggleSave, onSubmit, onQuickAdd, photo, onPickPhoto, date, onDate, minDate, maxDate }) {
+const MEALS = [["breakfast", "בוקר"], ["lunch", "צהריים"], ["dinner", "ערב"], ["snack", "נשנוש"]];
+
+export default function AddSheet({ tab, onTab, onClose, foods, form, onField, onToggleSave, onSubmit, onQuickAdd, photo, onPickPhoto, date, onDate, minDate, maxDate, mealType, onMealType }) {
   const fileRef = useRef(null);
   const [q, setQ] = useState("");
   // ponytail: client-side substring filter on name; the list is tiny, no debounce needed.
@@ -45,6 +47,12 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, onField, on
             <label htmlFor="add-date" style={label}>תאריך</label>
             <input id="add-date" type="date" value={date} min={minDate} max={maxDate} onChange={(e) => onDate(e.target.value)}
               style={{ background: "#111718", border: "1px solid #26302f", borderRadius: 12, padding: "10px 12px", color: "#f4f4f5", fontSize: 15, fontFamily: "inherit", outline: "none", colorScheme: "dark" }} />
+          </div>
+          <div style={{ marginTop: 12 }}>
+            <label style={label}>ארוחה</label>
+            <div style={{ display: "flex", gap: 6 }}>
+              {MEALS.map(([type, title]) => <button key={type} onClick={() => onMealType(type)} style={{ flex: 1, border: `1px solid ${mealType === type ? "#39e6b2" : "#26302f"}`, background: mealType === type ? "rgba(57,230,178,.14)" : "#111718", color: mealType === type ? "#39e6b2" : "#8a8a93", borderRadius: 10, padding: "8px 4px", fontFamily: "inherit", fontSize: 12, fontWeight: 800, cursor: "pointer" }}>{title}</button>)}
+            </div>
           </div>
         </div>
 

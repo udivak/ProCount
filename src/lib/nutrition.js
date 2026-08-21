@@ -16,6 +16,39 @@ export function remainingProtein(total, goal) {
   return Math.max(0, goal - total);
 }
 
+export const MEAL_TYPES = ["breakfast", "lunch", "dinner", "snack"];
+
+// Returns populated meal groups in display order. Legacy entries (before meal_type)
+// belong in snacks rather than being hidden or guessed from their creation time.
+export function entriesByMeal(entries) {
+  const groups = Object.fromEntries(MEAL_TYPES.map((type) => [type, []]));
+  for (const entry of entries) groups[groups[entry.meal_type] ? entry.meal_type : "snack"].push(entry);
+  return MEAL_TYPES.map((type) => ({
+    type,
+    entries: groups[type],
+    protein: groups[type].reduce((sum, entry) => sum + (Number(entry.protein_g) || 0), 0),
+  })).filter((group) => group.entries.length);
+}
+
+// Finds the closest saved-food serving or two-serving combination that covers the
+// remaining protein without exceeding it by more than maxOverage grams.
+export function proteinSuggestion(foods, remaining, maxOverage = 10) {
+  const needed = Number(remaining) || 0;
+  if (!(needed > 0)) return null;
+  const eligible = foods.filter((food) => (Number(food.protein_g) || 0) > 0);
+  let best = null;
+  const consider = (chosen) => {
+    const protein = chosen.reduce((sum, food) => sum + (Number(food.protein_g) || 0), 0);
+    if (protein < needed || protein > needed + maxOverage) return;
+    if (!best || protein < best.protein) best = { foods: chosen, protein };
+  };
+  for (let i = 0; i < eligible.length; i++) {
+    consider([eligible[i]]);
+    for (let j = i + 1; j < eligible.length; j++) consider([eligible[i], eligible[j]]);
+  }
+  return best;
+}
+
 export function pct(total, goal) {
   return goal > 0 ? Math.min(1, total / goal) : 0;
 }

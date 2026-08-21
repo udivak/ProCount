@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useData, RANGE_DAYS } from "./store.js";
 import { headerDate, lastNDates, lastNWeeks, weekdayLabel, weekRangeLabel, shiftDate, dayLabel, greeting } from "./lib/date.js";
-import { dailyTotals, remainingProtein, pct, streak, proteinByDay, weekSeries, weeklyAverageSeries, avgCaloriesPerActiveDay, average } from "./lib/nutrition.js";
+import { dailyTotals, remainingProtein, pct, streak, proteinByDay, weekSeries, weeklyAverageSeries, avgCaloriesPerActiveDay, average, entriesByMeal, proteinSuggestion } from "./lib/nutrition.js";
 import { Gear, Home, Chart, ListIcon, Plus, Utensils } from "./lib/icons.jsx";
 import Today from "./screens/Today.jsx";
 import Trends from "./screens/Trends.jsx";
@@ -38,6 +38,7 @@ export default function App({ session }) {
   const [chartRange, setChartRange] = useState("week"); // "week" | "month" — Trends bar chart range
   const [selectedDay, setSelectedDay] = useState(today); // which day the Today screen shows
   const [addDate, setAddDate] = useState(today); // which day the add sheet logs onto
+  const [mealType, setMealType] = useState("snack");
 
   // ponytail: nav clamped to the loaded window; fetch older entries on demand if you ever need >35 days back.
   const oldest = lastNDates(RANGE_DAYS)[0];
@@ -54,7 +55,7 @@ export default function App({ session }) {
 
     const todayEntries = todays.map((e) => {
       const s = SOURCE[e.source] || SOURCE.manual;
-      return { id: e.id, name: e.name || "רישום ללא שם", sub: s.sub, tag: s.tag, iconBg: s.iconBg, iconColor: s.iconColor, protein: round(e.protein_g), calories: round(e.calories), grams: e.grams == null ? null : Number(e.grams), proteinRaw: Number(e.protein_g) || 0 };
+      return { ...e, id: e.id, name: e.name || "רישום ללא שם", sub: s.sub, tag: s.tag, iconBg: s.iconBg, iconColor: s.iconColor, protein: round(e.protein_g), calories: round(e.calories), grams: e.grams == null ? null : Number(e.grams), proteinRaw: Number(e.protein_g) || 0 };
     });
 
     const dates = lastNDates(7);
@@ -84,6 +85,8 @@ export default function App({ session }) {
       remaining: round(remainingProtein(t.protein, goal)),
       ringOffset: Math.round(490 * (1 - pctVal)),
       todayEntries,
+      mealGroups: entriesByMeal(todayEntries),
+      suggestion: proteinSuggestion(foods, remainingProtein(t.protein, goal)),
       bars,
       heading,
       goalY: Math.round((Math.min(goal, SCALE) / SCALE) * CHART_H),
@@ -99,15 +102,15 @@ export default function App({ session }) {
   const header = { today: { sub: headerDate(), title: "ProCount", greet: greeting(data.name || data.email.split("@")[0]) }, trends: { sub: "מעקב לאורך זמן", title: "מגמות" }, foods: { sub: "התבניות שלי", title: "מאכלים שלי" }, mealPlan: { sub: "התזונה שלך", title: "תפריט" } }[screen];
 
   // ---- actions ----
-  const openAdd = () => { setForm(blankForm()); setAddDate(selectedDay); setPhoto({ state: "idle", note: "", error: null }); setAddTab("quick"); setAddOpen(true); };
-  const openAddManual = () => { setForm(blankForm()); setAddDate(selectedDay); setAddTab("manual"); setAddOpen(true); };
+  const openAdd = () => { setForm(blankForm()); setMealType("snack"); setAddDate(selectedDay); setPhoto({ state: "idle", note: "", error: null }); setAddTab("quick"); setAddOpen(true); };
+  const openAddManual = () => { setForm(blankForm()); setMealType("snack"); setAddDate(selectedDay); setAddTab("manual"); setAddOpen(true); };
   const onTab = (tab) => { setAddTab(tab); setPhoto({ state: "idle", note: "", error: null }); };
 
-  const quickAdd = (foodRow, qty) => { data.addQuick(foodRow.raw || foodRow, qty, addDate); setSelectedDay(addDate); setAddOpen(false); };
+  const quickAdd = (foodRow, qty) => { data.addQuick(foodRow.raw || foodRow, qty, addDate, mealType); setSelectedDay(addDate); setAddOpen(false); };
 
   const submitAdd = async () => {
-    if (addTab === "photo") await data.addAi(form, addDate);
-    else await data.addManual(form, addDate);
+    if (addTab === "photo") await data.addAi(form, addDate, mealType);
+    else await data.addManual(form, addDate, mealType);
     setForm(blankForm());
     setSelectedDay(addDate); // jump the view to the day we just logged onto
     setAddOpen(false);
@@ -144,7 +147,7 @@ export default function App({ session }) {
       </div>
 
       <div className="pc-scroll" style={{ flex: 1, overflowY: "auto", padding: "0 20px calc(110px + env(safe-area-inset-bottom))" }}>
-        {screen === "today" && <Today totals={vm.totals} goal={goal} ringOffset={vm.ringOffset} remaining={vm.remaining} entries={vm.todayEntries} onDelete={(id) => setConfirm({ title: "מחיקת רישום", body: "הרישום יימחק מהיום.", confirmLabel: "מחק", onConfirm: () => data.deleteEntry(id) })} onSelect={setSelectedEntry} dayLabel={dayLabel(selectedDay, today)} isToday={selectedDay === today} onToday={() => setSelectedDay(today)} onPrev={prevDay} onNext={nextDay} canPrev={canPrev} canNext={canNext} />}
+        {screen === "today" && <Today totals={vm.totals} goal={goal} ringOffset={vm.ringOffset} remaining={vm.remaining} mealGroups={vm.mealGroups} suggestion={vm.suggestion} onDelete={(id) => setConfirm({ title: "מחיקת רישום", body: "הרישום יימחק מהיום.", confirmLabel: "מחק", onConfirm: () => data.deleteEntry(id) })} onSelect={setSelectedEntry} dayLabel={dayLabel(selectedDay, today)} isToday={selectedDay === today} onToday={() => setSelectedDay(today)} onPrev={prevDay} onNext={nextDay} canPrev={canPrev} canNext={canNext} />}
         {screen === "trends" && <Trends goal={goal} streak={vm.streak} avg={vm.avg} bars={vm.bars} goalY={vm.goalY} calAvg={vm.calAvg} heading={vm.heading} range={chartRange} onRange={setChartRange} />}
         {screen === "foods" && <MyFoods foods={vm.foodVm} onNew={openAddManual} onEdit={(f) => setEditFood(f.raw)} />}
         {screen === "mealPlan" && <MealPlan />}
@@ -167,7 +170,7 @@ export default function App({ session }) {
         <AddSheet tab={addTab} onTab={onTab} onClose={() => setAddOpen(false)} foods={vm.foodVm} form={form}
           onField={(k, v) => setForm((f) => ({ ...f, [k]: v }))} onToggleSave={() => setForm((f) => ({ ...f, save: !f.save }))}
           onSubmit={submitAdd} onQuickAdd={quickAdd} photo={{ ...photo, quota: vm.aiQuota }} onPickPhoto={pickPhoto}
-          date={addDate} onDate={setAddDate} minDate={oldest} maxDate={today} />
+          date={addDate} onDate={setAddDate} minDate={oldest} maxDate={today} mealType={mealType} onMealType={setMealType} />
       )}
 
       {settingsOpen && (

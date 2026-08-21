@@ -43,7 +43,7 @@ export function useData(session) {
     return { data, error };
   }, [today]);
 
-  const addQuick = useCallback((food, qty = 1, date) => {
+  const addQuick = useCallback((food, qty = 1, date, mealType = "snack") => {
     const n = Number(qty) || 1; // servings; foods store per-1-serving macros
     const perServingG = gramsPerServing(food.unit); // grams if the unit is gram-denominated, else null
     return addEntry({
@@ -53,15 +53,16 @@ export function useData(session) {
       grams: perServingG != null ? perServingG * n : null,
       source: "saved",
       food_id: food.id,
+      meal_type: mealType,
     }, date);
   }, [addEntry]);
 
-  const addManual = useCallback(async ({ name, protein, calories, grams, save }, date) => {
+  const addManual = useCallback(async ({ name, protein, calories, grams, save }, date, mealType = "snack") => {
     const p = parseFloat(protein) || 0;
     const c = parseFloat(calories) || 0;
     const g = grams === "" || grams == null ? null : parseFloat(grams) || null;
     const nm = (name || "").trim() || "רישום ללא שם";
-    await addEntry({ name: nm, protein_g: p, calories: c, grams: g, source: "manual" }, date);
+    await addEntry({ name: nm, protein_g: p, calories: c, grams: g, source: "manual", meal_type: mealType }, date);
     if (save) {
       const { data } = await supabase
         .from("foods").insert({ name: nm, unit: "מותאם", protein_g: p, calories: c }).select().single();
@@ -69,7 +70,7 @@ export function useData(session) {
     }
   }, [addEntry]);
 
-  const addAi = useCallback(async ({ name, protein, calories, grams, save }, date) => {
+  const addAi = useCallback(async ({ name, protein, calories, grams, save }, date, mealType = "snack") => {
     const p = parseFloat(protein) || 0;
     const c = parseFloat(calories) || 0;
     const nm = (name || "").trim() || "רישום ללא שם";
@@ -79,6 +80,7 @@ export function useData(session) {
       calories: c,
       grams: grams === "" || grams == null ? null : parseFloat(grams) || null,
       source: "ai",
+      meal_type: mealType,
     }, date);
     if (save) {
       const { data } = await supabase
