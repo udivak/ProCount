@@ -44,6 +44,7 @@ button:focus-visible { outline: 2px solid #39e6b2; outline-offset: 2px; }
 .today-neon { padding-top: 2px; }
 .today-daybar { display: flex; align-items: center; justify-content: space-between; margin: 4px 0 16px; }
 .today-daylabel { font-size: 17px; font-weight: 900; color: #f4f7f6; }
+.today-daycenter { display:flex; flex-direction:column; align-items:center; gap:3px; }.back-today { border:0; background:transparent; color:#39e6b2; font:700 11px Heebo,sans-serif; cursor:pointer; padding:0; }
 .day-arrow-neon { width: 42px; height: 42px; border: 1px solid #26302f; border-radius: 13px; background: #101516; color: #a6b0ae; font: 700 23px Heebo,sans-serif; cursor: pointer; }
 .day-arrow-neon:disabled { opacity: .35; cursor: default; }
 .hero-neon { position: relative; overflow: hidden; border: 1px solid #203532; border-radius: 27px; background: #0d1212; padding: 27px 18px 22px; text-align: center; }
