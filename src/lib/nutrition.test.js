@@ -1,7 +1,7 @@
 // Run: npm test   (node --test)
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { dailyTotals, remainingProtein, pct, streak, weekSeries, weeklyAverageSeries, proteinPer100g, gramsPerServing } from "./nutrition.js";
+import { dailyTotals, remainingProtein, pct, streak, weekSeries, weeklyAverageSeries, proteinPer100g, gramsPerServing, entriesByMeal, proteinSuggestion } from "./nutrition.js";
 
 test("dailyTotals sums one day, ignores others", () => {
   const e = [
@@ -88,4 +88,28 @@ test("weekSeries fills missing days with zero, in order", () => {
     { date: "2026-06-17", protein: 50 },
     { date: "2026-06-18", protein: 0 },
   ]);
+});
+
+test("entriesByMeal groups entries in meal order and keeps legacy entries in snacks", () => {
+  const groups = entriesByMeal([
+    { name: "snack", meal_type: "snack", protein_g: 9 },
+    { name: "lunch", meal_type: "lunch", protein_g: 30 },
+    { name: "legacy", protein_g: 5 },
+  ]);
+  assert.deepEqual(groups.map(({ type, protein, entries }) => ({ type, protein, names: entries.map((entry) => entry.name) })), [
+    { type: "lunch", protein: 30, names: ["lunch"] },
+    { type: "snack", protein: 14, names: ["snack", "legacy"] },
+  ]);
+});
+
+test("proteinSuggestion finds the closest one- or two-food match within 10g overage", () => {
+  const foods = [
+    { name: "יוגורט", protein_g: 20 },
+    { name: "ביצים", protein_g: 12 },
+    { name: "טונה", protein_g: 30 },
+  ];
+  assert.deepEqual(proteinSuggestion(foods, 32), { foods: [foods[0], foods[1]], protein: 32 });
+  assert.deepEqual(proteinSuggestion(foods, 25), { foods: [foods[2]], protein: 30 });
+  assert.equal(proteinSuggestion(foods, 55), null);
+  assert.equal(proteinSuggestion(foods, 0), null);
 });
