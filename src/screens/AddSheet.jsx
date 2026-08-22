@@ -11,7 +11,7 @@ const round = (n) => Math.round(Number(n) || 0);
 const MEALS = [["breakfast", "בוקר"], ["lunch", "צהריים"], ["dinner", "ערב"], ["snack", "נשנוש"]];
 const MEASURES = ["יחידה", "כף", "כפית", "כוס", "פרוסה", "סקופ", "קופסה", "מנה", "100 גרם"];
 
-export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFood, onOpenGeneral, onField, onToggleSave, onSubmit, onQuickAdd, photo, onPickPhoto, date, onDate, minDate, maxDate, mealType, onMealType }) {
+export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFood, onOpenGeneral, onField, onToggleSave, onSubmit, onQuickAdd, photo, onPickPhoto, photoGuidance, onPhotoGuidance, date, onDate, minDate, maxDate, mealType, onMealType }) {
   const cameraRef = useRef(null);
   const galleryRef = useRef(null);
   const [q, setQ] = useState("");
@@ -108,6 +108,14 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFo
             <div>
               <input ref={cameraRef} type="file" accept="image/*" capture="environment" hidden onChange={pickFile} />
               <input ref={galleryRef} type="file" accept="image/*" hidden onChange={pickFile} />
+
+              <div style={{ marginBottom: 14 }}>
+                <label style={label}>פרטים נוספים על המנה (אופציונלי)</label>
+                <textarea value={photoGuidance} onChange={(e) => onPhotoGuidance(e.target.value)} maxLength={1000} rows={3}
+                  placeholder="למשל: שווארמה הודו עם פיתה, טחינה וסלט. בערך 150 גרם בשר"
+                  aria-label="פרטים נוספים על המנה" style={{ ...input, resize: "vertical", lineHeight: 1.5 }} />
+                <div style={{ color: "#6f6f78", fontSize: 12, marginTop: 6 }}>המידע יעזור ל-AI לזהות מרכיבים וכמויות בתמונה.</div>
+              </div>
 
               {photo.state === "idle" && (
                 <div>
