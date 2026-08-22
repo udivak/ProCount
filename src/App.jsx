@@ -20,7 +20,7 @@ const SOURCE = {
   ai: { tag: "AI", iconBg: "rgba(167,139,250,.14)", iconColor: "#a78bfa", sub: "מצילום · AI" },
 };
 const round = (n) => Math.round(Number(n) || 0);
-const blankForm = () => ({ name: "", protein: "", calories: "", grams: "", save: false });
+const blankForm = () => ({ name: "", protein: "", calories: "", grams: "", unit: "מנה", save: false });
 
 export default function App({ session }) {
   const data = useData(session);
@@ -121,7 +121,7 @@ export default function App({ session }) {
     setPhoto({ state: "loading", note: "", error: null });
     const r = await data.analyzePhoto(file);
     if (r.estimate) {
-      setForm({ name: r.estimate.name || "", protein: String(round(r.estimate.protein_g)), calories: String(round(r.estimate.calories)), grams: "", save: false });
+      setForm({ name: r.estimate.name || "", protein: String(round(r.estimate.protein_g)), calories: String(round(r.estimate.calories)), grams: "", unit: "מנה", save: false });
       setPhoto({ state: "done", note: r.estimate.note || "", confidence: r.estimate.confidence, error: null });
     } else {
       // fall back to manual entry (design §6.5)

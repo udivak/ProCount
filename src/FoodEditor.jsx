@@ -5,13 +5,18 @@ import { X, Trash } from "./lib/icons.jsx";
 // matching the Add sheet. New food = empty object; edit = an existing food row.
 const inputStyle = { width: "100%", background: "#111718", border: "1px solid #26302f", borderRadius: 14, padding: 14, color: "#f4f4f5", fontSize: 16, fontFamily: "inherit", outline: "none" };
 const label = { fontSize: 13, fontWeight: 600, color: "#8a8a93", display: "block", marginBottom: 7 };
+const MEASURES = ["יחידה", "כף", "כפית", "כוס", "פרוסה", "סקופ", "קופסה", "מנה", "100 גרם"];
 
 export default function FoodEditor({ food, onSave, onDelete, onClose }) {
   const isEdit = !!food.id;
   const [name, setName] = useState(food.name || "");
-  const [unit, setUnit] = useState(food.unit || "");
+  const initialUnit = food.unit || "מנה";
+  const [selectedUnit, setSelectedUnit] = useState(MEASURES.includes(initialUnit) ? initialUnit : "אחר");
+  const [customUnit, setCustomUnit] = useState(MEASURES.includes(initialUnit) ? "" : initialUnit);
   const [protein, setProtein] = useState(food.protein_g != null ? String(food.protein_g) : "");
   const [calories, setCalories] = useState(food.calories != null ? String(food.calories) : "");
+  const unit = selectedUnit === "אחר" ? customUnit.trim() : selectedUnit;
+  const canSave = selectedUnit !== "אחר" || !!unit;
 
   return (
     <div style={{ position: "absolute", inset: 0, zIndex: 55, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
@@ -33,8 +38,12 @@ export default function FoodEditor({ food, onSave, onDelete, onClose }) {
             <input value={name} onChange={(e) => setName(e.target.value)} placeholder="למשל: חזה עוף" aria-label="שם" style={inputStyle} />
           </div>
           <div>
-            <label style={label}>מנה / יחידה</label>
-            <input value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="למשל: ל-100 גרם" aria-label="מנה או יחידה" style={inputStyle} />
+            <label style={label}>מידה יומית</label>
+            <select value={selectedUnit} onChange={(e) => setSelectedUnit(e.target.value)} aria-label="מידה יומית" style={inputStyle}>
+              {MEASURES.map((measure) => <option key={measure} value={measure}>{measure}</option>)}
+              <option value="אחר">אחר</option>
+            </select>
+            {selectedUnit === "אחר" && <input value={customUnit} onChange={(e) => setCustomUnit(e.target.value)} placeholder="למשל: חצי כוס" aria-label="מידה מותאמת" style={{ ...inputStyle, marginTop: 10 }} />}
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
@@ -47,7 +56,7 @@ export default function FoodEditor({ food, onSave, onDelete, onClose }) {
             </div>
           </div>
 
-          <button onClick={() => onSave({ id: food.id, name, unit, protein, calories })} style={{ marginTop: 4, border: "none", fontFamily: "inherit", background: "linear-gradient(180deg,#39e6b2,#16a985)", color: "#03120d", fontSize: 16, fontWeight: 800, padding: 15, borderRadius: 15, cursor: "pointer" }}>
+          <button disabled={!canSave} onClick={() => onSave({ id: food.id, name, unit, protein, calories })} style={{ marginTop: 4, border: "none", fontFamily: "inherit", background: "linear-gradient(180deg,#39e6b2,#16a985)", color: "#03120d", fontSize: 16, fontWeight: 800, padding: 15, borderRadius: 15, cursor: canSave ? "pointer" : "not-allowed", opacity: canSave ? 1 : .45 }}>
             {isEdit ? "שמור שינויים" : "הוסף מאכל"}
           </button>
 

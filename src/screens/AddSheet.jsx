@@ -9,6 +9,7 @@ const round = (n) => Math.round(Number(n) || 0);
 
 // Add sheet — Quick / Manual / Photo. Opens over the active tab (design §2, "must be fast").
 const MEALS = [["breakfast", "בוקר"], ["lunch", "צהריים"], ["dinner", "ערב"], ["snack", "נשנוש"]];
+const MEASURES = ["יחידה", "כף", "כפית", "כוס", "פרוסה", "סקופ", "קופסה", "מנה", "100 גרם"];
 
 export default function AddSheet({ tab, onTab, onClose, foods, form, onField, onToggleSave, onSubmit, onQuickAdd, photo, onPickPhoto, date, onDate, minDate, maxDate, mealType, onMealType }) {
   const cameraRef = useRef(null);
@@ -96,7 +97,7 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, onField, on
           )}
 
           {tab === "manual" && (
-            <ManualForm form={form} onField={onField} onToggleSave={onToggleSave} onSubmit={onSubmit} cta="הוסף לרישום" showSave />
+            <ManualForm form={form} onField={onField} onToggleSave={onToggleSave} onSubmit={onSubmit} cta="הוסף לרישום" showSave showMeasure />
           )}
 
           {tab === "photo" && (
@@ -193,7 +194,9 @@ function QtyPanel({ food, qty, setQty, onBack, onAdd }) {
 }
 
 // Shared name/protein/calories form — manual entry and the editable AI result.
-function ManualForm({ form, onField, onToggleSave, onSubmit, cta, showSave }) {
+function ManualForm({ form, onField, onToggleSave, onSubmit, cta, showSave, showMeasure = false }) {
+  const selectedUnit = MEASURES.includes(form.unit) ? form.unit : "אחר";
+  const customMeasureMissing = showMeasure && form.save && selectedUnit === "אחר" && !(form.unit || "").trim();
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div>
@@ -214,13 +217,24 @@ function ManualForm({ form, onField, onToggleSave, onSubmit, cta, showSave }) {
         <span style={{ width: 22, height: 22, display: "grid", placeItems: "center", borderRadius: 7, background: "#1f3831", color: "#39e6b2" }}>1</span>
         הערכים יישמרו עבור יחידה אחת
       </div>
+      {showMeasure && (
+        <div>
+          <label style={label}>מידה יומית</label>
+          <select value={selectedUnit} onChange={(e) => onField("unit", e.target.value === "אחר" ? "" : e.target.value)} aria-label="מידה יומית" style={input}>
+            {MEASURES.map((measure) => <option key={measure} value={measure}>{measure}</option>)}
+            <option value="אחר">אחר</option>
+          </select>
+          {selectedUnit === "אחר" && <input value={form.unit || ""} onChange={(e) => onField("unit", e.target.value)} placeholder="למשל: חצי כוס" aria-label="מידה מותאמת" style={{ ...input, marginTop: 10 }} />}
+          {customMeasureMissing && <div style={{ color: "#fb7185", fontSize: 12, fontWeight: 700, marginTop: 7 }}>יש להזין מידה מותאמת</div>}
+        </div>
+      )}
       {showSave && (
         <button onClick={onToggleSave} style={{ display: "flex", alignItems: "center", gap: 10, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", padding: 2 }}>
           <span style={{ width: 22, height: 22, borderRadius: 7, border: `2px solid ${form.save ? "#39e6b2" : "#3a3a42"}`, background: form.save ? "#39e6b2" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#03120d" }}>{form.save ? "✓" : ""}</span>
           <span style={{ fontSize: 14, fontWeight: 600, color: "#c4c4c9" }}>שמור למאכלים שלי</span>
         </button>
       )}
-      <button onClick={onSubmit} style={{ marginTop: 4, border: "none", fontFamily: "inherit", background: "linear-gradient(180deg,#39e6b2,#16a985)", color: "#03120d", fontSize: 16, fontWeight: 800, padding: 15, borderRadius: 15, cursor: "pointer" }}>{cta}</button>
+      <button disabled={customMeasureMissing} onClick={onSubmit} style={{ marginTop: 4, border: "none", fontFamily: "inherit", background: "linear-gradient(180deg,#39e6b2,#16a985)", color: "#03120d", fontSize: 16, fontWeight: 800, padding: 15, borderRadius: 15, cursor: customMeasureMissing ? "not-allowed" : "pointer", opacity: customMeasureMissing ? .45 : 1 }}>{cta}</button>
     </div>
   );
 }

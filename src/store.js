@@ -57,7 +57,7 @@ export function useData(session) {
     }, date);
   }, [addEntry]);
 
-  const addManual = useCallback(async ({ name, protein, calories, grams, save }, date, mealType = "snack") => {
+  const addManual = useCallback(async ({ name, protein, calories, grams, unit, save }, date, mealType = "snack") => {
     const p = parseFloat(protein) || 0;
     const c = parseFloat(calories) || 0;
     const g = grams === "" || grams == null ? null : parseFloat(grams) || null;
@@ -65,7 +65,7 @@ export function useData(session) {
     await addEntry({ name: nm, protein_g: p, calories: c, grams: g, source: "manual", meal_type: mealType }, date);
     if (save) {
       const { data } = await supabase
-        .from("foods").insert({ name: nm, unit: "מותאם", protein_g: p, calories: c }).select().single();
+        .from("foods").insert({ name: nm, unit: (unit || "מנה").trim(), protein_g: p, calories: c }).select().single();
       if (data) setFoods((cur) => [data, ...cur]);
     }
   }, [addEntry]);
