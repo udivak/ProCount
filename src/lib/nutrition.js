@@ -53,6 +53,17 @@ export function pct(total, goal) {
   return goal > 0 ? Math.min(1, total / goal) : 0;
 }
 
+// Compare protein-goal progress with the elapsed local calendar day. Historical
+// days omit this calculation so they never use the current clock.
+export function dailyPace(total, goal, now = new Date()) {
+  const elapsed = (now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds()) / 86400;
+  const progressPct = Math.round(pct(total, goal) * 100);
+  const elapsedPct = Math.round(elapsed * 100);
+  const delta = progressPct - elapsedPct;
+  const status = delta >= 0 ? "excellent" : delta >= -15 ? "good" : "behind";
+  return { progressPct, elapsedPct, status };
+}
+
 // { 'YYYY-MM-DD': proteinTotal }
 export function proteinByDay(entries) {
   const m = {};
