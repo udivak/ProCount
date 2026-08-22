@@ -1,7 +1,12 @@
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+:root {
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --bottom-nav-bottom-padding: max(8px, var(--safe-area-bottom));
+  --bottom-nav-height: calc(56px + var(--bottom-nav-bottom-padding));
+}
 html, body {
   margin: 0;
-  height: 100dvh;            /* dynamic viewport; tracks Chrome's toolbar show/hide */
+  height: 100%;
   background: #070a0a;       /* covers safe-area-inset-top behind the status bar */
   overflow: hidden;          /* document is not a scroll container */
   overscroll-behavior: none; /* no rubber-band elastic effect */
@@ -26,6 +31,17 @@ body {
   flex-direction: column;
 }
 
+/* Browser tabs need the dynamic viewport so their toolbar can expand/collapse.
+   Installed apps have no browser toolbar; pinning the shell to the viewport edges
+   avoids iOS standalone builds that under-report 100dvh. */
+@media (display-mode: standalone), (display-mode: fullscreen) {
+  .app {
+    position: fixed;
+    inset: 0;
+    height: auto;
+  }
+}
+
 /* Animations from the prototype. */
 @keyframes sheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -35,6 +51,21 @@ body {
 
 .pc-scroll { scrollbar-width: none; }
 .pc-scroll::-webkit-scrollbar { display: none; }
+.app-scroll { padding: 0 20px calc(var(--bottom-nav-height) + 30px); }
+
+.bottom-nav {
+  position: absolute;
+  inset: auto 0 0;
+  height: var(--bottom-nav-height);
+  padding: 8px 16px var(--bottom-nav-bottom-padding);
+  background: rgba(10,10,12,.92);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border-top: 1px solid #1c1c20;
+  display: flex;
+  align-items: stretch;
+  z-index: 20;
+}
 
 input::placeholder { color: #5f5f68; }
 input { -webkit-appearance: none; }
@@ -74,6 +105,7 @@ button:focus-visible { outline: 2px solid #39e6b2; outline-offset: 2px; }
 /* Hover states (the prototype's style-hover, as classes). */
 .h-gear:hover { background: #1e1e23 !important; color: #f4f4f5 !important; }
 .h-del:hover { background: #241619 !important; color: #fb7185 !important; }
+.h-fab { bottom: calc(var(--bottom-nav-height) + 12px); }
 .h-fab:hover { filter: brightness(1.08); transform: translateX(-50%) scale(1.04) !important; }
 .h-newfood:hover { background: #1a2a22 !important; }
 .h-quick:hover { border-color: #39e6b2 !important; background: #101918 !important; }
