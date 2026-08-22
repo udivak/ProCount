@@ -1,7 +1,7 @@
 // Run: npm test   (node --test)
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { dailyTotals, remainingProtein, pct, streak, weekSeries, weeklyAverageSeries, proteinPer100g, gramsPerServing, entriesByMeal, proteinSuggestion } from "./nutrition.js";
+import { dailyTotals, remainingProtein, pct, dailyPace, streak, weekSeries, weeklyAverageSeries, proteinPer100g, gramsPerServing, entriesByMeal, proteinSuggestion } from "./nutrition.js";
 
 test("dailyTotals sums one day, ignores others", () => {
   const e = [
@@ -25,6 +25,13 @@ test("pct caps at 1 and guards a zero goal", () => {
   assert.equal(pct(0, 175), 0);
   assert.equal(pct(350, 175), 1);
   assert.equal(pct(50, 0), 0);
+});
+
+test("dailyPace labels protein progress against the elapsed local day", () => {
+  const noon = new Date(2026, 7, 22, 12, 0, 0);
+  assert.deepEqual(dailyPace(90, 150, noon), { progressPct: 60, elapsedPct: 50, status: "excellent" });
+  assert.deepEqual(dailyPace(60, 150, noon), { progressPct: 40, elapsedPct: 50, status: "good" });
+  assert.deepEqual(dailyPace(30, 150, noon), { progressPct: 20, elapsedPct: 50, status: "behind" });
 });
 
 test("streak: today below goal doesn't break a prior run", () => {

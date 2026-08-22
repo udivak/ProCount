@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { X, Camera, Info } from "../lib/icons.jsx";
+import { X, Camera, ImageIcon, Info } from "../lib/icons.jsx";
 
 const input = { width: "100%", background: "#111718", border: "1px solid #26302f", borderRadius: 14, padding: 14, color: "#f4f4f5", fontSize: 16, fontFamily: "inherit", outline: "none" };
 const label = { fontSize: 13, fontWeight: 600, color: "#8a8a93", display: "block", marginBottom: 7 };
@@ -9,9 +9,11 @@ const round = (n) => Math.round(Number(n) || 0);
 
 // Add sheet — Quick / Manual / Photo. Opens over the active tab (design §2, "must be fast").
 const MEALS = [["breakfast", "בוקר"], ["lunch", "צהריים"], ["dinner", "ערב"], ["snack", "נשנוש"]];
+const MEASURES = ["יחידה", "כף", "כפית", "כוס", "פרוסה", "סקופ", "קופסה", "מנה", "100 גרם"];
 
-export default function AddSheet({ tab, onTab, onClose, foods, form, onField, onToggleSave, onSubmit, onQuickAdd, photo, onPickPhoto, date, onDate, minDate, maxDate, mealType, onMealType }) {
-  const fileRef = useRef(null);
+export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFood, onOpenGeneral, onField, onToggleSave, onSubmit, onQuickAdd, photo, onPickPhoto, date, onDate, minDate, maxDate, mealType, onMealType }) {
+  const cameraRef = useRef(null);
+  const galleryRef = useRef(null);
   const [q, setQ] = useState("");
   // ponytail: client-side substring filter on name; the list is tiny, no debounce needed.
   const ql = q.trim().toLowerCase();
@@ -24,6 +26,12 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, onField, on
     return (
       <button onClick={() => onTab(key)} style={{ flex: 1, border: "none", fontFamily: "inherit", fontSize: 13, fontWeight: 800, padding: 9, borderRadius: 10, cursor: "pointer", background: active ? "#39e6b2" : "transparent", color: active ? "#03120d" : "#8a8a93" }}>{text}</button>
     );
+  };
+
+  const pickFile = (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (file) onPickPhoto(file);
   };
 
   return (
@@ -60,45 +68,50 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, onField, on
           {tab === "quick" && (
             picking ? (
               <QtyPanel food={picking} qty={qty} setQty={setQty} onBack={() => setPicking(null)} onAdd={() => onQuickAdd(picking, qty)} />
-            ) : foods.length === 0 ? (
-              <div style={{ textAlign: "center", color: "#5f5f68", fontSize: 14, padding: "20px 0" }}>אין מאכלים שמורים — הוסף דרך "ידני" עם סימון "שמור"</div>
             ) : (
               <>
-                <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="חיפוש מאכל…" aria-label="חיפוש מאכל"
-                  style={{ ...input, marginBottom: 12 }} />
-                <button onClick={() => onTab("manual")} style={{ width: "100%", marginBottom: 14, border: "1px dashed #2d6354", background: "#0e1c19", color: "#39e6b2", borderRadius: 14, padding: "11px 14px", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 800 }}>
-                  + מאכל שלא במאגר · הזנה מהירה ליחידה אחת
+                <button onClick={onOpenGeneral} style={{ width: "100%", marginBottom: 14, border: "1px dashed #2d6354", background: "#0e1c19", color: "#39e6b2", borderRadius: 14, padding: "11px 14px", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 800 }}>
+                  + מוצר כללי · הזן ערכים למידה אחת
                 </button>
-                {shown.length === 0 ? (
-                  <div style={{ textAlign: "center", color: "#5f5f68", fontSize: 14, padding: "20px 0" }}>לא נמצא מאכל בשם זה</div>
+                {foods.length === 0 ? (
+                  <div style={{ textAlign: "center", color: "#5f5f68", fontSize: 14, padding: "20px 0" }}>אין מאכלים שמורים עדיין</div>
                 ) : (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10 }}>
-                    {shown.map((f) => (
-                      <button key={f.id} className="h-quick" onClick={() => { setPicking(f); setQty(Number(f.raw?.default_qty) || 1); }} style={{ textAlign: "right", border: "1px solid #232328", background: "#111718", borderRadius: 16, padding: 14, cursor: "pointer", fontFamily: "inherit", display: "flex", flexDirection: "column", gap: 8 }}>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: "#f4f4f5", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.name}</div>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", direction: "ltr" }}>
-                          <span style={{ fontSize: 13, fontWeight: 800, color: "#39e6b2", direction: "rtl" }}>{f.protein}g חלבון</span>
-                          <span style={{ fontSize: 12, fontWeight: 700, color: "#7a7a82", direction: "rtl" }}>{f.calories} קל׳</span>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
+                  <>
+                    <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="חיפוש מאכל…" aria-label="חיפוש מאכל"
+                      style={{ ...input, marginBottom: 12 }} />
+                    {shown.length === 0 ? (
+                      <div style={{ textAlign: "center", color: "#5f5f68", fontSize: 14, padding: "20px 0" }}>לא נמצא מאכל בשם זה</div>
+                    ) : (
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10 }}>
+                        {shown.map((f) => (
+                          <button key={f.id} className="h-quick" onClick={() => { setPicking(f); setQty(Number(f.raw?.default_qty) || 1); }} style={{ textAlign: "right", border: "1px solid #232328", background: "#111718", borderRadius: 16, padding: 14, cursor: "pointer", fontFamily: "inherit", display: "flex", flexDirection: "column", gap: 8 }}>
+                            <div style={{ fontSize: 14, fontWeight: 700, color: "#f4f4f5", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.name}</div>
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", direction: "ltr" }}>
+                              <span style={{ fontSize: 13, fontWeight: 800, color: "#39e6b2", direction: "rtl" }}>{f.protein}g חלבון</span>
+                              <span style={{ fontSize: 12, fontWeight: 700, color: "#7a7a82", direction: "rtl" }}>{f.calories} קל׳</span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </>
                 )}
               </>
             )
           )}
 
           {tab === "manual" && (
-            <ManualForm form={form} onField={onField} onToggleSave={onToggleSave} onSubmit={onSubmit} cta="הוסף לרישום" showSave />
+            <ManualForm form={form} onField={onField} onToggleSave={onToggleSave} onSubmit={onSubmit} cta="הוסף לרישום" showSave showMeasure requireAll={isGeneralFood} />
           )}
 
           {tab === "photo" && (
             <div>
-              <input ref={fileRef} type="file" accept="image/*" capture="environment" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) onPickPhoto(f); }} />
+              <input ref={cameraRef} type="file" accept="image/*" capture="environment" hidden onChange={pickFile} />
+              <input ref={galleryRef} type="file" accept="image/*" hidden onChange={pickFile} />
 
               {photo.state === "idle" && (
                 <div>
-                  <button className="h-drop" onClick={() => fileRef.current?.click()} style={{ width: "100%", border: "2px dashed #2e2e36", background: "#141417", borderRadius: 20, padding: "38px 20px", cursor: "pointer", fontFamily: "inherit", display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
+                  <div style={{ width: "100%", border: "2px dashed #2e2e36", background: "#141417", borderRadius: 20, padding: "32px 20px", display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
                     <div style={{ width: 64, height: 64, borderRadius: 20, background: "rgba(52,211,153,.12)", display: "flex", alignItems: "center", justifyContent: "center", color: "#39e6b2" }}>
                       <Camera size={30} />
                     </div>
@@ -106,7 +119,15 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, onField, on
                       <div style={{ fontSize: 16, fontWeight: 700, color: "#f4f4f5" }}>צלם או בחר תמונה</div>
                       <div style={{ fontSize: 13, color: "#6f6f78", marginTop: 3 }}>Claude יאמוד חלבון וקלוריות</div>
                     </div>
-                  </button>
+                    <div style={{ width: "100%", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                      <button className="h-drop" onClick={() => cameraRef.current?.click()} style={{ border: "1px solid #1f3831", background: "#101918", color: "#39e6b2", borderRadius: 14, padding: "12px 8px", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
+                        <Camera size={17} /> צלם עכשיו
+                      </button>
+                      <button className="h-drop" onClick={() => galleryRef.current?.click()} style={{ border: "1px solid #26302f", background: "#111718", color: "#c4c4c9", borderRadius: 14, padding: "12px 8px", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
+                        <ImageIcon size={17} /> בחר מהגלריה
+                      </button>
+                    </div>
+                  </div>
                   {photo.error ? (
                     <div style={{ marginTop: 14, textAlign: "center", fontSize: 13, fontWeight: 600, color: "#fb7185" }}>{photo.error}</div>
                   ) : (
@@ -177,34 +198,55 @@ function QtyPanel({ food, qty, setQty, onBack, onAdd }) {
 }
 
 // Shared name/protein/calories form — manual entry and the editable AI result.
-function ManualForm({ form, onField, onToggleSave, onSubmit, cta, showSave }) {
+function ManualForm({ form, onField, onToggleSave, onSubmit, cta, showSave, showMeasure = false, requireAll = false }) {
+  const selectedUnit = MEASURES.includes(form.unit) ? form.unit : "אחר";
+  const customMeasureMissing = showMeasure && form.save && selectedUnit === "אחר" && !(form.unit || "").trim();
+  const validNumber = (value) => String(value ?? "").trim() !== "" && Number.isFinite(Number(value)) && Number(value) >= 0;
+  const invalidName = requireAll && !(form.name || "").trim();
+  const invalidProtein = requireAll && !validNumber(form.protein);
+  const invalidCalories = requireAll && !validNumber(form.calories);
+  const invalidGeneralFood = invalidName || invalidProtein || invalidCalories;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div>
-        <label style={label}>שם {showSave ? "(אופציונלי)" : ""}</label>
+        <label style={label}>שם {showSave && !requireAll ? "(אופציונלי)" : ""}</label>
         <input value={form.name} onChange={(e) => onField("name", e.target.value)} placeholder="למשל: חזה עוף" aria-label="שם" style={input} />
+        {invalidName && <div style={{ color: "#fb7185", fontSize: 12, fontWeight: 700, marginTop: 7 }}>יש להזין שם למאכל</div>}
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         <div>
           <label style={label}>חלבון (גרם)</label>
           <input value={form.protein} onChange={(e) => onField("protein", e.target.value)} inputMode="decimal" aria-label="חלבון בגרמים" placeholder="0" style={{ ...input, color: "#39e6b2", fontSize: 18, fontWeight: 800 }} />
+          {invalidProtein && <div style={{ color: "#fb7185", fontSize: 12, fontWeight: 700, marginTop: 7 }}>יש להזין חלבון תקין</div>}
         </div>
         <div>
           <label style={label}>קלוריות</label>
           <input value={form.calories} onChange={(e) => onField("calories", e.target.value)} inputMode="decimal" aria-label="קלוריות" placeholder="0" style={{ ...input, color: "#25b9ff", fontSize: 18, fontWeight: 800 }} />
+          {invalidCalories && <div style={{ color: "#fb7185", fontSize: 12, fontWeight: 700, marginTop: 7 }}>יש להזין קלוריות תקינות</div>}
         </div>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#697874", fontSize: 12, fontWeight: 700 }}>
         <span style={{ width: 22, height: 22, display: "grid", placeItems: "center", borderRadius: 7, background: "#1f3831", color: "#39e6b2" }}>1</span>
         הערכים יישמרו עבור יחידה אחת
       </div>
+      {showMeasure && (
+        <div>
+          <label style={label}>מידה יומית</label>
+          <select value={selectedUnit} onChange={(e) => onField("unit", e.target.value === "אחר" ? "" : e.target.value)} aria-label="מידה יומית" style={input}>
+            {MEASURES.map((measure) => <option key={measure} value={measure}>{measure}</option>)}
+            <option value="אחר">אחר</option>
+          </select>
+          {selectedUnit === "אחר" && <input value={form.unit || ""} onChange={(e) => onField("unit", e.target.value)} placeholder="למשל: חצי כוס" aria-label="מידה מותאמת" style={{ ...input, marginTop: 10 }} />}
+          {customMeasureMissing && <div style={{ color: "#fb7185", fontSize: 12, fontWeight: 700, marginTop: 7 }}>יש להזין מידה מותאמת</div>}
+        </div>
+      )}
       {showSave && (
         <button onClick={onToggleSave} style={{ display: "flex", alignItems: "center", gap: 10, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", padding: 2 }}>
           <span style={{ width: 22, height: 22, borderRadius: 7, border: `2px solid ${form.save ? "#39e6b2" : "#3a3a42"}`, background: form.save ? "#39e6b2" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#03120d" }}>{form.save ? "✓" : ""}</span>
           <span style={{ fontSize: 14, fontWeight: 600, color: "#c4c4c9" }}>שמור למאכלים שלי</span>
         </button>
       )}
-      <button onClick={onSubmit} style={{ marginTop: 4, border: "none", fontFamily: "inherit", background: "linear-gradient(180deg,#39e6b2,#16a985)", color: "#03120d", fontSize: 16, fontWeight: 800, padding: 15, borderRadius: 15, cursor: "pointer" }}>{cta}</button>
+      <button disabled={customMeasureMissing || invalidGeneralFood} onClick={onSubmit} style={{ marginTop: 4, border: "none", fontFamily: "inherit", background: "linear-gradient(180deg,#39e6b2,#16a985)", color: "#03120d", fontSize: 16, fontWeight: 800, padding: 15, borderRadius: 15, cursor: customMeasureMissing || invalidGeneralFood ? "not-allowed" : "pointer", opacity: customMeasureMissing || invalidGeneralFood ? .45 : 1 }}>{cta}</button>
     </div>
   );
 }
