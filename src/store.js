@@ -127,12 +127,12 @@ export function useData(session) {
   }, []);
 
   // Compress client-side then POST to the edge function. Returns { estimate } or { error }.
-  const analyzePhoto = useCallback(async (file) => {
+  const analyzePhoto = useCallback(async (file, guidance = "") => {
     const image = await compressToBase64(file);
     const res = await fetch(`${FUNCTIONS_URL}/analyze-food-photo`, {
       method: "POST",
       headers: { "content-type": "application/json", Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ image, mediaType: "image/jpeg" }),
+      body: JSON.stringify({ image, mediaType: "image/jpeg", guidance: guidance.trim() }),
     });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) return { error: body.error || "error", status: res.status };

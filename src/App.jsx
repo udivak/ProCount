@@ -34,6 +34,7 @@ export default function App({ session }) {
   const [isGeneralFood, setIsGeneralFood] = useState(false);
   const [form, setForm] = useState(blankForm());
   const [photo, setPhoto] = useState({ state: "idle", note: "", error: null });
+  const [photoGuidance, setPhotoGuidance] = useState("");
   const [editFood, setEditFood] = useState(null); // null | {} (new) | foodRow (edit)
   const [selectedEntry, setSelectedEntry] = useState(null); // null | a todayEntries vm item (detail modal)
   const [confirm, setConfirm] = useState(null); // null | { title, body, confirmLabel, onConfirm } — delete guard
@@ -105,18 +106,20 @@ export default function App({ session }) {
   const header = { today: { sub: headerDate(), title: "ProCount", greet: greeting(data.name || data.email.split("@")[0]) }, trends: { sub: "מעקב לאורך זמן", title: "מגמות" }, foods: { sub: "התבניות שלי", title: "מאכלים שלי" }, mealPlan: { sub: "התזונה שלך", title: "תפריט" } }[screen];
 
   // ---- actions ----
-  const openAdd = () => { setForm(blankForm()); setMealType("snack"); setAddDate(selectedDay); setPhoto({ state: "idle", note: "", error: null }); setAddTab("quick"); setIsGeneralFood(false); setAddOpen(true); };
+  const openAdd = () => { setForm(blankForm()); setMealType("snack"); setAddDate(selectedDay); setPhoto({ state: "idle", note: "", error: null }); setPhotoGuidance(""); setAddTab("quick"); setIsGeneralFood(false); setAddOpen(true); };
   const openAddManual = () => { setForm(blankForm()); setMealType("snack"); setAddDate(selectedDay); setAddTab("manual"); setIsGeneralFood(false); setAddOpen(true); };
   const openGeneralFood = () => { setForm(blankForm()); setAddTab("manual"); setIsGeneralFood(true); };
   const onTab = (tab) => { setAddTab(tab); setIsGeneralFood(false); setPhoto({ state: "idle", note: "", error: null }); };
 
-  const quickAdd = (foodRow, qty) => { data.addQuick(foodRow.raw || foodRow, qty, addDate, mealType); setSelectedDay(addDate); setAddOpen(false); };
+  const discardAdd = () => { setForm(blankForm()); setPhoto({ state: "idle", note: "", error: null }); setPhotoGuidance(""); setAddOpen(false); };
+  const quickAdd = (foodRow, qty) => { data.addQuick(foodRow.raw || foodRow, qty, addDate, mealType); setSelectedDay(addDate); discardAdd(); };
 
   const submitAdd = async () => {
     if (isGeneralFood && (!(form.name || "").trim() || !isNonNegative(form.protein) || !isNonNegative(form.calories))) return;
     if (addTab === "photo") await data.addAi(form, addDate, mealType);
     else await data.addManual(form, addDate, mealType);
     setForm(blankForm());
+    setPhotoGuidance("");
     setIsGeneralFood(false);
     setSelectedDay(addDate); // jump the view to the day we just logged onto
     setAddOpen(false);
@@ -125,7 +128,7 @@ export default function App({ session }) {
   const pickPhoto = async (file) => {
     if (!file) return;
     setPhoto({ state: "loading", note: "", error: null });
-    const r = await data.analyzePhoto(file);
+    const r = await data.analyzePhoto(file, photoGuidance);
     if (r.estimate) {
       setForm({ name: r.estimate.name || "", protein: String(round(r.estimate.protein_g)), calories: String(round(r.estimate.calories)), grams: "", unit: "מנה", save: false });
       setPhoto({ state: "done", note: r.estimate.note || "", confidence: r.estimate.confidence, error: null });
@@ -173,9 +176,9 @@ export default function App({ session }) {
       </div>
 
       {addOpen && (
-        <AddSheet tab={addTab} onTab={onTab} onClose={() => setAddOpen(false)} foods={vm.foodVm} form={form} isGeneralFood={isGeneralFood} onOpenGeneral={openGeneralFood}
+        <AddSheet tab={addTab} onTab={onTab} onClose={discardAdd} foods={vm.foodVm} form={form} isGeneralFood={isGeneralFood} onOpenGeneral={openGeneralFood}
           onField={(k, v) => setForm((f) => ({ ...f, [k]: v }))} onToggleSave={() => setForm((f) => ({ ...f, save: !f.save }))}
-          onSubmit={submitAdd} onQuickAdd={quickAdd} photo={{ ...photo, quota: vm.aiQuota }} onPickPhoto={pickPhoto}
+          onSubmit={submitAdd} onQuickAdd={quickAdd} photo={{ ...photo, quota: vm.aiQuota }} onPickPhoto={pickPhoto} photoGuidance={photoGuidance} onPhotoGuidance={setPhotoGuidance}
           date={addDate} onDate={setAddDate} minDate={oldest} maxDate={today} mealType={mealType} onMealType={setMealType} />
       )}
 
