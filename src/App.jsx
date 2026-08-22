@@ -21,6 +21,7 @@ const SOURCE = {
 };
 const round = (n) => Math.round(Number(n) || 0);
 const blankForm = () => ({ name: "", protein: "", calories: "", grams: "", unit: "מנה", save: false });
+const isNonNegative = (value) => String(value ?? "").trim() !== "" && Number.isFinite(Number(value)) && Number(value) >= 0;
 
 export default function App({ session }) {
   const data = useData(session);
@@ -30,6 +31,7 @@ export default function App({ session }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [addTab, setAddTab] = useState("quick");
+  const [isGeneralFood, setIsGeneralFood] = useState(false);
   const [form, setForm] = useState(blankForm());
   const [photo, setPhoto] = useState({ state: "idle", note: "", error: null });
   const [editFood, setEditFood] = useState(null); // null | {} (new) | foodRow (edit)
@@ -102,16 +104,19 @@ export default function App({ session }) {
   const header = { today: { sub: headerDate(), title: "ProCount", greet: greeting(data.name || data.email.split("@")[0]) }, trends: { sub: "מעקב לאורך זמן", title: "מגמות" }, foods: { sub: "התבניות שלי", title: "מאכלים שלי" }, mealPlan: { sub: "התזונה שלך", title: "תפריט" } }[screen];
 
   // ---- actions ----
-  const openAdd = () => { setForm(blankForm()); setMealType("snack"); setAddDate(selectedDay); setPhoto({ state: "idle", note: "", error: null }); setAddTab("quick"); setAddOpen(true); };
-  const openAddManual = () => { setForm(blankForm()); setMealType("snack"); setAddDate(selectedDay); setAddTab("manual"); setAddOpen(true); };
-  const onTab = (tab) => { setAddTab(tab); setPhoto({ state: "idle", note: "", error: null }); };
+  const openAdd = () => { setForm(blankForm()); setMealType("snack"); setAddDate(selectedDay); setPhoto({ state: "idle", note: "", error: null }); setAddTab("quick"); setIsGeneralFood(false); setAddOpen(true); };
+  const openAddManual = () => { setForm(blankForm()); setMealType("snack"); setAddDate(selectedDay); setAddTab("manual"); setIsGeneralFood(false); setAddOpen(true); };
+  const openGeneralFood = () => { setForm(blankForm()); setAddTab("manual"); setIsGeneralFood(true); };
+  const onTab = (tab) => { setAddTab(tab); setIsGeneralFood(false); setPhoto({ state: "idle", note: "", error: null }); };
 
   const quickAdd = (foodRow, qty) => { data.addQuick(foodRow.raw || foodRow, qty, addDate, mealType); setSelectedDay(addDate); setAddOpen(false); };
 
   const submitAdd = async () => {
+    if (isGeneralFood && (!(form.name || "").trim() || !isNonNegative(form.protein) || !isNonNegative(form.calories))) return;
     if (addTab === "photo") await data.addAi(form, addDate, mealType);
     else await data.addManual(form, addDate, mealType);
     setForm(blankForm());
+    setIsGeneralFood(false);
     setSelectedDay(addDate); // jump the view to the day we just logged onto
     setAddOpen(false);
   };
@@ -167,7 +172,7 @@ export default function App({ session }) {
       </div>
 
       {addOpen && (
-        <AddSheet tab={addTab} onTab={onTab} onClose={() => setAddOpen(false)} foods={vm.foodVm} form={form}
+        <AddSheet tab={addTab} onTab={onTab} onClose={() => setAddOpen(false)} foods={vm.foodVm} form={form} isGeneralFood={isGeneralFood} onOpenGeneral={openGeneralFood}
           onField={(k, v) => setForm((f) => ({ ...f, [k]: v }))} onToggleSave={() => setForm((f) => ({ ...f, save: !f.save }))}
           onSubmit={submitAdd} onQuickAdd={quickAdd} photo={{ ...photo, quota: vm.aiQuota }} onPickPhoto={pickPhoto}
           date={addDate} onDate={setAddDate} minDate={oldest} maxDate={today} mealType={mealType} onMealType={setMealType} />

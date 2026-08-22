@@ -11,7 +11,7 @@ const round = (n) => Math.round(Number(n) || 0);
 const MEALS = [["breakfast", "בוקר"], ["lunch", "צהריים"], ["dinner", "ערב"], ["snack", "נשנוש"]];
 const MEASURES = ["יחידה", "כף", "כפית", "כוס", "פרוסה", "סקופ", "קופסה", "מנה", "100 גרם"];
 
-export default function AddSheet({ tab, onTab, onClose, foods, form, onField, onToggleSave, onSubmit, onQuickAdd, photo, onPickPhoto, date, onDate, minDate, maxDate, mealType, onMealType }) {
+export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFood, onOpenGeneral, onField, onToggleSave, onSubmit, onQuickAdd, photo, onPickPhoto, date, onDate, minDate, maxDate, mealType, onMealType }) {
   const cameraRef = useRef(null);
   const galleryRef = useRef(null);
   const [q, setQ] = useState("");
@@ -68,36 +68,40 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, onField, on
           {tab === "quick" && (
             picking ? (
               <QtyPanel food={picking} qty={qty} setQty={setQty} onBack={() => setPicking(null)} onAdd={() => onQuickAdd(picking, qty)} />
-            ) : foods.length === 0 ? (
-              <div style={{ textAlign: "center", color: "#5f5f68", fontSize: 14, padding: "20px 0" }}>אין מאכלים שמורים — הוסף דרך "ידני" עם סימון "שמור"</div>
             ) : (
               <>
-                <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="חיפוש מאכל…" aria-label="חיפוש מאכל"
-                  style={{ ...input, marginBottom: 12 }} />
-                <button onClick={() => onTab("manual")} style={{ width: "100%", marginBottom: 14, border: "1px dashed #2d6354", background: "#0e1c19", color: "#39e6b2", borderRadius: 14, padding: "11px 14px", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 800 }}>
-                  + מאכל שלא במאגר · הזנה מהירה ליחידה אחת
+                <button onClick={onOpenGeneral} style={{ width: "100%", marginBottom: 14, border: "1px dashed #2d6354", background: "#0e1c19", color: "#39e6b2", borderRadius: 14, padding: "11px 14px", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 800 }}>
+                  + מוצר כללי · הזן ערכים למידה אחת
                 </button>
-                {shown.length === 0 ? (
-                  <div style={{ textAlign: "center", color: "#5f5f68", fontSize: 14, padding: "20px 0" }}>לא נמצא מאכל בשם זה</div>
+                {foods.length === 0 ? (
+                  <div style={{ textAlign: "center", color: "#5f5f68", fontSize: 14, padding: "20px 0" }}>אין מאכלים שמורים עדיין</div>
                 ) : (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10 }}>
-                    {shown.map((f) => (
-                      <button key={f.id} className="h-quick" onClick={() => { setPicking(f); setQty(Number(f.raw?.default_qty) || 1); }} style={{ textAlign: "right", border: "1px solid #232328", background: "#111718", borderRadius: 16, padding: 14, cursor: "pointer", fontFamily: "inherit", display: "flex", flexDirection: "column", gap: 8 }}>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: "#f4f4f5", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.name}</div>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", direction: "ltr" }}>
-                          <span style={{ fontSize: 13, fontWeight: 800, color: "#39e6b2", direction: "rtl" }}>{f.protein}g חלבון</span>
-                          <span style={{ fontSize: 12, fontWeight: 700, color: "#7a7a82", direction: "rtl" }}>{f.calories} קל׳</span>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
+                  <>
+                    <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="חיפוש מאכל…" aria-label="חיפוש מאכל"
+                      style={{ ...input, marginBottom: 12 }} />
+                    {shown.length === 0 ? (
+                      <div style={{ textAlign: "center", color: "#5f5f68", fontSize: 14, padding: "20px 0" }}>לא נמצא מאכל בשם זה</div>
+                    ) : (
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10 }}>
+                        {shown.map((f) => (
+                          <button key={f.id} className="h-quick" onClick={() => { setPicking(f); setQty(Number(f.raw?.default_qty) || 1); }} style={{ textAlign: "right", border: "1px solid #232328", background: "#111718", borderRadius: 16, padding: 14, cursor: "pointer", fontFamily: "inherit", display: "flex", flexDirection: "column", gap: 8 }}>
+                            <div style={{ fontSize: 14, fontWeight: 700, color: "#f4f4f5", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.name}</div>
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", direction: "ltr" }}>
+                              <span style={{ fontSize: 13, fontWeight: 800, color: "#39e6b2", direction: "rtl" }}>{f.protein}g חלבון</span>
+                              <span style={{ fontSize: 12, fontWeight: 700, color: "#7a7a82", direction: "rtl" }}>{f.calories} קל׳</span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </>
                 )}
               </>
             )
           )}
 
           {tab === "manual" && (
-            <ManualForm form={form} onField={onField} onToggleSave={onToggleSave} onSubmit={onSubmit} cta="הוסף לרישום" showSave showMeasure />
+            <ManualForm form={form} onField={onField} onToggleSave={onToggleSave} onSubmit={onSubmit} cta="הוסף לרישום" showSave showMeasure requireAll={isGeneralFood} />
           )}
 
           {tab === "photo" && (
@@ -194,23 +198,31 @@ function QtyPanel({ food, qty, setQty, onBack, onAdd }) {
 }
 
 // Shared name/protein/calories form — manual entry and the editable AI result.
-function ManualForm({ form, onField, onToggleSave, onSubmit, cta, showSave, showMeasure = false }) {
+function ManualForm({ form, onField, onToggleSave, onSubmit, cta, showSave, showMeasure = false, requireAll = false }) {
   const selectedUnit = MEASURES.includes(form.unit) ? form.unit : "אחר";
   const customMeasureMissing = showMeasure && form.save && selectedUnit === "אחר" && !(form.unit || "").trim();
+  const validNumber = (value) => String(value ?? "").trim() !== "" && Number.isFinite(Number(value)) && Number(value) >= 0;
+  const invalidName = requireAll && !(form.name || "").trim();
+  const invalidProtein = requireAll && !validNumber(form.protein);
+  const invalidCalories = requireAll && !validNumber(form.calories);
+  const invalidGeneralFood = invalidName || invalidProtein || invalidCalories;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div>
-        <label style={label}>שם {showSave ? "(אופציונלי)" : ""}</label>
+        <label style={label}>שם {showSave && !requireAll ? "(אופציונלי)" : ""}</label>
         <input value={form.name} onChange={(e) => onField("name", e.target.value)} placeholder="למשל: חזה עוף" aria-label="שם" style={input} />
+        {invalidName && <div style={{ color: "#fb7185", fontSize: 12, fontWeight: 700, marginTop: 7 }}>יש להזין שם למאכל</div>}
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         <div>
           <label style={label}>חלבון (גרם)</label>
           <input value={form.protein} onChange={(e) => onField("protein", e.target.value)} inputMode="decimal" aria-label="חלבון בגרמים" placeholder="0" style={{ ...input, color: "#39e6b2", fontSize: 18, fontWeight: 800 }} />
+          {invalidProtein && <div style={{ color: "#fb7185", fontSize: 12, fontWeight: 700, marginTop: 7 }}>יש להזין חלבון תקין</div>}
         </div>
         <div>
           <label style={label}>קלוריות</label>
           <input value={form.calories} onChange={(e) => onField("calories", e.target.value)} inputMode="decimal" aria-label="קלוריות" placeholder="0" style={{ ...input, color: "#25b9ff", fontSize: 18, fontWeight: 800 }} />
+          {invalidCalories && <div style={{ color: "#fb7185", fontSize: 12, fontWeight: 700, marginTop: 7 }}>יש להזין קלוריות תקינות</div>}
         </div>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#697874", fontSize: 12, fontWeight: 700 }}>
@@ -234,7 +246,7 @@ function ManualForm({ form, onField, onToggleSave, onSubmit, cta, showSave, show
           <span style={{ fontSize: 14, fontWeight: 600, color: "#c4c4c9" }}>שמור למאכלים שלי</span>
         </button>
       )}
-      <button disabled={customMeasureMissing} onClick={onSubmit} style={{ marginTop: 4, border: "none", fontFamily: "inherit", background: "linear-gradient(180deg,#39e6b2,#16a985)", color: "#03120d", fontSize: 16, fontWeight: 800, padding: 15, borderRadius: 15, cursor: customMeasureMissing ? "not-allowed" : "pointer", opacity: customMeasureMissing ? .45 : 1 }}>{cta}</button>
+      <button disabled={customMeasureMissing || invalidGeneralFood} onClick={onSubmit} style={{ marginTop: 4, border: "none", fontFamily: "inherit", background: "linear-gradient(180deg,#39e6b2,#16a985)", color: "#03120d", fontSize: 16, fontWeight: 800, padding: 15, borderRadius: 15, cursor: customMeasureMissing || invalidGeneralFood ? "not-allowed" : "pointer", opacity: customMeasureMissing || invalidGeneralFood ? .45 : 1 }}>{cta}</button>
     </div>
   );
 }
