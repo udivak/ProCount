@@ -155,7 +155,7 @@ export default function App({ session }) {
         </button>
       </div>
 
-      <div className="pc-scroll" style={{ flex: 1, overflowY: "auto", padding: "0 20px calc(110px + env(safe-area-inset-bottom))" }}>
+      <div className="pc-scroll app-scroll" style={{ flex: 1, overflowY: "auto" }}>
         {screen === "today" && <Today totals={vm.totals} goal={goal} ringOffset={vm.ringOffset} remaining={vm.remaining} pace={vm.pace} mealGroups={vm.mealGroups} suggestion={vm.suggestion} onDelete={(id) => setConfirm({ title: "מחיקת רישום", body: "הרישום יימחק מהיום.", confirmLabel: "מחק", onConfirm: () => data.deleteEntry(id) })} onSelect={setSelectedEntry} dayLabel={dayLabel(selectedDay, today)} isToday={selectedDay === today} onToday={() => setSelectedDay(today)} onPrev={prevDay} onNext={nextDay} canPrev={canPrev} canNext={canNext} />}
         {screen === "trends" && <Trends goal={goal} streak={vm.streak} avg={vm.avg} bars={vm.bars} goalY={vm.goalY} calAvg={vm.calAvg} heading={vm.heading} range={chartRange} onRange={setChartRange} />}
         {screen === "foods" && <MyFoods foods={vm.foodVm} onNew={openAddManual} onEdit={(f) => setEditFood(f.raw)} />}
@@ -163,12 +163,12 @@ export default function App({ session }) {
       </div>
 
       {!addOpen && !settingsOpen && !editFood && !selectedEntry && !confirm && screen !== "mealPlan" && (
-        <button className="h-fab" onClick={openAdd} aria-label="הוסף מזון" style={{ position: "absolute", bottom: "calc(92px + env(safe-area-inset-bottom))", left: "50%", transform: "translateX(-50%)", zIndex: 30, width: 68, height: 68, display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #071a14", fontFamily: "inherit", background: "#39e6b2", color: "#03120d", borderRadius: "50%", cursor: "pointer", boxShadow: "0 0 0 6px rgba(57,230,178,.12), 0 8px 30px rgba(57,230,178,.48)" }}>
+        <button className="h-fab" onClick={openAdd} aria-label="הוסף מזון" style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", zIndex: 30, width: 68, height: 68, display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #071a14", fontFamily: "inherit", background: "#39e6b2", color: "#03120d", borderRadius: "50%", cursor: "pointer", boxShadow: "0 0 0 6px rgba(57,230,178,.12), 0 8px 30px rgba(57,230,178,.48)" }}>
           <Plus size={30} sw={3} />
         </button>
       )}
 
-      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: "calc(80px + env(safe-area-inset-bottom))", background: "rgba(10,10,12,.92)", backdropFilter: "blur(16px)", borderTop: "1px solid #1c1c20", display: "flex", alignItems: "stretch", padding: "8px 16px calc(22px + env(safe-area-inset-bottom))", zIndex: 20 }}>
+      <div className="bottom-nav">
         <NavBtn color={screen === "today" ? "#39e6b2" : "#6f6f78"} label="היום" onClick={() => goTo("today")}><Home size={24} /></NavBtn>
         <NavBtn color={screen === "mealPlan" ? "#39e6b2" : "#6f6f78"} label="תפריט" onClick={() => goTo("mealPlan")}><Utensils size={24} /></NavBtn>
         <NavBtn color={screen === "trends" ? "#39e6b2" : "#6f6f78"} label="מגמות" onClick={() => goTo("trends")}><Chart size={24} /></NavBtn>
