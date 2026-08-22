@@ -10,4 +10,8 @@ foods.csv
 *.log
 .vercel/
 CLAUDE.md
+AGENTS.md
+InBody*
+.claude/
+.superpowers/
 bug-pwa-fullscreen-overscroll.md
