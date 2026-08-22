@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { X, Camera, Info } from "../lib/icons.jsx";
+import { X, Camera, ImageIcon, Info } from "../lib/icons.jsx";
 
 const input = { width: "100%", background: "#111718", border: "1px solid #26302f", borderRadius: 14, padding: 14, color: "#f4f4f5", fontSize: 16, fontFamily: "inherit", outline: "none" };
 const label = { fontSize: 13, fontWeight: 600, color: "#8a8a93", display: "block", marginBottom: 7 };
@@ -11,7 +11,8 @@ const round = (n) => Math.round(Number(n) || 0);
 const MEALS = [["breakfast", "בוקר"], ["lunch", "צהריים"], ["dinner", "ערב"], ["snack", "נשנוש"]];
 
 export default function AddSheet({ tab, onTab, onClose, foods, form, onField, onToggleSave, onSubmit, onQuickAdd, photo, onPickPhoto, date, onDate, minDate, maxDate, mealType, onMealType }) {
-  const fileRef = useRef(null);
+  const cameraRef = useRef(null);
+  const galleryRef = useRef(null);
   const [q, setQ] = useState("");
   // ponytail: client-side substring filter on name; the list is tiny, no debounce needed.
   const ql = q.trim().toLowerCase();
@@ -24,6 +25,12 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, onField, on
     return (
       <button onClick={() => onTab(key)} style={{ flex: 1, border: "none", fontFamily: "inherit", fontSize: 13, fontWeight: 800, padding: 9, borderRadius: 10, cursor: "pointer", background: active ? "#39e6b2" : "transparent", color: active ? "#03120d" : "#8a8a93" }}>{text}</button>
     );
+  };
+
+  const pickFile = (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (file) onPickPhoto(file);
   };
 
   return (
@@ -94,11 +101,12 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, onField, on
 
           {tab === "photo" && (
             <div>
-              <input ref={fileRef} type="file" accept="image/*" capture="environment" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) onPickPhoto(f); }} />
+              <input ref={cameraRef} type="file" accept="image/*" capture="environment" hidden onChange={pickFile} />
+              <input ref={galleryRef} type="file" accept="image/*" hidden onChange={pickFile} />
 
               {photo.state === "idle" && (
                 <div>
-                  <button className="h-drop" onClick={() => fileRef.current?.click()} style={{ width: "100%", border: "2px dashed #2e2e36", background: "#141417", borderRadius: 20, padding: "38px 20px", cursor: "pointer", fontFamily: "inherit", display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
+                  <div style={{ width: "100%", border: "2px dashed #2e2e36", background: "#141417", borderRadius: 20, padding: "32px 20px", display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
                     <div style={{ width: 64, height: 64, borderRadius: 20, background: "rgba(52,211,153,.12)", display: "flex", alignItems: "center", justifyContent: "center", color: "#39e6b2" }}>
                       <Camera size={30} />
                     </div>
@@ -106,7 +114,15 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, onField, on
                       <div style={{ fontSize: 16, fontWeight: 700, color: "#f4f4f5" }}>צלם או בחר תמונה</div>
                       <div style={{ fontSize: 13, color: "#6f6f78", marginTop: 3 }}>Claude יאמוד חלבון וקלוריות</div>
                     </div>
-                  </button>
+                    <div style={{ width: "100%", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                      <button className="h-drop" onClick={() => cameraRef.current?.click()} style={{ border: "1px solid #1f3831", background: "#101918", color: "#39e6b2", borderRadius: 14, padding: "12px 8px", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
+                        <Camera size={17} /> צלם עכשיו
+                      </button>
+                      <button className="h-drop" onClick={() => galleryRef.current?.click()} style={{ border: "1px solid #26302f", background: "#111718", color: "#c4c4c9", borderRadius: 14, padding: "12px 8px", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
+                        <ImageIcon size={17} /> בחר מהגלריה
+                      </button>
+                    </div>
+                  </div>
                   {photo.error ? (
                     <div style={{ marginTop: 14, textAlign: "center", fontSize: 13, fontWeight: 600, color: "#fb7185" }}>{photo.error}</div>
                   ) : (
