@@ -16,18 +16,18 @@ export default function MyFoods({ foods, onNew, onEdit }) {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {foods.map((f) => (
-            <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 14, background: "#101516", border: "1px solid #1f1f24", borderRadius: 18, padding: "14px 16px" }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
+            <div key={f.id} className="my-food-card" style={{ display: "flex", alignItems: "center", gap: 14, background: "#101516", border: "1px solid #1f1f24", borderRadius: 18, padding: "14px 16px" }}>
+              <div className="my-food-copy" style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 15, fontWeight: 700 }}>{f.name}</div>
                 <div style={{ fontSize: 12, fontWeight: 500, color: "#6f6f78", marginTop: 2 }}>{f.unit}</div>
               </div>
-              <div style={{ display: "flex", gap: 14, alignItems: "center", flex: "none" }}>
+              <div className="my-food-macros" style={{ display: "flex", gap: 14, alignItems: "center", flex: "none" }}>
                 <div style={{ textAlign: "center" }}>
                   <div style={{ fontSize: 16, fontWeight: 800, color: "#39e6b2" }}>{f.protein}</div>
                   <div style={{ fontSize: 10, color: "#5f5f68", fontWeight: 600 }}>חלבון</div>
                 </div>
                 <div style={{ textAlign: "center" }}>
-                  <div style={{ fontSize: 16, fontWeight: 800, color: "#25b9ff" }}>{f.calories}</div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: "#fb923c" }}>{f.calories}</div>
                   <div style={{ fontSize: 10, color: "#5f5f68", fontWeight: 600 }}>קל'</div>
                 </div>
               </div>

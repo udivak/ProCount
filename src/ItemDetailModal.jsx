@@ -15,7 +15,7 @@ export default function ItemDetailModal({ entry, onClose }) {
     { k: "כמות שנאכלה", v: entry.grams != null ? `${round(entry.grams)} גרם` : dash },
     { k: "חלבון ל-100 גרם", v: per100 != null ? `${round(per100)} גרם` : dash, color: "#39e6b2" },
     { k: "סך חלבון שנאכל", v: `${round(entry.proteinRaw)} גרם`, color: "#39e6b2" },
-    { k: "קלוריות", v: `${entry.calories} קל'`, color: "#25b9ff" },
+    { k: "קלוריות", v: `${entry.calories} קל'`, color: "#fb923c" },
     { k: "מקור", v: entry.sub },
   ];
 

@@ -11,7 +11,7 @@ const round = (n) => Math.round(Number(n) || 0);
 const MEALS = [["breakfast", "בוקר"], ["lunch", "צהריים"], ["dinner", "ערב"], ["snack", "נשנוש"]];
 const MEASURES = ["יחידה", "כף", "כפית", "כוס", "פרוסה", "סקופ", "קופסה", "מנה", "100 גרם"];
 
-export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFood, onOpenGeneral, onField, onToggleSave, onSubmit, onQuickAdd, photo, onPickPhoto, photoGuidance, onPhotoGuidance, date, onDate, minDate, maxDate, mealType, onMealType }) {
+export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFood, onOpenGeneral, onField, onToggleSave, onSubmit, onQuickAdd, photo, photoFile, onPickPhoto, onAnalyzePhoto, photoGuidance, onPhotoGuidance, date, onDate, minDate, maxDate, mealType, onMealType }) {
   const cameraRef = useRef(null);
   const galleryRef = useRef(null);
   const [q, setQ] = useState("");
@@ -84,11 +84,11 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFo
                     ) : (
                       <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10 }}>
                         {shown.map((f) => (
-                          <button key={f.id} className="h-quick" onClick={() => { setPicking(f); setQty(Number(f.raw?.default_qty) || 1); }} style={{ textAlign: "right", border: "1px solid #232328", background: "#111718", borderRadius: 16, padding: 14, cursor: "pointer", fontFamily: "inherit", display: "flex", flexDirection: "column", gap: 8 }}>
-                            <div style={{ fontSize: 14, fontWeight: 700, color: "#f4f4f5", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.name}</div>
-                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", direction: "ltr" }}>
-                              <span style={{ fontSize: 13, fontWeight: 800, color: "#39e6b2", direction: "rtl" }}>{f.protein}g חלבון</span>
-                              <span style={{ fontSize: 12, fontWeight: 700, color: "#7a7a82", direction: "rtl" }}>{f.calories} קל׳</span>
+                          <button key={f.id} className="h-quick quick-food-card" onClick={() => { setPicking(f); setQty(Number(f.raw?.default_qty) || 1); }} style={{ textAlign: "right", border: "1px solid #232328", background: "#111718", borderRadius: 16, padding: 14, cursor: "pointer", fontFamily: "inherit", display: "flex", flexDirection: "column", gap: 8 }}>
+                            <div className="quick-food-name" style={{ fontSize: 14, fontWeight: 700, color: "#f4f4f5", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.name}</div>
+                            <div className="quick-food-macros" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", direction: "ltr" }}>
+                              <span className="quick-food-protein" style={{ fontSize: 13, fontWeight: 800, color: "#39e6b2", direction: "rtl" }}>{f.protein}g חלבון</span>
+                              <span className="quick-food-calories" style={{ fontSize: 12, fontWeight: 700, color: "#7a7a82", direction: "rtl" }}>{f.calories} קל׳</span>
                             </div>
                           </button>
                         ))}
@@ -119,13 +119,13 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFo
 
               {photo.state === "idle" && (
                 <div>
-                  <div style={{ width: "100%", border: "2px dashed #2e2e36", background: "#141417", borderRadius: 20, padding: "32px 20px", display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
+                  <div style={{ width: "100%", border: "2px dashed #2e2e36", background: "#141417", borderRadius: 20, padding: "26px 20px", display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
                     <div style={{ width: 64, height: 64, borderRadius: 20, background: "rgba(52,211,153,.12)", display: "flex", alignItems: "center", justifyContent: "center", color: "#39e6b2" }}>
                       <Camera size={30} />
                     </div>
                     <div style={{ textAlign: "center" }}>
-                      <div style={{ fontSize: 16, fontWeight: 700, color: "#f4f4f5" }}>צלם או בחר תמונה</div>
-                      <div style={{ fontSize: 13, color: "#6f6f78", marginTop: 3 }}>Claude יאמוד חלבון וקלוריות</div>
+                      <div style={{ fontSize: 16, fontWeight: 700, color: "#f4f4f5" }}>{photoFile ? "התמונה מוכנה לניתוח" : "צלם או בחר תמונה"}</div>
+                      <div style={{ maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 13, color: "#6f6f78", marginTop: 3 }}>{photoFile ? photoFile.name : "הוסף פרטים ואז שלח את הכול יחד ל-AI"}</div>
                     </div>
                     <div style={{ width: "100%", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                       <button className="h-drop" onClick={() => cameraRef.current?.click()} style={{ border: "1px solid #1f3831", background: "#101918", color: "#39e6b2", borderRadius: 14, padding: "12px 8px", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
@@ -135,6 +135,9 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFo
                         <ImageIcon size={17} /> בחר מהגלריה
                       </button>
                     </div>
+                    <button onClick={onAnalyzePhoto} disabled={!photoFile} style={{ width: "100%", border: "none", background: "linear-gradient(180deg,#39e6b2,#16a985)", color: "#03120d", borderRadius: 14, padding: "13px 10px", cursor: photoFile ? "pointer" : "not-allowed", fontFamily: "inherit", fontSize: 14, fontWeight: 900, opacity: photoFile ? 1 : .45 }}>
+                      נתח תמונה
+                    </button>
                   </div>
                   {photo.error ? (
                     <div style={{ marginTop: 14, textAlign: "center", fontSize: 13, fontWeight: 600, color: "#fb7185" }}>{photo.error}</div>
@@ -163,6 +166,7 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFo
                     </div>
                   </div>
                   <ManualForm form={form} onField={onField} onToggleSave={onToggleSave} onSubmit={onSubmit} cta="אשר והוסף" showSave />
+                  <button onClick={() => galleryRef.current?.click()} style={{ border: "1px solid #26302f", background: "#111718", color: "#c4c4c9", borderRadius: 13, padding: "11px 12px", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 800 }}>בחר תמונה אחרת לניתוח</button>
                 </div>
               )}
             </div>
@@ -197,7 +201,7 @@ function QtyPanel({ food, qty, setQty, onBack, onAdd }) {
       <div style={{ textAlign: "center", background: "#101918", border: "1px solid #1f3831", borderRadius: 14, padding: "12px 14px", direction: "rtl" }}>
         <span style={{ fontSize: 18, fontWeight: 800, color: "#39e6b2" }}>{round(p * n)}g חלבון</span>
         <span style={{ color: "#7a7a82", margin: "0 8px" }}>·</span>
-        <span style={{ fontSize: 15, fontWeight: 700, color: "#25b9ff" }}>{round(c * n)} קל׳</span>
+        <span style={{ fontSize: 15, fontWeight: 700, color: "#fb923c" }}>{round(c * n)} קל׳</span>
       </div>
 
       <button onClick={onAdd} style={{ border: "none", fontFamily: "inherit", background: "linear-gradient(180deg,#39e6b2,#16a985)", color: "#03120d", fontSize: 16, fontWeight: 800, padding: 15, borderRadius: 15, cursor: "pointer" }}>הוסף לרישום</button>
@@ -229,7 +233,7 @@ function ManualForm({ form, onField, onToggleSave, onSubmit, cta, showSave, show
         </div>
         <div>
           <label style={label}>קלוריות</label>
-          <input value={form.calories} onChange={(e) => onField("calories", e.target.value)} inputMode="decimal" aria-label="קלוריות" placeholder="0" style={{ ...input, color: "#25b9ff", fontSize: 18, fontWeight: 800 }} />
+          <input value={form.calories} onChange={(e) => onField("calories", e.target.value)} inputMode="decimal" aria-label="קלוריות" placeholder="0" style={{ ...input, color: "#fb923c", fontSize: 18, fontWeight: 800 }} />
           {invalidCalories && <div style={{ color: "#fb7185", fontSize: 12, fontWeight: 700, marginTop: 7 }}>יש להזין קלוריות תקינות</div>}
         </div>
       </div>

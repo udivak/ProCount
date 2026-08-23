@@ -12,6 +12,7 @@ export function useData(session) {
   const [entries, setEntries] = useState([]); // last RANGE_DAYS, newest first
   const [foods, setFoods] = useState([]);
   const [goal, setGoalState] = useState(160);
+  const [waterGoal, setWaterGoalState] = useState(3000);
   const [name, setNameState] = useState("");
   const [loading, setLoading] = useState(true);
   const today = todayLocal();
@@ -23,12 +24,13 @@ export function useData(session) {
       const [e, f, p] = await Promise.all([
         supabase.from("entries").select("*").gte("eaten_on", since).order("created_at", { ascending: false }),
         supabase.from("foods").select("*").order("created_at", { ascending: false }),
-        supabase.from("profile").select("protein_goal_g, name").maybeSingle(),
+        supabase.from("profile").select("protein_goal_g, water_goal_ml, name").maybeSingle(),
       ]);
       if (!alive) return;
       setEntries(e.data || []);
       setFoods(f.data || []);
       if (p.data?.protein_goal_g > 0) setGoalState(Number(p.data.protein_goal_g));
+      if (p.data?.water_goal_ml > 0) setWaterGoalState(Number(p.data.water_goal_ml));
       if (p.data?.name) setNameState(p.data.name);
       setLoading(false);
     })();
@@ -54,6 +56,20 @@ export function useData(session) {
       source: "saved",
       food_id: food.id,
       meal_type: mealType,
+    }, date);
+  }, [addEntry]);
+
+  const addWater = useCallback((amount, date) => {
+    const waterMl = Math.round(Number(amount));
+    if (!(waterMl > 0)) return Promise.resolve({ data: null, error: new Error("invalid_water_amount") });
+    return addEntry({
+      name: "מים",
+      protein_g: 0,
+      calories: 0,
+      source: "manual",
+      entry_kind: "water",
+      water_ml: waterMl,
+      meal_type: "snack",
     }, date);
   }, [addEntry]);
 
@@ -120,6 +136,13 @@ export function useData(session) {
     await supabase.from("profile").upsert({ protein_goal_g: g }, { onConflict: "user_id" });
   }, []);
 
+  const setWaterGoal = useCallback(async (ml) => {
+    const value = Math.round(Number(ml));
+    if (!(value > 0)) return;
+    setWaterGoalState(value);
+    await supabase.from("profile").upsert({ water_goal_ml: value }, { onConflict: "user_id" });
+  }, []);
+
   const setName = useCallback(async (n) => {
     const v = (n || "").trim();
     setNameState(v);
@@ -142,8 +165,8 @@ export function useData(session) {
   const signOut = useCallback(() => supabase.auth.signOut(), []);
 
   return {
-    loading, entries, foods, goal, name, today, email: session.user.email,
-    addQuick, addManual, addAi, deleteEntry, saveFood, deleteFood, setGoal, setName, analyzePhoto, signOut,
+    loading, entries, foods, goal, waterGoal, name, today, email: session.user.email,
+    addQuick, addWater, addManual, addAi, deleteEntry, saveFood, deleteFood, setGoal, setWaterGoal, setName, analyzePhoto, signOut,
   };
 }
 
