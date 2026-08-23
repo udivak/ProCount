@@ -19,6 +19,13 @@ export const Flame = (p) => (
   </Svg>
 );
 
+export const Droplet = (p) => (
+  <Svg {...p}>
+    <path d="M12 2.5S5 10 5 14.5a7 7 0 0 0 14 0C19 10 12 2.5 12 2.5z" />
+    <path d="M9 16.5c.7.7 1.7 1.1 2.8 1.1" />
+  </Svg>
+);
+
 export const Trash = (p) => (
   <Svg {...p}>
     <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />

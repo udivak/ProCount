@@ -58,11 +58,11 @@ export default function Trends({ goal, streak, avg, bars, goalY, calAvg, heading
       <div className="trend-calories">
         <div>
           <div style={{ fontSize: 13, fontWeight: 600, color: "#6f6f78", marginBottom: 6 }}>קלוריות · ממוצע שבועי</div>
-          <div style={{ fontSize: 26, fontWeight: 800, color: "#25b9ff", letterSpacing: "-.02em" }}>{calAvg}</div>
+          <div style={{ fontSize: 26, fontWeight: 800, color: "#fb923c", letterSpacing: "-.02em" }}>{calAvg}</div>
         </div>
         <svg width="120" height="48" viewBox="0 0 120 48" fill="none">
-          <polyline points="0,34 20,28 40,32 60,18 80,24 100,14 120,20" stroke="#25b9ff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-          <circle cx="120" cy="20" r="3.5" fill="#25b9ff" />
+          <polyline points="0,34 20,28 40,32 60,18 80,24 100,14 120,20" stroke="#fb923c" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+          <circle cx="120" cy="20" r="3.5" fill="#fb923c" />
         </svg>
       </div>
     </div>

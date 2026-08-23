@@ -1,7 +1,7 @@
 // Run: npm test   (node --test)
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { dailyTotals, remainingProtein, pct, dailyPace, streak, weekSeries, weeklyAverageSeries, proteinPer100g, gramsPerServing, entriesByMeal, proteinSuggestion } from "./nutrition.js";
+import { dailyTotals, dailyWaterTotal, remainingProtein, pct, dailyPace, streak, weekSeries, weeklyAverageSeries, avgCaloriesPerActiveDay, proteinPer100g, gramsPerServing, entriesByMeal, proteinSuggestion } from "./nutrition.js";
 
 test("dailyTotals sums one day, ignores others", () => {
   const e = [
@@ -14,6 +14,26 @@ test("dailyTotals sums one day, ignores others", () => {
 
 test("dailyTotals on an empty day is zero", () => {
   assert.deepEqual(dailyTotals([], "2026-06-18"), { protein: 0, calories: 0, count: 0 });
+});
+
+test("water totals are isolated by day and excluded from food totals", () => {
+  const entries = [
+    { eaten_on: "2026-06-18", entry_kind: "water", water_ml: 500, protein_g: 0, calories: 0 },
+    { eaten_on: "2026-06-18", entry_kind: "water", water_ml: 250, protein_g: 0, calories: 0 },
+    { eaten_on: "2026-06-18", protein_g: 20, calories: 120 },
+    { eaten_on: "2026-06-17", entry_kind: "water", water_ml: 700, protein_g: 0, calories: 0 },
+  ];
+  assert.equal(dailyWaterTotal(entries, "2026-06-18"), 750);
+  assert.equal(dailyWaterTotal(entries, "2026-06-17"), 700);
+  assert.deepEqual(dailyTotals(entries, "2026-06-18"), { protein: 20, calories: 120, count: 1 });
+});
+
+test("water-only days do not count as active calorie-trend days", () => {
+  const entries = [
+    { eaten_on: "2026-06-18", entry_kind: "water", water_ml: 500, calories: 0 },
+    { eaten_on: "2026-06-19", calories: 400 },
+  ];
+  assert.equal(avgCaloriesPerActiveDay(entries, ["2026-06-18", "2026-06-19"]), 400);
 });
 
 test("remainingProtein never goes negative", () => {
@@ -106,6 +126,16 @@ test("entriesByMeal groups entries in meal order and keeps legacy entries in sna
   assert.deepEqual(groups.map(({ type, protein, entries }) => ({ type, protein, names: entries.map((entry) => entry.name) })), [
     { type: "lunch", protein: 30, names: ["lunch"] },
     { type: "snack", protein: 14, names: ["snack", "legacy"] },
+  ]);
+});
+
+test("entriesByMeal hides water entries", () => {
+  const groups = entriesByMeal([
+    { name: "מים", entry_kind: "water", water_ml: 500, meal_type: "snack", protein_g: 0 },
+    { name: "lunch", meal_type: "lunch", protein_g: 30 },
+  ]);
+  assert.deepEqual(groups.map(({ type, entries }) => ({ type, names: entries.map((entry) => entry.name) })), [
+    { type: "lunch", names: ["lunch"] },
   ]);
 });
 

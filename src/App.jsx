@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useData, RANGE_DAYS } from "./store.js";
 import { headerDate, lastNDates, lastNWeeks, weekdayLabel, weekRangeLabel, shiftDate, dayLabel, greeting } from "./lib/date.js";
-import { dailyTotals, remainingProtein, pct, dailyPace, streak, proteinByDay, weekSeries, weeklyAverageSeries, avgCaloriesPerActiveDay, average, entriesByMeal, proteinSuggestion } from "./lib/nutrition.js";
+import { dailyTotals, dailyWaterTotal, remainingProtein, pct, dailyPace, streak, proteinByDay, weekSeries, weeklyAverageSeries, avgCaloriesPerActiveDay, average, entriesByMeal, proteinSuggestion } from "./lib/nutrition.js";
 import { Gear, Home, Chart, ListIcon, Plus, Utensils } from "./lib/icons.jsx";
 import Today from "./screens/Today.jsx";
 import Trends from "./screens/Trends.jsx";
@@ -13,7 +13,7 @@ import FoodEditor from "./FoodEditor.jsx";
 import ItemDetailModal from "./ItemDetailModal.jsx";
 import ConfirmDialog from "./ConfirmDialog.jsx";
 
-const SCALE = 200, CHART_H = 132;
+const SCALE = 200, CHART_H = 132, CALORIE_GOAL = 2250;
 const SOURCE = {
   saved: { tag: "מהיר", iconBg: "rgba(52,211,153,.12)", iconColor: "#39e6b2", sub: "מהיר" },
   manual: { tag: "ידני", iconBg: "rgba(96,165,250,.12)", iconColor: "#60a5fa", sub: "הזנה ידנית" },
@@ -25,7 +25,7 @@ const isNonNegative = (value) => String(value ?? "").trim() !== "" && Number.isF
 
 export default function App({ session }) {
   const data = useData(session);
-  const { entries, foods, goal, today } = data;
+  const { entries, foods, goal, waterGoal, today } = data;
 
   const [screen, setScreen] = useState("today");
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -34,6 +34,7 @@ export default function App({ session }) {
   const [isGeneralFood, setIsGeneralFood] = useState(false);
   const [form, setForm] = useState(blankForm());
   const [photo, setPhoto] = useState({ state: "idle", note: "", error: null });
+  const [photoFile, setPhotoFile] = useState(null);
   const [photoGuidance, setPhotoGuidance] = useState("");
   const [editFood, setEditFood] = useState(null); // null | {} (new) | foodRow (edit)
   const [selectedEntry, setSelectedEntry] = useState(null); // null | a todayEntries vm item (detail modal)
@@ -42,6 +43,11 @@ export default function App({ session }) {
   const [selectedDay, setSelectedDay] = useState(today); // which day the Today screen shows
   const [addDate, setAddDate] = useState(today); // which day the add sheet logs onto
   const [mealType, setMealType] = useState("snack");
+  const [waterUndo, setWaterUndo] = useState(null);
+  const [waterError, setWaterError] = useState("");
+  const waterUndoTimer = useRef(null);
+
+  useEffect(() => () => clearTimeout(waterUndoTimer.current), []);
 
   // ponytail: nav clamped to the loaded window; fetch older entries on demand if you ever need >35 days back.
   const oldest = lastNDates(RANGE_DAYS)[0];
@@ -56,7 +62,7 @@ export default function App({ session }) {
     const t = dailyTotals(entries, selectedDay);
     const pctVal = pct(t.protein, goal);
 
-    const todayEntries = todays.map((e) => {
+    const todayEntries = todays.filter((e) => e.entry_kind !== "water").map((e) => {
       const s = SOURCE[e.source] || SOURCE.manual;
       return { ...e, id: e.id, name: e.name || "רישום ללא שם", sub: s.sub, tag: s.tag, iconBg: s.iconBg, iconColor: s.iconColor, protein: round(e.protein_g), calories: round(e.calories), grams: e.grams == null ? null : Number(e.grams), proteinRaw: Number(e.protein_g) || 0 };
     });
@@ -84,8 +90,10 @@ export default function App({ session }) {
     const foodVm = foods.map((f) => ({ id: f.id, name: f.name, unit: f.unit || "מותאם", protein: round(f.protein_g), calories: round(f.calories), raw: f }));
 
     return {
-      totals: { protein: round(t.protein), calories: Math.round(t.calories).toLocaleString(), count: todays.length, pctLabel: Math.round(pctVal * 100) + "%" },
+      totals: { protein: round(t.protein), calories: Math.round(t.calories).toLocaleString(), count: t.count, pctLabel: Math.round(pctVal * 100) + "%" },
+      waterMl: dailyWaterTotal(entries, selectedDay),
       remaining: round(remainingProtein(t.protein, goal)),
+      calorieProgress: pct(t.calories, CALORIE_GOAL),
       pace: selectedDay === today ? dailyPace(t.protein, goal) : null,
       ringOffset: Math.round(490 * (1 - pctVal)),
       todayEntries,
@@ -106,12 +114,12 @@ export default function App({ session }) {
   const header = { today: { sub: headerDate(), title: "ProCount", greet: greeting(data.name || data.email.split("@")[0]) }, trends: { sub: "מעקב לאורך זמן", title: "מגמות" }, foods: { sub: "התבניות שלי", title: "מאכלים שלי" }, mealPlan: { sub: "התזונה שלך", title: "תפריט" } }[screen];
 
   // ---- actions ----
-  const openAdd = () => { setForm(blankForm()); setMealType("snack"); setAddDate(selectedDay); setPhoto({ state: "idle", note: "", error: null }); setPhotoGuidance(""); setAddTab("quick"); setIsGeneralFood(false); setAddOpen(true); };
+  const openAdd = () => { setForm(blankForm()); setMealType("snack"); setAddDate(selectedDay); setPhoto({ state: "idle", note: "", error: null }); setPhotoFile(null); setPhotoGuidance(""); setAddTab("quick"); setIsGeneralFood(false); setAddOpen(true); };
   const openAddManual = () => { setForm(blankForm()); setMealType("snack"); setAddDate(selectedDay); setAddTab("manual"); setIsGeneralFood(false); setAddOpen(true); };
   const openGeneralFood = () => { setForm(blankForm()); setAddTab("manual"); setIsGeneralFood(true); };
-  const onTab = (tab) => { setAddTab(tab); setIsGeneralFood(false); setPhoto({ state: "idle", note: "", error: null }); };
+  const onTab = (tab) => { setAddTab(tab); setIsGeneralFood(false); setPhoto({ state: "idle", note: "", error: null }); setPhotoFile(null); };
 
-  const discardAdd = () => { setForm(blankForm()); setPhoto({ state: "idle", note: "", error: null }); setPhotoGuidance(""); setAddOpen(false); };
+  const discardAdd = () => { setForm(blankForm()); setPhoto({ state: "idle", note: "", error: null }); setPhotoFile(null); setPhotoGuidance(""); setAddOpen(false); };
   const quickAdd = (foodRow, qty) => { data.addQuick(foodRow.raw || foodRow, qty, addDate, mealType); setSelectedDay(addDate); discardAdd(); };
 
   const submitAdd = async () => {
@@ -125,10 +133,16 @@ export default function App({ session }) {
     setAddOpen(false);
   };
 
-  const pickPhoto = async (file) => {
+  const pickPhoto = (file) => {
     if (!file) return;
+    setPhotoFile(file);
+    setPhoto({ state: "idle", note: "", error: null });
+  };
+
+  const analyzeSelectedPhoto = async () => {
+    if (!photoFile) return;
     setPhoto({ state: "loading", note: "", error: null });
-    const r = await data.analyzePhoto(file, photoGuidance);
+    const r = await data.analyzePhoto(photoFile, photoGuidance);
     if (r.estimate) {
       setForm({ name: r.estimate.name || "", protein: String(round(r.estimate.protein_g)), calories: String(round(r.estimate.calories)), grams: "", unit: "מנה", save: false });
       setPhoto({ state: "done", note: r.estimate.note || "", confidence: r.estimate.confidence, error: null });
@@ -137,6 +151,26 @@ export default function App({ session }) {
       const msg = r.error === "daily_limit" ? "נגמרו הניתוחים להיום — עבור להזנה ידנית" : "הניתוח נכשל — נסה שוב או הזן ידנית";
       setPhoto({ state: "idle", note: "", error: msg });
     }
+  };
+
+  const addWater = async (amount) => {
+    const result = await data.addWater(amount, selectedDay);
+    if (!result.data) {
+      setWaterError("לא ניתן לשמור את המים כרגע. נסה שוב.");
+      return;
+    }
+    setWaterError("");
+    clearTimeout(waterUndoTimer.current);
+    const undo = { id: result.data.id, amount: result.data.water_ml, date: selectedDay };
+    setWaterUndo(undo);
+    waterUndoTimer.current = setTimeout(() => setWaterUndo(null), 6000);
+  };
+
+  const undoWater = async () => {
+    if (!waterUndo) return;
+    clearTimeout(waterUndoTimer.current);
+    setWaterUndo(null);
+    await data.deleteEntry(waterUndo.id);
   };
 
   const goTo = (s) => { setScreen(s); setSettingsOpen(false); };
@@ -156,7 +190,7 @@ export default function App({ session }) {
       </div>
 
       <div className="pc-scroll app-scroll" style={{ flex: 1, overflowY: "auto" }}>
-        {screen === "today" && <Today totals={vm.totals} goal={goal} ringOffset={vm.ringOffset} remaining={vm.remaining} pace={vm.pace} mealGroups={vm.mealGroups} suggestion={vm.suggestion} onDelete={(id) => setConfirm({ title: "מחיקת רישום", body: "הרישום יימחק מהיום.", confirmLabel: "מחק", onConfirm: () => data.deleteEntry(id) })} onSelect={setSelectedEntry} dayLabel={dayLabel(selectedDay, today)} isToday={selectedDay === today} onToday={() => setSelectedDay(today)} onPrev={prevDay} onNext={nextDay} canPrev={canPrev} canNext={canNext} />}
+        {screen === "today" && <Today totals={vm.totals} goal={goal} ringOffset={vm.ringOffset} remaining={vm.remaining} pace={vm.pace} calorieProgress={vm.calorieProgress} waterMl={vm.waterMl} waterGoal={waterGoal} onAddWater={addWater} waterUndo={waterUndo?.date === selectedDay ? waterUndo : null} onUndoWater={undoWater} waterError={waterError} mealGroups={vm.mealGroups} suggestion={vm.suggestion} onDelete={(id) => setConfirm({ title: "מחיקת רישום", body: "הרישום יימחק מהיום.", confirmLabel: "מחק", onConfirm: () => data.deleteEntry(id) })} onSelect={setSelectedEntry} dayLabel={dayLabel(selectedDay, today)} isToday={selectedDay === today} onToday={() => setSelectedDay(today)} onPrev={prevDay} onNext={nextDay} canPrev={canPrev} canNext={canNext} />}
         {screen === "trends" && <Trends goal={goal} streak={vm.streak} avg={vm.avg} bars={vm.bars} goalY={vm.goalY} calAvg={vm.calAvg} heading={vm.heading} range={chartRange} onRange={setChartRange} />}
         {screen === "foods" && <MyFoods foods={vm.foodVm} onNew={openAddManual} onEdit={(f) => setEditFood(f.raw)} />}
         {screen === "mealPlan" && <MealPlan />}
@@ -178,13 +212,14 @@ export default function App({ session }) {
       {addOpen && (
         <AddSheet tab={addTab} onTab={onTab} onClose={discardAdd} foods={vm.foodVm} form={form} isGeneralFood={isGeneralFood} onOpenGeneral={openGeneralFood}
           onField={(k, v) => setForm((f) => ({ ...f, [k]: v }))} onToggleSave={() => setForm((f) => ({ ...f, save: !f.save }))}
-          onSubmit={submitAdd} onQuickAdd={quickAdd} photo={{ ...photo, quota: vm.aiQuota }} onPickPhoto={pickPhoto} photoGuidance={photoGuidance} onPhotoGuidance={setPhotoGuidance}
+          onSubmit={submitAdd} onQuickAdd={quickAdd} photo={{ ...photo, quota: vm.aiQuota }} photoFile={photoFile} onPickPhoto={pickPhoto} onAnalyzePhoto={analyzeSelectedPhoto} photoGuidance={photoGuidance} onPhotoGuidance={setPhotoGuidance}
           date={addDate} onDate={setAddDate} minDate={oldest} maxDate={today} mealType={mealType} onMealType={setMealType} />
       )}
 
       {settingsOpen && (
-        <Settings goal={goal} name={data.name} email={data.email} onName={data.setName} onBack={() => setSettingsOpen(false)}
-          onDec={() => data.setGoal(Math.max(80, goal - 5))} onInc={() => data.setGoal(Math.min(260, goal + 5))} onSignOut={data.signOut} />
+        <Settings goal={goal} waterGoal={waterGoal} name={data.name} email={data.email} onName={data.setName} onBack={() => setSettingsOpen(false)}
+          onDec={() => data.setGoal(Math.max(80, goal - 5))} onInc={() => data.setGoal(Math.min(260, goal + 5))}
+          onWaterDec={() => data.setWaterGoal(Math.max(250, waterGoal - 250))} onWaterInc={() => data.setWaterGoal(Math.min(10000, waterGoal + 250))} onSignOut={data.signOut} />
       )}
 
       {editFood && <FoodEditor food={editFood} onSave={async (v) => { await data.saveFood(v); setEditFood(null); }} onDelete={(id) => setConfirm({ title: "מחיקת מאכל", body: "המאכל יימחק מהרשימה שלך.", confirmLabel: "מחק", onConfirm: async () => { await data.deleteFood(id); setEditFood(null); } })} onClose={() => setEditFood(null)} />}

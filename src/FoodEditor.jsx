@@ -52,7 +52,7 @@ export default function FoodEditor({ food, onSave, onDelete, onClose }) {
             </div>
             <div>
               <label style={label}>קלוריות</label>
-              <input value={calories} onChange={(e) => setCalories(e.target.value)} inputMode="decimal" aria-label="קלוריות" placeholder="0" style={{ ...inputStyle, color: "#25b9ff", fontSize: 18, fontWeight: 800 }} />
+              <input value={calories} onChange={(e) => setCalories(e.target.value)} inputMode="decimal" aria-label="קלוריות" placeholder="0" style={{ ...inputStyle, color: "#fb923c", fontSize: 18, fontWeight: 800 }} />
             </div>
           </div>
 

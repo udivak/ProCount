@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ChevronLeft } from "../lib/icons.jsx";
 
 // Settings — full-screen overlay from the header gear. Protein goal + account.
-export default function Settings({ goal, name, email, onBack, onName, onDec, onInc, onSignOut }) {
+export default function Settings({ goal, waterGoal, name, email, onBack, onName, onDec, onInc, onWaterDec, onWaterInc, onSignOut }) {
   const [nameInput, setNameInput] = useState(name || "");
   return (
     <div style={{ position: "absolute", inset: 0, zIndex: 60, background: "#070a0a", animation: "fadeIn .2s ease", display: "flex", flexDirection: "column" }}>
@@ -26,6 +26,18 @@ export default function Settings({ goal, name, email, onBack, onName, onDec, onI
           </div>
         </div>
 
+        <div style={{ background: "#101516", border: "1px solid #203532", borderRadius: 20, padding: 20, marginBottom: 14 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#6f6f78", marginBottom: 14 }}>יעד מים יומי</div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <button onClick={onWaterDec} aria-label="הפחת יעד מים" style={{ width: 46, height: 46, border: "1px solid #26302f", background: "#1e1e23", color: "#f4f4f5", borderRadius: 14, fontSize: 22, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>−</button>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
+              <span style={{ fontSize: 40, fontWeight: 900, letterSpacing: "-.02em", color: "#60a5fa" }}>{formatLiters(waterGoal)}</span>
+              <span style={{ fontSize: 16, fontWeight: 700, color: "#6f6f78" }}>ליטר</span>
+            </div>
+            <button onClick={onWaterInc} aria-label="הגדל יעד מים" style={{ width: 46, height: 46, border: "1px solid #1f3831", background: "#101918", color: "#39e6b2", borderRadius: 14, fontSize: 22, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>+</button>
+          </div>
+        </div>
+
         <div style={{ background: "#101516", border: "1px solid #232328", borderRadius: 20, overflow: "hidden" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "17px 18px", borderBottom: "1px solid #202024" }}>
             <span style={{ fontSize: 15, fontWeight: 600 }}>שם</span>
@@ -44,4 +56,8 @@ export default function Settings({ goal, name, email, onBack, onName, onDec, onI
       </div>
     </div>
   );
+}
+
+function formatLiters(ml) {
+  return (Number(ml || 0) / 1000).toLocaleString("he-IL", { maximumFractionDigits: 2 });
 }

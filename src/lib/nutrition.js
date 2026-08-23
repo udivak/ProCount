@@ -4,12 +4,22 @@
 export function dailyTotals(entries, date) {
   let protein = 0, calories = 0, count = 0;
   for (const e of entries) {
-    if (e.eaten_on !== date) continue;
+    if (e.eaten_on !== date || isWater(e)) continue;
     protein += Number(e.protein_g) || 0;
     calories += Number(e.calories) || 0;
     count++;
   }
   return { protein, calories, count };
+}
+
+// Water lives in entries for the shared local-date behavior, but is not food.
+// Legacy rows have no entry_kind and are therefore treated as food.
+export function dailyWaterTotal(entries, date) {
+  return entries.reduce((sum, entry) => (
+    entry.eaten_on === date && isWater(entry)
+      ? sum + (Number(entry.water_ml) || 0)
+      : sum
+  ), 0);
 }
 
 export function remainingProtein(total, goal) {
@@ -22,7 +32,10 @@ export const MEAL_TYPES = ["breakfast", "lunch", "dinner", "snack"];
 // belong in snacks rather than being hidden or guessed from their creation time.
 export function entriesByMeal(entries) {
   const groups = Object.fromEntries(MEAL_TYPES.map((type) => [type, []]));
-  for (const entry of entries) groups[groups[entry.meal_type] ? entry.meal_type : "snack"].push(entry);
+  for (const entry of entries) {
+    if (isWater(entry)) continue;
+    groups[groups[entry.meal_type] ? entry.meal_type : "snack"].push(entry);
+  }
   return MEAL_TYPES.map((type) => ({
     type,
     entries: groups[type],
@@ -67,7 +80,10 @@ export function dailyPace(total, goal, now = new Date()) {
 // { 'YYYY-MM-DD': proteinTotal }
 export function proteinByDay(entries) {
   const m = {};
-  for (const e of entries) m[e.eaten_on] = (m[e.eaten_on] || 0) + (Number(e.protein_g) || 0);
+  for (const e of entries) {
+    if (isWater(e)) continue;
+    m[e.eaten_on] = (m[e.eaten_on] || 0) + (Number(e.protein_g) || 0);
+  }
   return m;
 }
 
@@ -107,7 +123,7 @@ export function avgCaloriesPerActiveDay(entries, dates) {
   const set = new Set(dates);
   const byDay = {};
   for (const e of entries) {
-    if (!set.has(e.eaten_on)) continue;
+    if (!set.has(e.eaten_on) || isWater(e)) continue;
     byDay[e.eaten_on] = (byDay[e.eaten_on] || 0) + (Number(e.calories) || 0);
   }
   const vals = Object.values(byDay);
@@ -134,6 +150,10 @@ export function proteinPer100g(proteinG, grams) {
 export function gramsPerServing(unit) {
   const m = String(unit || "").match(/(\d+(?:\.\d+)?)\s*(?:גרם|גר|g)/i);
   return m ? Number(m[1]) : null;
+}
+
+function isWater(entry) {
+  return entry.entry_kind === "water";
 }
 
 function isoLocal(d) {
