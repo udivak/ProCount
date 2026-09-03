@@ -64,7 +64,7 @@ npm run build
 | סדר | מזהה | תיקון | הודעת קומיט מתוכננת | מצב |
 |---|---|---|---|---|
 | 01 | B08 | יצירת מאכל במאגר בלבד | `fix(B08): separate catalog creation from daily logging` | בוצע בקוד; אימות שמירה מול נתוני בדיקה ממתין |
-| 02 | B04 | שמירה עקבית וטיפול בכשלים | `fix(B04): preserve food save outcomes and retry state` | טרם התחיל |
+| 02 | B04 | שמירה עקבית וטיפול בכשלים | `fix(B04): preserve food save outcomes and retry state` | בוצע בקוד; אימות כתיבה חי ממתין |
 | 03 | B06 | מניעת שליחה כפולה | `fix(B06): prevent duplicate food submissions` | טרם התחיל |
 | 04 | B07 | מניעת כפילות במאגר | `fix(B07): reuse exact catalog matches` | טרם התחיל |
 | 05 | B11 | דיוק מד החלבון | `fix(B11): calibrate the protein progress arc` | טרם התחיל |
@@ -106,6 +106,8 @@ npm run build
 - [ ] הצלחה חלקית או תשובה שאבדה אינן מובילות ליצירה חוזרת של חלק שכבר נשמר.
 
 **קבצים:** [store.js](</Users/udivak/Self Projects/ProCount/src/store.js>), App, AddSheet, FoodEditor. **תלות:** B08. קומיט זה אינו כולל עדיין נעילת לחיצה כפולה או התאמה למאכל קיים.
+
+**תוצאת ביצוע (3.9.2026):** פעולות המאגר והרישום מחזירות תוצאה מפורשת; כתיבות חדשות משתמשות ב־UUID יציב וב־`insertOrFind` לפני ואחרי כשל תגובה. הטפסים נשארים פתוחים עם הודעת שגיאה, ובעקבות הצלחה חלקית מסמנים את ה־entry שכבר נשמר ומנסים שוב רק את המאכל. בדיקות `node --test src/lib/write.test.js` (4/4), `npm test` (27/27), `npm run build` ו־`git diff --check` עברו. לא בוצעו כתיבות ל־Supabase החי; אימות מול נתוני בדיקה ורענון עדיין ממתין.
 
 ### קומיט 03 — B06: לחיצה כפולה יוצרת פעולה אחת
 

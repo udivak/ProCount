@@ -2,12 +2,12 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase, FUNCTIONS_URL } from "./lib/supabase.js";
 import { todayLocal, lastNDates } from "./lib/date.js";
 import { gramsPerServing } from "./lib/nutrition.js";
+import { insertOrFind, nonNegativeNumber, saveLoggedFood } from "./lib/write.js";
 
 export const RANGE_DAYS = 35; // enough for the 7-day chart + streak look-back; also the day-nav look-back
 
 // Central data layer: loads entries/foods/goal for the signed-in user and exposes
-// mutations. Writes are local-optimistic (update state, then persist) so the UI
-// stays instant — RLS guarantees every row belongs to this user.
+// mutations. Entry and food inserts return their explicit database outcome.
 export function useData(session) {
   const [entries, setEntries] = useState([]); // last RANGE_DAYS, newest first
   const [foods, setFoods] = useState([]);
@@ -39,19 +39,26 @@ export function useData(session) {
 
   // date is the YYYY-MM-DD to log onto; defaults to today (retro entries pass a past day).
   const addEntry = useCallback(async (row, date) => {
-    const { data, error } = await supabase
-      .from("entries").insert({ ...row, eaten_on: date || today }).select().single();
-    if (!error && data) setEntries((cur) => [data, ...cur]);
-    return { data, error };
+    const result = await insertOrFind({
+      row: { ...row, eaten_on: date || today },
+      findById: (id) => supabase.from("entries").select().eq("id", id).maybeSingle(),
+      insert: (entry) => supabase.from("entries").insert(entry).select().single(),
+    });
+    if (result.data) setEntries((cur) => cur.some((entry) => entry.id === result.data.id) ? cur : [result.data, ...cur]);
+    return result;
   }, [today]);
 
-  const addQuick = useCallback((food, qty = 1, date, mealType = "snack") => {
-    const n = Number(qty) || 1; // servings; foods store per-1-serving macros
+  const addQuick = useCallback((food, qty = 1, date, mealType = "snack", entryId) => {
+    const n = Number(qty); // servings; foods store per-1-serving macros
+    const protein = nonNegativeNumber(food.protein_g);
+    const calories = nonNegativeNumber(food.calories);
+    if (!Number.isFinite(n) || n <= 0 || protein == null || calories == null || !entryId) return Promise.resolve(failedWrite());
     const perServingG = gramsPerServing(food.unit); // grams if the unit is gram-denominated, else null
     return addEntry({
+      id: entryId,
       name: food.name,
-      protein_g: (Number(food.protein_g) || 0) * n,
-      calories: (Number(food.calories) || 0) * n,
+      protein_g: protein * n,
+      calories: calories * n,
       grams: perServingG != null ? perServingG * n : null,
       source: "saved",
       food_id: food.id,
@@ -63,6 +70,7 @@ export function useData(session) {
     const waterMl = Math.round(Number(amount));
     if (!(waterMl > 0)) return Promise.resolve({ data: null, error: new Error("invalid_water_amount") });
     return addEntry({
+      id: crypto.randomUUID(),
       name: "מים",
       protein_g: 0,
       calories: 0,
@@ -73,57 +81,37 @@ export function useData(session) {
     }, date);
   }, [addEntry]);
 
-  const addManual = useCallback(async ({ name, protein, calories, grams, unit, save }, date, mealType = "snack") => {
-    const p = parseFloat(protein) || 0;
-    const c = parseFloat(calories) || 0;
-    const g = grams === "" || grams == null ? null : parseFloat(grams) || null;
-    const nm = (name || "").trim() || "רישום ללא שם";
-    await addEntry({ name: nm, protein_g: p, calories: c, grams: g, source: "manual", meal_type: mealType }, date);
-    if (save) {
-      const { data } = await supabase
-        .from("foods").insert({ name: nm, unit: (unit || "מנה").trim(), protein_g: p, calories: c }).select().single();
-      if (data) setFoods((cur) => [data, ...cur]);
-    }
-  }, [addEntry]);
+  const saveFood = useCallback(async ({ id, name, unit, protein, calories, isEdit = false }) => {
+    const proteinG = nonNegativeNumber(protein);
+    const calorieCount = nonNegativeNumber(calories);
+    if (proteinG == null || calorieCount == null || !id) return failedWrite();
+    const row = {
+      id,
+      name: (name || "").trim() || "מאכל",
+      unit: (unit || "").trim() || null,
+      protein_g: proteinG,
+      calories: calorieCount,
+    };
+    const updated = isEdit ? await supabase.from("foods").update(row).eq("id", id).select().single() : null;
+    const result = isEdit
+      ? updated.data || updated.error ? updated : failedWrite()
+      : await insertOrFind({
+        row,
+        findById: (foodId) => supabase.from("foods").select().eq("id", foodId).maybeSingle(),
+        insert: (food) => supabase.from("foods").insert(food).select().single(),
+      });
+    if (result.data) setFoods((cur) => isEdit ? cur.map((food) => food.id === result.data.id ? result.data : food) : cur.some((food) => food.id === result.data.id) ? cur : [result.data, ...cur]);
+    return result;
+  }, []);
 
-  const addAi = useCallback(async ({ name, protein, calories, grams, save }, date, mealType = "snack") => {
-    const p = parseFloat(protein) || 0;
-    const c = parseFloat(calories) || 0;
-    const nm = (name || "").trim() || "רישום ללא שם";
-    await addEntry({
-      name: nm,
-      protein_g: p,
-      calories: c,
-      grams: grams === "" || grams == null ? null : parseFloat(grams) || null,
-      source: "ai",
-      meal_type: mealType,
-    }, date);
-    if (save) {
-      const { data } = await supabase
-        .from("foods").insert({ name: nm, unit: "מנה", protein_g: p, calories: c }).select().single();
-      if (data) setFoods((cur) => [data, ...cur]);
-    }
-  }, [addEntry]);
+  const addLogged = useCallback((values, date, mealType, source) => saveLoggedFood({ values, date, mealType, source, addEntry, saveFood }), [addEntry, saveFood]);
+
+  const addManual = useCallback((values, date, mealType = "snack") => addLogged(values, date, mealType, "manual"), [addLogged]);
+  const addAi = useCallback((values, date, mealType = "snack") => addLogged(values, date, mealType, "ai"), [addLogged]);
 
   const deleteEntry = useCallback(async (id) => {
     setEntries((cur) => cur.filter((e) => e.id !== id));
     await supabase.from("entries").delete().eq("id", id);
-  }, []);
-
-  const saveFood = useCallback(async ({ id, name, unit, protein, calories }) => {
-    const row = {
-      name: (name || "").trim() || "מאכל",
-      unit: (unit || "").trim() || null,
-      protein_g: parseFloat(protein) || 0,
-      calories: parseFloat(calories) || 0,
-    };
-    if (id) {
-      const { data } = await supabase.from("foods").update(row).eq("id", id).select().single();
-      if (data) setFoods((cur) => cur.map((f) => (f.id === id ? data : f)));
-    } else {
-      const { data } = await supabase.from("foods").insert(row).select().single();
-      if (data) setFoods((cur) => [data, ...cur]);
-    }
   }, []);
 
   const deleteFood = useCallback(async (id) => {
@@ -188,4 +176,8 @@ function compressToBase64(file, max = 1024, quality = 0.8) {
     img.onerror = (e) => { URL.revokeObjectURL(src); reject(e); };
     img.src = src;
   });
+}
+
+function failedWrite() {
+  return { data: null, error: new Error("invalid_write"), reused: false };
 }

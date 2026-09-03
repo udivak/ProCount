@@ -9,6 +9,8 @@ const MEASURES = ["יחידה", "כף", "כפית", "כוס", "פרוסה", "ס�
 
 export default function FoodEditor({ food, onSave, onDelete, onClose }) {
   const isEdit = !!food.id;
+  const [draftId] = useState(() => food.id || crypto.randomUUID());
+  const [saveError, setSaveError] = useState("");
   const [name, setName] = useState(food.name || "");
   const initialUnit = food.unit || "מנה";
   const [selectedUnit, setSelectedUnit] = useState(MEASURES.includes(initialUnit) ? initialUnit : "אחר");
@@ -17,6 +19,11 @@ export default function FoodEditor({ food, onSave, onDelete, onClose }) {
   const [calories, setCalories] = useState(food.calories != null ? String(food.calories) : "");
   const unit = selectedUnit === "אחר" ? customUnit.trim() : selectedUnit;
   const canSave = selectedUnit !== "אחר" || !!unit;
+  const save = async () => {
+    setSaveError("");
+    const result = await onSave({ id: draftId, isEdit, name, unit, protein, calories });
+    if (result.error) setSaveError("לא ניתן לשמור את המאכל כרגע. נסה שוב.");
+  };
 
   return (
     <div style={{ position: "absolute", inset: 0, zIndex: 55, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
@@ -56,9 +63,10 @@ export default function FoodEditor({ food, onSave, onDelete, onClose }) {
             </div>
           </div>
 
-          <button disabled={!canSave} onClick={() => onSave({ id: food.id, name, unit, protein, calories })} style={{ marginTop: 4, border: "none", fontFamily: "inherit", background: "linear-gradient(180deg,#39e6b2,#16a985)", color: "#03120d", fontSize: 16, fontWeight: 800, padding: 15, borderRadius: 15, cursor: canSave ? "pointer" : "not-allowed", opacity: canSave ? 1 : .45 }}>
+          <button disabled={!canSave} onClick={save} style={{ marginTop: 4, border: "none", fontFamily: "inherit", background: "linear-gradient(180deg,#39e6b2,#16a985)", color: "#03120d", fontSize: 16, fontWeight: 800, padding: 15, borderRadius: 15, cursor: canSave ? "pointer" : "not-allowed", opacity: canSave ? 1 : .45 }}>
             {isEdit ? "שמור שינויים" : "הוסף מאכל"}
           </button>
+          {saveError && <div role="alert" style={{ color: "#fb7185", fontSize: 13, fontWeight: 700, textAlign: "center" }}>{saveError}</div>}
 
           {isEdit && (
             <button onClick={() => onDelete(food.id)} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, border: "none", fontFamily: "inherit", background: "none", color: "#fb7185", fontSize: 14, fontWeight: 700, padding: 8, cursor: "pointer" }}>
