@@ -11,7 +11,7 @@ const round = (n) => Math.round(Number(n) || 0);
 const MEALS = [["breakfast", "בוקר"], ["lunch", "צהריים"], ["dinner", "ערב"], ["snack", "נשנוש"]];
 const MEASURES = ["יחידה", "כף", "כפית", "כוס", "פרוסה", "סקופ", "קופסה", "מנה", "100 גרם"];
 
-export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFood, onOpenGeneral, onField, onToggleSave, onSubmit, onQuickAdd, photo, photoFile, onPickPhoto, onAnalyzePhoto, photoGuidance, onPhotoGuidance, date, onDate, minDate, maxDate, mealType, onMealType, error, locked, saving, onBeginQuick }) {
+export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFood, onOpenGeneral, onBackGeneral, onBackPhoto, onField, onToggleSave, onSubmit, onQuickAdd, photo, photoFile, onPickPhoto, onAnalyzePhoto, photoGuidance, onPhotoGuidance, date, onDate, minDate, maxDate, mealType, onMealType, error, locked, saving, onBeginQuick }) {
   const cameraRef = useRef(null);
   const galleryRef = useRef(null);
   const [q, setQ] = useState("");
@@ -21,6 +21,7 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFo
   const [picking, setPicking] = useState(null); // food tapped from the grid, awaiting a quantity
   const [qty, setQty] = useState(1);
   const [quickEntryId, setQuickEntryId] = useState(null);
+  const [quickFoodId, setQuickFoodId] = useState(null);
   const disabled = locked || saving;
 
   const tabBtn = (key, text) => {
@@ -86,7 +87,7 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFo
                     ) : (
                       <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10 }}>
                         {shown.map((f) => (
-                          <button disabled={disabled} key={f.id} className="h-quick quick-food-card" onClick={() => { onBeginQuick(); setPicking(f); setQuickEntryId(crypto.randomUUID()); setQty(Number(f.raw?.default_qty) || 1); }} style={{ textAlign: "right", border: "1px solid #232328", background: "#111718", borderRadius: 16, padding: 14, cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? .45 : 1, fontFamily: "inherit", display: "flex", flexDirection: "column", gap: 8 }}>
+                          <button disabled={disabled} key={f.id} className="h-quick quick-food-card" onClick={() => { onBeginQuick(); if (quickFoodId !== f.id) { setQuickFoodId(f.id); setQuickEntryId(crypto.randomUUID()); setQty(Number(f.raw?.default_qty) || 1); } setPicking(f); }} style={{ textAlign: "right", border: "1px solid #232328", background: "#111718", borderRadius: 16, padding: 14, cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? .45 : 1, fontFamily: "inherit", display: "flex", flexDirection: "column", gap: 8 }}>
                             <div className="quick-food-name" style={{ fontSize: 14, fontWeight: 700, color: "#f4f4f5", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.name}</div>
                             <div className="quick-food-macros" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", direction: "ltr" }}>
                               <span className="quick-food-protein" style={{ fontSize: 13, fontWeight: 800, color: "#39e6b2", direction: "rtl" }}>{f.protein}g חלבון</span>
@@ -103,7 +104,10 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFo
           )}
 
           {tab === "manual" && (
-            <ManualForm form={form} onField={onField} onToggleSave={onToggleSave} onSubmit={onSubmit} cta={saving ? "שומר..." : locked ? "נסה שוב לשמור את המאכל" : "הוסף לרישום"} showSave showMeasure showQuantity requireAll={isGeneralFood} error={error} locked={locked} saving={saving} />
+            <>
+              {isGeneralFood && <button disabled={disabled} onClick={onBackGeneral} style={{ alignSelf: "flex-start", marginBottom: 14, background: "none", border: "none", color: "#8a8a93", fontFamily: "inherit", fontSize: 14, fontWeight: 700, cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? .45 : 1, padding: 0 }}>‹ חזרה לרשימה</button>}
+              <ManualForm form={form} onField={onField} onToggleSave={onToggleSave} onSubmit={onSubmit} cta={saving ? "שומר..." : locked ? "נסה שוב לשמור את המאכל" : "הוסף לרישום"} showSave showMeasure showQuantity requireAll={isGeneralFood} error={error} locked={locked} saving={saving} />
+            </>
           )}
 
           {tab === "photo" && (
@@ -160,6 +164,7 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFo
 
               {photo.state === "done" && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  <button disabled={disabled} onClick={onBackPhoto} style={{ alignSelf: "flex-start", background: "none", border: "none", color: "#8a8a93", fontFamily: "inherit", fontSize: 14, fontWeight: 700, cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? .45 : 1, padding: 0 }}>‹ חזרה לבחירת תמונה</button>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#101918", border: "1px solid #1f3831", borderRadius: 14, padding: "12px 14px" }}>
                     <span style={{ width: 30, height: 30, borderRadius: 8, background: "rgba(52,211,153,.15)", color: "#39e6b2", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800 }}>AI</span>
                     <div style={{ flex: 1 }}>

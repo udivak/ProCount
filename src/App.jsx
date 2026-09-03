@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useData, RANGE_DAYS } from "./store.js";
 import { headerDate, lastNDates, lastNWeeks, weekdayLabel, weekRangeLabel, shiftDate, dayLabel, greeting } from "./lib/date.js";
 import { dailyTotals, dailyWaterTotal, remainingProtein, pct, dailyPace, streak, proteinByDay, weekSeries, weeklyAverageSeries, avgCaloriesPerActiveDay, average, entriesByMeal, proteinSuggestion } from "./lib/nutrition.js";
+import { captureRequestRevision } from "./lib/request.js";
 import { withSubmissionLock } from "./lib/submission.js";
 import { Gear, Home, Chart, ListIcon, Plus, Utensils } from "./lib/icons.jsx";
 import Today from "./screens/Today.jsx";
@@ -50,6 +51,7 @@ export default function App({ session }) {
   const [addNotice, setAddNotice] = useState("");
   const waterUndoTimer = useRef(null);
   const addSaveLock = useRef(false);
+  const photoRequestRevision = useRef(0);
   const [addSaving, setAddSaving] = useState(false);
 
   useEffect(() => () => clearTimeout(waterUndoTimer.current), []);
@@ -119,13 +121,45 @@ export default function App({ session }) {
   const header = { today: { sub: headerDate(), title: "ProCount", greet: greeting(data.name || data.email.split("@")[0]) }, trends: { sub: "מעקב לאורך זמן", title: "מגמות" }, foods: { sub: "התבניות שלי", title: "מאכלים שלי" }, mealPlan: { sub: "התזונה שלך", title: "תפריט" } }[screen];
 
   // ---- actions ----
-  const openAdd = () => { if (!addSaveLock.current) { setForm(blankForm()); setAddError(""); setAddNotice(""); setMealType("snack"); setAddDate(selectedDay); setPhoto({ state: "idle", note: "", error: null }); setPhotoFile(null); setPhotoGuidance(""); setAddTab("quick"); setIsGeneralFood(false); setAddOpen(true); } };
-  const openGeneralFood = () => { if (!form.entrySaved) { setForm(blankForm()); setAddError(""); setAddTab("manual"); setIsGeneralFood(true); } };
-  const onTab = (tab) => { if (!form.entrySaved) { setAddError(""); setAddTab(tab); setIsGeneralFood(false); setPhoto({ state: "idle", note: "", error: null }); setPhotoFile(null); } };
+  const invalidatePhotoRequest = () => captureRequestRevision(photoRequestRevision);
+  const openAdd = () => {
+    if (addSaveLock.current) return;
+    invalidatePhotoRequest();
+    setForm(blankForm());
+    setAddError("");
+    setAddNotice("");
+    setMealType("snack");
+    setAddDate(selectedDay);
+    setPhoto({ state: "idle", note: "", error: null });
+    setPhotoFile(null);
+    setPhotoGuidance("");
+    setAddTab("quick");
+    setIsGeneralFood(false);
+    setAddOpen(true);
+  };
+  const openGeneralFood = () => { if (!form.entrySaved) { setAddError(""); setAddTab("manual"); setIsGeneralFood(true); } };
+  const backFromGeneralFood = () => { if (!form.entrySaved) { setAddError(""); setAddTab("quick"); setIsGeneralFood(false); } };
+  const onTab = (tab) => {
+    if (form.entrySaved || tab === addTab) return;
+    invalidatePhotoRequest();
+    setAddError("");
+    setAddTab(tab);
+    setIsGeneralFood(false);
+    setPhoto({ state: "idle", note: "", error: null });
+    setPhotoFile(null);
+  };
   const onField = (key, value) => { if (!form.entrySaved) { setAddError(""); setForm((current) => ({ ...current, [key]: value })); } };
   const onToggleSave = () => { if (!form.entrySaved) { setAddError(""); setForm((current) => ({ ...current, save: !current.save })); } };
 
-  const finishAdd = () => { setForm(blankForm()); setAddError(""); setPhoto({ state: "idle", note: "", error: null }); setPhotoFile(null); setPhotoGuidance(""); setAddOpen(false); };
+  const finishAdd = () => {
+    invalidatePhotoRequest();
+    setForm(blankForm());
+    setAddError("");
+    setPhoto({ state: "idle", note: "", error: null });
+    setPhotoFile(null);
+    setPhotoGuidance("");
+    setAddOpen(false);
+  };
   const discardAdd = () => { if (!addSaveLock.current) finishAdd(); };
   const runAddSave = (operation) => withSubmissionLock(addSaveLock, async () => {
     setAddSaving(true);
@@ -158,25 +192,32 @@ export default function App({ session }) {
       }
       if (result.error) return setAddError(partial ? "הרישום נשמר, אך המאכל לא נשמר. נסה שוב." : "לא ניתן לשמור את הרישום כרגע. נסה שוב.");
       setAddNotice(result.food?.reused ? "הרישום נוסף. המאכל כבר קיים במאגר, ולכן לא נוצר מאכל נוסף." : "");
-      setForm(blankForm());
-      setAddError("");
-      setPhotoGuidance("");
       setIsGeneralFood(false);
       setSelectedDay(addDate); // jump the view to the day we just logged onto
-      setAddOpen(false);
+      finishAdd();
     });
   };
 
   const pickPhoto = (file) => {
     if (!file || form.entrySaved) return;
+    invalidatePhotoRequest();
     setPhotoFile(file);
+    setPhoto({ state: "idle", note: "", error: null });
+  };
+
+  const backFromPhotoResult = () => {
+    if (form.entrySaved) return;
+    invalidatePhotoRequest();
+    setAddError("");
     setPhoto({ state: "idle", note: "", error: null });
   };
 
   const analyzeSelectedPhoto = async () => {
     if (!photoFile || form.entrySaved) return;
+    const isCurrentPhotoRequest = captureRequestRevision(photoRequestRevision);
     setPhoto({ state: "loading", note: "", error: null });
     const r = await data.analyzePhoto(photoFile, photoGuidance);
+    if (!isCurrentPhotoRequest()) return;
     if (r.estimate) {
       setForm((current) => ({ ...current, name: r.estimate.name || "", protein: String(round(r.estimate.protein_g)), calories: String(round(r.estimate.calories)), grams: "", quantity: "1", unit: "מנה", save: false }));
       setPhoto({ state: "done", note: r.estimate.note || "", confidence: r.estimate.confidence, error: null });
@@ -244,7 +285,7 @@ export default function App({ session }) {
       </div>
 
       {addOpen && (
-        <AddSheet tab={addTab} onTab={onTab} onClose={discardAdd} foods={vm.foodVm} form={form} isGeneralFood={isGeneralFood} onOpenGeneral={openGeneralFood} error={addError} saving={addSaving}
+        <AddSheet tab={addTab} onTab={onTab} onClose={discardAdd} foods={vm.foodVm} form={form} isGeneralFood={isGeneralFood} onOpenGeneral={openGeneralFood} onBackGeneral={backFromGeneralFood} onBackPhoto={backFromPhotoResult} error={addError} saving={addSaving}
           onField={onField} onToggleSave={onToggleSave} locked={form.entrySaved} onBeginQuick={() => setAddError("")}
           onSubmit={submitAdd} onQuickAdd={quickAdd} photo={{ ...photo, quota: vm.aiQuota }} photoFile={photoFile} onPickPhoto={pickPhoto} onAnalyzePhoto={analyzeSelectedPhoto} photoGuidance={photoGuidance} onPhotoGuidance={(guidance) => { if (!form.entrySaved) setPhotoGuidance(guidance); }}
           date={addDate} onDate={(date) => { if (!form.entrySaved) setAddDate(date); }} minDate={oldest} maxDate={today} mealType={mealType} onMealType={(type) => { if (!form.entrySaved) setMealType(type); }} />
