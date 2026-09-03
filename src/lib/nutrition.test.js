@@ -1,7 +1,7 @@
 // Run: npm test   (node --test)
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { dailyTotals, dailyWaterTotal, remainingProtein, pct, dailyPace, streak, weekSeries, weeklyAverageSeries, avgCaloriesPerActiveDay, proteinPer100g, gramsPerServing, entriesByMeal, proteinSuggestion } from "./nutrition.js";
+import { CALORIE_GOAL, calorieBalance, dailyTotals, dailyWaterTotal, remainingProtein, pct, dailyPace, streak, weekSeries, weeklyAverageSeries, avgCaloriesPerActiveDay, proteinPer100g, gramsPerServing, entriesByMeal, proteinSuggestion } from "./nutrition.js";
 
 test("dailyTotals sums one day, ignores others", () => {
   const e = [
@@ -45,6 +45,15 @@ test("pct caps at 1 and guards a zero goal", () => {
   assert.equal(pct(0, 175), 0);
   assert.equal(pct(350, 175), 1);
   assert.equal(pct(50, 0), 0);
+});
+
+test("calorieBalance keeps remaining and overage signed while progress caps", () => {
+  assert.equal(CALORIE_GOAL, 2250);
+  assert.equal(calorieBalance(1125), 1125);
+  assert.equal(calorieBalance(1125.5), 1124);
+  assert.equal(calorieBalance(2300), -50);
+  assert.equal(calorieBalance(2250.5), -1);
+  assert.equal(pct(2300, CALORIE_GOAL), 1);
 });
 
 test("pct maps protein progress to normalized arc offsets", () => {

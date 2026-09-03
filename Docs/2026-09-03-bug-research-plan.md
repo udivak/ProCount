@@ -73,7 +73,7 @@ npm run build
 | 08 | B12 | השפעת התיאור על ניתוח צילום | `fix(B12): analyze photos with the current description` | בוצע בקוד; בדיקות Deno/UI/מודל חיות ממתינות |
 | 09 | B02 | מחיקה ישירה לאחר הוספה | `feat(B02): delete food entries from their immediate context` | בוצע בקוד; אימות UI וכתיבה חי ממתינים |
 | 10 | B10 | העברה בין ארוחות | `feat(B10): move logged food between meals` | בוצע בקוד; אימות UI ושמירה/רענון חיים ממתינים |
-| 11 | B05 | הצגת קלוריות מול התפריט | `fix(B05): show calorie intake against the meal plan target` | טרם התחיל |
+| 11 | B05 | הצגת קלוריות מול התפריט | `fix(B05): show calorie intake against the meal plan target` | בוצע בקוד; אימות UI מקומי ממתין |
 | 12 | B09 | שילובים עם אבקת חלבון | `feat(B09): add protein powder meal options` | טרם התחיל |
 | 13 | B13 | השלמת ערכים ב־AI לפי שם מאכל ומידה | `feat(B13): autofill catalog nutrition using AI` | טרם התחיל |
 
@@ -248,6 +248,8 @@ npm run build
 - [ ] הוספה, מחיקה ויום קודם מציגים את הסיכום הנכון מול אותו יעד.
 
 **קבצים:** App, Today, [MealPlan.jsx](</Users/udivak/Self Projects/ProCount/src/screens/MealPlan.jsx>), וקבוע משותף במודול קיים לפי הצורך. **תלות:** B11 עקב התצוגה המשותפת. יעד ניתן לעריכה ותפריט דינמי אינם נדרשים לתיקון זה.
+
+**תוצאת ביצוע (3.9.2026):** `CALORIE_GOAL = 2250` הועבר ל־`nutrition.js` כמקור יחיד ל־App ולתפריט. הסיכום היומי מעביר למסך הבית את הצריכה המספרית של היום הנבחר, היעד והיתרה החתומה; ההצגה מציינת "נאכלו X מתוך 2,250" ו"נותרו Y קל׳" או "חריגה של Y קל׳", בעוד שפס ההתקדמות נשאר חסום ב־100%. `calorieBalance` נבדק עבור 1,125 קלוריות שנותרו ועבור חריגה, לצד פס מלא. אין שינוי ב־profile, בהגדרות, ב־Trends או במסד הנתונים. `npm test`, `npm run build` ו־`git diff --check` עברו; אימות UI מקומי ממתין כי ה־Mac נעול.
 
 ### קומיט 12 — B09: שילובים עם אבקת חלבון בתפריט
 

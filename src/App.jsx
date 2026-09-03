@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useData, RANGE_DAYS } from "./store.js";
 import { headerDate, lastNDates, lastNWeeks, weekdayLabel, weekRangeLabel, shiftDate, dayLabel, greeting } from "./lib/date.js";
-import { dailyTotals, dailyWaterTotal, remainingProtein, pct, dailyPace, streak, proteinByDay, weekSeries, weeklyAverageSeries, avgCaloriesPerActiveDay, average, entriesByMeal, proteinSuggestion } from "./lib/nutrition.js";
+import { CALORIE_GOAL, calorieBalance, dailyTotals, dailyWaterTotal, remainingProtein, pct, dailyPace, streak, proteinByDay, weekSeries, weeklyAverageSeries, avgCaloriesPerActiveDay, average, entriesByMeal, proteinSuggestion } from "./lib/nutrition.js";
 import { acquireRequestLock, capturePhotoRequest, captureRequestRevision, clearRequestLock, releaseRequestLock } from "./lib/request.js";
 import { withSubmissionLock } from "./lib/submission.js";
 import { foodUndoTarget } from "./lib/delete.js";
@@ -16,7 +16,7 @@ import FoodEditor from "./FoodEditor.jsx";
 import ItemDetailModal from "./ItemDetailModal.jsx";
 import ConfirmDialog from "./ConfirmDialog.jsx";
 
-const SCALE = 200, CHART_H = 132, CALORIE_GOAL = 2250;
+const SCALE = 200, CHART_H = 132;
 const SOURCE = {
   saved: { tag: "מהיר", iconBg: "rgba(52,211,153,.12)", iconColor: "#39e6b2", sub: "מהיר" },
   manual: { tag: "ידני", iconBg: "rgba(96,165,250,.12)", iconColor: "#60a5fa", sub: "הזנה ידנית" },
@@ -81,6 +81,7 @@ export default function App({ session }) {
     const todays = entries.filter((e) => e.eaten_on === selectedDay);
     const t = dailyTotals(entries, selectedDay);
     const pctVal = pct(t.protein, goal);
+    const calorieIntake = Math.round(t.calories);
 
     const todayEntries = todays.filter((e) => e.entry_kind !== "water").map((e) => {
       const s = SOURCE[e.source] || SOURCE.manual;
@@ -110,11 +111,13 @@ export default function App({ session }) {
     const foodVm = foods.map((f) => ({ id: f.id, name: f.name, unit: f.unit || "מותאם", protein: round(f.protein_g), calories: round(f.calories), raw: f }));
 
     return {
-      totals: { protein: round(t.protein), calories: Math.round(t.calories).toLocaleString(), count: t.count, pctLabel: Math.round(pctVal * 100) + "%" },
+      totals: { protein: round(t.protein), calories: calorieIntake.toLocaleString(), count: t.count, pctLabel: Math.round(pctVal * 100) + "%" },
       waterMl: dailyWaterTotal(entries, selectedDay),
       remaining: round(remainingProtein(t.protein, goal)),
       proteinProgress: pctVal,
       calorieProgress: pct(t.calories, CALORIE_GOAL),
+      calorieIntake,
+      calorieBalance: calorieBalance(t.calories),
       pace: selectedDay === today ? dailyPace(t.protein, goal) : null,
       todayEntries,
       mealGroups: entriesByMeal(todayEntries),
@@ -400,7 +403,7 @@ export default function App({ session }) {
       </div>
 
       <div className="pc-scroll app-scroll" style={{ flex: 1, overflowY: "auto" }}>
-        {screen === "today" && <Today totals={vm.totals} goal={goal} progress={vm.proteinProgress} remaining={vm.remaining} pace={vm.pace} calorieProgress={vm.calorieProgress} waterMl={vm.waterMl} waterGoal={waterGoal} onAddWater={addWater} waterUndo={waterUndo?.date === selectedDay ? waterUndo : null} onUndoWater={undoWater} waterError={waterError} mealGroups={vm.mealGroups} suggestion={vm.suggestion} onDelete={requestEntryDelete} onSelect={openEntryDetail} dayLabel={dayLabel(selectedDay, today)} isToday={selectedDay === today} onToday={() => setSelectedDay(today)} onPrev={prevDay} onNext={nextDay} canPrev={canPrev} canNext={canNext} />}
+        {screen === "today" && <Today totals={vm.totals} goal={goal} progress={vm.proteinProgress} remaining={vm.remaining} pace={vm.pace} calorieProgress={vm.calorieProgress} calorieIntake={vm.calorieIntake} calorieGoal={CALORIE_GOAL} calorieBalance={vm.calorieBalance} waterMl={vm.waterMl} waterGoal={waterGoal} onAddWater={addWater} waterUndo={waterUndo?.date === selectedDay ? waterUndo : null} onUndoWater={undoWater} waterError={waterError} mealGroups={vm.mealGroups} suggestion={vm.suggestion} onDelete={requestEntryDelete} onSelect={openEntryDetail} dayLabel={dayLabel(selectedDay, today)} isToday={selectedDay === today} onToday={() => setSelectedDay(today)} onPrev={prevDay} onNext={nextDay} canPrev={canPrev} canNext={canNext} />}
         {screen === "trends" && <Trends goal={goal} streak={vm.streak} avg={vm.avg} bars={vm.bars} goalY={vm.goalY} calAvg={vm.calAvg} heading={vm.heading} range={chartRange} onRange={setChartRange} />}
         {screen === "foods" && <MyFoods foods={vm.foodVm} onNew={() => setEditFood({})} onEdit={(f) => setEditFood(f.raw)} />}
         {screen === "mealPlan" && <MealPlan />}

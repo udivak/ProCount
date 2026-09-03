@@ -1,4 +1,5 @@
 import { Utensils } from "../lib/icons.jsx";
+import { CALORIE_GOAL } from "../lib/nutrition.js";
 
 const meals = [
   {
@@ -40,7 +41,7 @@ const meals = [
 ];
 
 const targets = [
-  ["קלוריות", "2,250"],
+  ["קלוריות", CALORIE_GOAL.toLocaleString("he-IL")],
   ["חלבון", "160 ג׳"],
   ["שומן", "65–70 ג׳"],
   ["פחמימות", "240–255 ג׳"],

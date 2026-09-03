@@ -1,6 +1,8 @@
 // Pure nutrition math (design §9). Entries: { eaten_on:'YYYY-MM-DD', protein_g, calories }.
 // No imports → standalone-testable under `node --test`.
 
+export const CALORIE_GOAL = 2250;
+
 export function dailyTotals(entries, date) {
   let protein = 0, calories = 0, count = 0;
   for (const e of entries) {
@@ -24,6 +26,11 @@ export function dailyWaterTotal(entries, date) {
 
 export function remainingProtein(total, goal) {
   return Math.max(0, goal - total);
+}
+
+// Positive means calories remaining; negative means the amount over the static meal-plan goal.
+export function calorieBalance(total, goal = CALORIE_GOAL) {
+  return Math.round(Number(goal) || 0) - Math.round(Number(total) || 0);
 }
 
 export const MEAL_TYPES = ["breakfast", "lunch", "dinner", "snack"];
