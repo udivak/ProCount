@@ -63,7 +63,7 @@ npm run build
 
 | סדר | מזהה | תיקון | הודעת קומיט מתוכננת | מצב |
 |---|---|---|---|---|
-| 01 | B08 | יצירת מאכל במאגר בלבד | `fix(B08): separate catalog creation from daily logging` | טרם התחיל |
+| 01 | B08 | יצירת מאכל במאגר בלבד | `fix(B08): separate catalog creation from daily logging` | בוצע בקוד; אימות שמירה מול נתוני בדיקה ממתין |
 | 02 | B04 | שמירה עקבית וטיפול בכשלים | `fix(B04): preserve food save outcomes and retry state` | טרם התחיל |
 | 03 | B06 | מניעת שליחה כפולה | `fix(B06): prevent duplicate food submissions` | טרם התחיל |
 | 04 | B07 | מניעת כפילות במאגר | `fix(B07): reuse exact catalog matches` | טרם התחיל |
@@ -91,6 +91,8 @@ npm run build
 - [ ] הוספה מהכפתור היומי ממשיכה לתעד אכילה.
 
 **קבצים:** [App.jsx](</Users/udivak/Self Projects/ProCount/src/App.jsx>), [MyFoods.jsx](</Users/udivak/Self Projects/ProCount/src/screens/MyFoods.jsx>), ובמידת הצורך [FoodEditor.jsx](</Users/udivak/Self Projects/ProCount/src/FoodEditor.jsx>). **תלות:** שלב 0.
+
+**תוצאת ביצוע (3.9.2026):** כפתור “מאכל חדש” פותח את `FoodEditor` עם אובייקט חדש, ולכן השמירה עוברת רק דרך `saveFood` ולא דרך `addManual`. בבדיקת UI נפתח העורך ללא שדות תאריך/ארוחה, בלי ליצור רשומה. `npm test` עבר 23/23 ו־`npm run build` עבר. לא בוצעה כתיבת בדיקה ל־Supabase החי; אימות שמירה ורענון מול נתוני בדיקה עדיין ממתין.
 
 ### קומיט 02 — B04: שמירה עם תוצאה ברורה וניסיון חוזר בטוח
 

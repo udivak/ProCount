@@ -115,7 +115,6 @@ export default function App({ session }) {
 
   // ---- actions ----
   const openAdd = () => { setForm(blankForm()); setMealType("snack"); setAddDate(selectedDay); setPhoto({ state: "idle", note: "", error: null }); setPhotoFile(null); setPhotoGuidance(""); setAddTab("quick"); setIsGeneralFood(false); setAddOpen(true); };
-  const openAddManual = () => { setForm(blankForm()); setMealType("snack"); setAddDate(selectedDay); setAddTab("manual"); setIsGeneralFood(false); setAddOpen(true); };
   const openGeneralFood = () => { setForm(blankForm()); setAddTab("manual"); setIsGeneralFood(true); };
   const onTab = (tab) => { setAddTab(tab); setIsGeneralFood(false); setPhoto({ state: "idle", note: "", error: null }); setPhotoFile(null); };
 
@@ -192,7 +191,7 @@ export default function App({ session }) {
       <div className="pc-scroll app-scroll" style={{ flex: 1, overflowY: "auto" }}>
         {screen === "today" && <Today totals={vm.totals} goal={goal} ringOffset={vm.ringOffset} remaining={vm.remaining} pace={vm.pace} calorieProgress={vm.calorieProgress} waterMl={vm.waterMl} waterGoal={waterGoal} onAddWater={addWater} waterUndo={waterUndo?.date === selectedDay ? waterUndo : null} onUndoWater={undoWater} waterError={waterError} mealGroups={vm.mealGroups} suggestion={vm.suggestion} onDelete={(id) => setConfirm({ title: "מחיקת רישום", body: "הרישום יימחק מהיום.", confirmLabel: "מחק", onConfirm: () => data.deleteEntry(id) })} onSelect={setSelectedEntry} dayLabel={dayLabel(selectedDay, today)} isToday={selectedDay === today} onToday={() => setSelectedDay(today)} onPrev={prevDay} onNext={nextDay} canPrev={canPrev} canNext={canNext} />}
         {screen === "trends" && <Trends goal={goal} streak={vm.streak} avg={vm.avg} bars={vm.bars} goalY={vm.goalY} calAvg={vm.calAvg} heading={vm.heading} range={chartRange} onRange={setChartRange} />}
-        {screen === "foods" && <MyFoods foods={vm.foodVm} onNew={openAddManual} onEdit={(f) => setEditFood(f.raw)} />}
+        {screen === "foods" && <MyFoods foods={vm.foodVm} onNew={() => setEditFood({})} onEdit={(f) => setEditFood(f.raw)} />}
         {screen === "mealPlan" && <MealPlan />}
       </div>
 

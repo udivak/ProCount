@@ -1,6 +1,6 @@
 import { Plus, Pencil } from "../lib/icons.jsx";
 
-// My Foods — saved templates. New food opens the Add sheet (manual); pencil edits/deletes.
+// My Foods — saved templates. New food opens the catalog editor; pencil edits/deletes.
 export default function MyFoods({ foods, onNew, onEdit }) {
   return (
     <div>
