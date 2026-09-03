@@ -47,6 +47,20 @@ test("pct caps at 1 and guards a zero goal", () => {
   assert.equal(pct(50, 0), 0);
 });
 
+test("pct maps protein progress to normalized arc offsets", () => {
+  assert.deepEqual([0, 50, 75, 100, 150, 225].map((protein) => ({
+    progress: pct(protein, 150),
+    offset: 100 * (1 - pct(protein, 150)),
+  })), [
+    { progress: 0, offset: 100 },
+    { progress: 1 / 3, offset: 200 / 3 },
+    { progress: 1 / 2, offset: 50 },
+    { progress: 2 / 3, offset: 100 / 3 },
+    { progress: 1, offset: 0 },
+    { progress: 1, offset: 0 },
+  ]);
+});
+
 test("dailyPace labels protein progress against the elapsed local day", () => {
   const noon = new Date(2026, 7, 22, 12, 0, 0);
   assert.deepEqual(dailyPace(90, 150, noon), { progressPct: 60, elapsedPct: 50, status: "excellent" });

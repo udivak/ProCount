@@ -98,9 +98,9 @@ export default function App({ session }) {
       totals: { protein: round(t.protein), calories: Math.round(t.calories).toLocaleString(), count: t.count, pctLabel: Math.round(pctVal * 100) + "%" },
       waterMl: dailyWaterTotal(entries, selectedDay),
       remaining: round(remainingProtein(t.protein, goal)),
+      proteinProgress: pctVal,
       calorieProgress: pct(t.calories, CALORIE_GOAL),
       pace: selectedDay === today ? dailyPace(t.protein, goal) : null,
-      ringOffset: Math.round(490 * (1 - pctVal)),
       todayEntries,
       mealGroups: entriesByMeal(todayEntries),
       suggestion: proteinSuggestion(foods, remainingProtein(t.protein, goal)),
@@ -224,7 +224,7 @@ export default function App({ session }) {
       </div>
 
       <div className="pc-scroll app-scroll" style={{ flex: 1, overflowY: "auto" }}>
-        {screen === "today" && <Today totals={vm.totals} goal={goal} ringOffset={vm.ringOffset} remaining={vm.remaining} pace={vm.pace} calorieProgress={vm.calorieProgress} waterMl={vm.waterMl} waterGoal={waterGoal} onAddWater={addWater} waterUndo={waterUndo?.date === selectedDay ? waterUndo : null} onUndoWater={undoWater} waterError={waterError} mealGroups={vm.mealGroups} suggestion={vm.suggestion} onDelete={(id) => setConfirm({ title: "מחיקת רישום", body: "הרישום יימחק מהיום.", confirmLabel: "מחק", onConfirm: () => data.deleteEntry(id) })} onSelect={setSelectedEntry} dayLabel={dayLabel(selectedDay, today)} isToday={selectedDay === today} onToday={() => setSelectedDay(today)} onPrev={prevDay} onNext={nextDay} canPrev={canPrev} canNext={canNext} />}
+        {screen === "today" && <Today totals={vm.totals} goal={goal} progress={vm.proteinProgress} remaining={vm.remaining} pace={vm.pace} calorieProgress={vm.calorieProgress} waterMl={vm.waterMl} waterGoal={waterGoal} onAddWater={addWater} waterUndo={waterUndo?.date === selectedDay ? waterUndo : null} onUndoWater={undoWater} waterError={waterError} mealGroups={vm.mealGroups} suggestion={vm.suggestion} onDelete={(id) => setConfirm({ title: "מחיקת רישום", body: "הרישום יימחק מהיום.", confirmLabel: "מחק", onConfirm: () => data.deleteEntry(id) })} onSelect={setSelectedEntry} dayLabel={dayLabel(selectedDay, today)} isToday={selectedDay === today} onToday={() => setSelectedDay(today)} onPrev={prevDay} onNext={nextDay} canPrev={canPrev} canNext={canNext} />}
         {screen === "trends" && <Trends goal={goal} streak={vm.streak} avg={vm.avg} bars={vm.bars} goalY={vm.goalY} calAvg={vm.calAvg} heading={vm.heading} range={chartRange} onRange={setChartRange} />}
         {screen === "foods" && <MyFoods foods={vm.foodVm} onNew={() => setEditFood({})} onEdit={(f) => setEditFood(f.raw)} />}
         {screen === "mealPlan" && <MealPlan />}

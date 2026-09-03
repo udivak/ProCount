@@ -67,7 +67,7 @@ npm run build
 | 02 | B04 | שמירה עקבית וטיפול בכשלים | `fix(B04): preserve food save outcomes and retry state` | בוצע בקוד; אימות כתיבה חי ממתין |
 | 03 | B06 | מניעת שליחה כפולה | `fix(B06): prevent duplicate food submissions` | בוצע בקוד; אימות כתיבה חי ברשת מושהית ממתין |
 | 04 | B07 | מניעת כפילות במאגר | `fix(B07): reuse exact catalog matches` | טרם התחיל |
-| 05 | B11 | דיוק מד החלבון | `fix(B11): calibrate the protein progress arc` | טרם התחיל |
+| 05 | B11 | דיוק מד החלבון | `fix(B11): calibrate the protein progress arc` | בוצע ואומת בתצוגה מקומית ללא כתיבה |
 | 06 | B03 | כמויות בהזנה ידנית | `feat(B03): support quantities in manual food entries` | טרם התחיל |
 | 07 | B01 | חזרה בשלבי ההוספה | `fix(B01): preserve drafts when navigating back` | טרם התחיל |
 | 08 | B12 | השפעת התיאור על ניתוח צילום | `fix(B12): analyze photos with the current description` | טרם התחיל |
@@ -151,6 +151,8 @@ npm run build
 - [ ] האחוז והציור עקביים גם לאחר שינוי יעד וניווט ליום קודם.
 
 **קבצים:** [Today.jsx](</Users/udivak/Self Projects/ProCount/src/screens/Today.jsx>), App. **תלות:** שלב 0; ניתן לבצע מוקדם אם תיקון אחר חסום. לבדוק SVG מרונדר ותצוגה באייפון, ולא רק חישוב מספרי. מנגנון הנרמול מתועד ב־[SVG](https://www.w3.org/TR/SVG2/paths.html#PathLengthAttribute).
+
+**תוצאת ביצוע (3.9.2026):** `App` מעביר ל־`Today` את יחס ה־`pct` המספרי, והקשת משתמשת ב־`pathLength={100}`, `strokeDasharray={100}` ו־`strokeDashoffset={100 * (1 - progress)}` ללא עיגול. ב־0 הקשת הירוקה אינה נרנדרת, ו־`ringOffset` המת הוסר. בדיקת `pct` מכסה 0, 50, 75, 100, 150 ומעבר ל־150 מול יעד 150; `node --test --test-name-pattern='normalized arc offsets' src/lib/nutrition.test.js` עבר 1/1, `npm test` עבר 35/35, `npm run build` ו־`git diff --check` עברו. בתצוגה מקומית ללא כתיבה, 50/150 הוצגו כ־33% עם `strokeDashoffset` מנורמל `66.66666666666667`.
 
 ### קומיט 06 — B03: כמות בהזנה ידנית
 
