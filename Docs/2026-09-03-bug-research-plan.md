@@ -65,7 +65,7 @@ npm run build
 |---|---|---|---|---|
 | 01 | B08 | יצירת מאכל במאגר בלבד | `fix(B08): separate catalog creation from daily logging` | בוצע בקוד; אימות שמירה מול נתוני בדיקה ממתין |
 | 02 | B04 | שמירה עקבית וטיפול בכשלים | `fix(B04): preserve food save outcomes and retry state` | בוצע בקוד; אימות כתיבה חי ממתין |
-| 03 | B06 | מניעת שליחה כפולה | `fix(B06): prevent duplicate food submissions` | טרם התחיל |
+| 03 | B06 | מניעת שליחה כפולה | `fix(B06): prevent duplicate food submissions` | בוצע בקוד; אימות כתיבה חי ברשת מושהית ממתין |
 | 04 | B07 | מניעת כפילות במאגר | `fix(B07): reuse exact catalog matches` | טרם התחיל |
 | 05 | B11 | דיוק מד החלבון | `fix(B11): calibrate the protein progress arc` | טרם התחיל |
 | 06 | B03 | כמויות בהזנה ידנית | `feat(B03): support quantities in manual food entries` | טרם התחיל |
@@ -121,6 +121,8 @@ npm run build
 - [ ] הוספות מים עצמאיות אינן נחסמות על ידי נעילה גלובלית של כל ה־store.
 
 **קבצים:** App, [AddSheet.jsx](</Users/udivak/Self Projects/ProCount/src/screens/AddSheet.jsx>), FoodEditor. **תלות:** B04.
+
+**תוצאת ביצוע (3.9.2026):** נוספה נעילת `ref` סינכרונית לפני פעולת השמירה ב־App ובעורך המאכלים, עם מצב “שומר...” וכפתורים ושדות מושבתים. הנעילה מכסה ידני, מהיר, אישור AI ויצירת מאכל; הטפסים אינם נסגרים או נפתחים מחדש בזמן שמירה, ונעילת B04 החלקית נותרת נפרדת כדי לאפשר ניסיון חוזר. פעולות מים אינן משתמשות בנעילה. בדיקת `node --test src/lib/submission.test.js` (1/1), `npm test` (29/29), `npm run build` ו־`git diff --check` עברו. לא בוצעו כתיבות ל־Supabase החי; אימות שתי לחיצות ברשת מושהית עדיין ממתין.
 
 ### קומיט 04 — B07: אותו מאכל לא נוסף שוב למאגר
 

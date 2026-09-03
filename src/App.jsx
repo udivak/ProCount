@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useData, RANGE_DAYS } from "./store.js";
 import { headerDate, lastNDates, lastNWeeks, weekdayLabel, weekRangeLabel, shiftDate, dayLabel, greeting } from "./lib/date.js";
 import { dailyTotals, dailyWaterTotal, remainingProtein, pct, dailyPace, streak, proteinByDay, weekSeries, weeklyAverageSeries, avgCaloriesPerActiveDay, average, entriesByMeal, proteinSuggestion } from "./lib/nutrition.js";
+import { withSubmissionLock } from "./lib/submission.js";
 import { Gear, Home, Chart, ListIcon, Plus, Utensils } from "./lib/icons.jsx";
 import Today from "./screens/Today.jsx";
 import Trends from "./screens/Trends.jsx";
@@ -47,6 +48,8 @@ export default function App({ session }) {
   const [waterError, setWaterError] = useState("");
   const [addError, setAddError] = useState("");
   const waterUndoTimer = useRef(null);
+  const addSaveLock = useRef(false);
+  const [addSaving, setAddSaving] = useState(false);
 
   useEffect(() => () => clearTimeout(waterUndoTimer.current), []);
 
@@ -115,40 +118,51 @@ export default function App({ session }) {
   const header = { today: { sub: headerDate(), title: "ProCount", greet: greeting(data.name || data.email.split("@")[0]) }, trends: { sub: "מעקב לאורך זמן", title: "מגמות" }, foods: { sub: "התבניות שלי", title: "מאכלים שלי" }, mealPlan: { sub: "התזונה שלך", title: "תפריט" } }[screen];
 
   // ---- actions ----
-  const openAdd = () => { setForm(blankForm()); setAddError(""); setMealType("snack"); setAddDate(selectedDay); setPhoto({ state: "idle", note: "", error: null }); setPhotoFile(null); setPhotoGuidance(""); setAddTab("quick"); setIsGeneralFood(false); setAddOpen(true); };
+  const openAdd = () => { if (!addSaveLock.current) { setForm(blankForm()); setAddError(""); setMealType("snack"); setAddDate(selectedDay); setPhoto({ state: "idle", note: "", error: null }); setPhotoFile(null); setPhotoGuidance(""); setAddTab("quick"); setIsGeneralFood(false); setAddOpen(true); } };
   const openGeneralFood = () => { if (!form.entrySaved) { setForm(blankForm()); setAddError(""); setAddTab("manual"); setIsGeneralFood(true); } };
   const onTab = (tab) => { if (!form.entrySaved) { setAddError(""); setAddTab(tab); setIsGeneralFood(false); setPhoto({ state: "idle", note: "", error: null }); setPhotoFile(null); } };
   const onField = (key, value) => { if (!form.entrySaved) { setAddError(""); setForm((current) => ({ ...current, [key]: value })); } };
   const onToggleSave = () => { if (!form.entrySaved) { setAddError(""); setForm((current) => ({ ...current, save: !current.save })); } };
 
-  const discardAdd = () => { setForm(blankForm()); setAddError(""); setPhoto({ state: "idle", note: "", error: null }); setPhotoFile(null); setPhotoGuidance(""); setAddOpen(false); };
-  const quickAdd = async (foodRow, qty, entryId) => {
+  const finishAdd = () => { setForm(blankForm()); setAddError(""); setPhoto({ state: "idle", note: "", error: null }); setPhotoFile(null); setPhotoGuidance(""); setAddOpen(false); };
+  const discardAdd = () => { if (!addSaveLock.current) finishAdd(); };
+  const runAddSave = (operation) => withSubmissionLock(addSaveLock, async () => {
+    setAddSaving(true);
+    try {
+      return await operation();
+    } finally {
+      setAddSaving(false);
+    }
+  });
+  const quickAdd = (foodRow, qty, entryId) => runAddSave(async () => {
     const result = await data.addQuick(foodRow.raw || foodRow, qty, addDate, mealType, entryId);
     if (result.error) return setAddError("לא ניתן לשמור את הרישום כרגע. נסה שוב.");
     setSelectedDay(addDate);
-    discardAdd();
-  };
+    finishAdd();
+  });
 
-  const submitAdd = async () => {
+  const submitAdd = () => {
     if (isGeneralFood && (!(form.name || "").trim() || !isNonNegative(form.protein) || !isNonNegative(form.calories))) return;
-    const submitted = { form, tab: addTab, isGeneralFood, date: addDate, mealType, photoGuidance };
-    const result = addTab === "photo" ? await data.addAi(form, addDate, mealType) : await data.addManual(form, addDate, mealType);
-    const partial = !!result.food?.error && (!!result.entry?.data || form.entrySaved);
-    if (partial) {
-      setForm({ ...submitted.form, entrySaved: true });
-      setAddTab(submitted.tab);
-      setIsGeneralFood(submitted.isGeneralFood);
-      setAddDate(submitted.date);
-      setMealType(submitted.mealType);
-      setPhotoGuidance(submitted.photoGuidance);
-    }
-    if (result.error) return setAddError(partial ? "הרישום נשמר, אך המאכל לא נשמר. נסה שוב." : "לא ניתן לשמור את הרישום כרגע. נסה שוב.");
-    setForm(blankForm());
-    setAddError("");
-    setPhotoGuidance("");
-    setIsGeneralFood(false);
-    setSelectedDay(addDate); // jump the view to the day we just logged onto
-    setAddOpen(false);
+    return runAddSave(async () => {
+      const submitted = { form, tab: addTab, isGeneralFood, date: addDate, mealType, photoGuidance };
+      const result = addTab === "photo" ? await data.addAi(form, addDate, mealType) : await data.addManual(form, addDate, mealType);
+      const partial = !!result.food?.error && (!!result.entry?.data || form.entrySaved);
+      if (partial) {
+        setForm({ ...submitted.form, entrySaved: true });
+        setAddTab(submitted.tab);
+        setIsGeneralFood(submitted.isGeneralFood);
+        setAddDate(submitted.date);
+        setMealType(submitted.mealType);
+        setPhotoGuidance(submitted.photoGuidance);
+      }
+      if (result.error) return setAddError(partial ? "הרישום נשמר, אך המאכל לא נשמר. נסה שוב." : "לא ניתן לשמור את הרישום כרגע. נסה שוב.");
+      setForm(blankForm());
+      setAddError("");
+      setPhotoGuidance("");
+      setIsGeneralFood(false);
+      setSelectedDay(addDate); // jump the view to the day we just logged onto
+      setAddOpen(false);
+    });
   };
 
   const pickPhoto = (file) => {
@@ -215,7 +229,7 @@ export default function App({ session }) {
       </div>
 
       {!addOpen && !settingsOpen && !editFood && !selectedEntry && !confirm && screen !== "mealPlan" && (
-        <button className="h-fab" onClick={openAdd} aria-label="הוסף מזון" style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", zIndex: 30, width: 68, height: 68, display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #071a14", fontFamily: "inherit", background: "#39e6b2", color: "#03120d", borderRadius: "50%", cursor: "pointer", boxShadow: "0 0 0 6px rgba(57,230,178,.12), 0 8px 30px rgba(57,230,178,.48)" }}>
+        <button disabled={addSaving} className="h-fab" onClick={openAdd} aria-label="הוסף מזון" style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", zIndex: 30, width: 68, height: 68, display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #071a14", fontFamily: "inherit", background: "#39e6b2", color: "#03120d", borderRadius: "50%", cursor: addSaving ? "not-allowed" : "pointer", opacity: addSaving ? .45 : 1, boxShadow: "0 0 0 6px rgba(57,230,178,.12), 0 8px 30px rgba(57,230,178,.48)" }}>
           <Plus size={30} sw={3} />
         </button>
       )}
@@ -228,7 +242,7 @@ export default function App({ session }) {
       </div>
 
       {addOpen && (
-        <AddSheet tab={addTab} onTab={onTab} onClose={discardAdd} foods={vm.foodVm} form={form} isGeneralFood={isGeneralFood} onOpenGeneral={openGeneralFood} error={addError}
+        <AddSheet tab={addTab} onTab={onTab} onClose={discardAdd} foods={vm.foodVm} form={form} isGeneralFood={isGeneralFood} onOpenGeneral={openGeneralFood} error={addError} saving={addSaving}
           onField={onField} onToggleSave={onToggleSave} locked={form.entrySaved} onBeginQuick={() => setAddError("")}
           onSubmit={submitAdd} onQuickAdd={quickAdd} photo={{ ...photo, quota: vm.aiQuota }} photoFile={photoFile} onPickPhoto={pickPhoto} onAnalyzePhoto={analyzeSelectedPhoto} photoGuidance={photoGuidance} onPhotoGuidance={(guidance) => { if (!form.entrySaved) setPhotoGuidance(guidance); }}
           date={addDate} onDate={(date) => { if (!form.entrySaved) setAddDate(date); }} minDate={oldest} maxDate={today} mealType={mealType} onMealType={(type) => { if (!form.entrySaved) setMealType(type); }} />
