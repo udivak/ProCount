@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { X, Trash } from "./lib/icons.jsx";
+import { acquireRequestLock, captureFoodEstimateRequest, captureRequestRevision, clearRequestLock, releaseRequestLock } from "./lib/request.js";
 import { withSubmissionLock } from "./lib/submission.js";
 
 // Add / edit / delete a saved food (design §4 "מאכלים שלי" management). Bottom sheet
@@ -8,13 +9,16 @@ const inputStyle = { width: "100%", background: "#111718", border: "1px solid #2
 const label = { fontSize: 13, fontWeight: 600, color: "#8a8a93", display: "block", marginBottom: 7 };
 const MEASURES = ["יחידה", "כף", "כפית", "כוס", "פרוסה", "סקופ", "קופסה", "מנה", "100 גרם"];
 
-export default function FoodEditor({ food, onSave, onDelete, onClose }) {
+export default function FoodEditor({ food, onSave, onEstimateNutrition, onDelete, onClose }) {
   const isEdit = !!food.id;
   const [draftId] = useState(() => food.id || crypto.randomUUID());
   const [saveError, setSaveError] = useState("");
   const [saveNotice, setSaveNotice] = useState("");
   const saveLock = useRef(false);
+  const estimateRevision = useRef(0);
+  const estimateLock = useRef(null);
   const [saving, setSaving] = useState(false);
+  const [estimate, setEstimate] = useState({ state: "idle", note: "", error: "", unit: "" });
   const [name, setName] = useState(food.name || "");
   const initialUnit = food.unit || "מנה";
   const [selectedUnit, setSelectedUnit] = useState(MEASURES.includes(initialUnit) ? initialUnit : "אחר");
@@ -23,12 +27,23 @@ export default function FoodEditor({ food, onSave, onDelete, onClose }) {
   const [calories, setCalories] = useState(food.calories != null ? String(food.calories) : "");
   const unit = selectedUnit === "אחר" ? customUnit.trim() : selectedUnit;
   const canSave = selectedUnit !== "אחר" || !!unit;
+  const canEstimate = !isEdit && !!name.trim() && canSave && !!unit;
+  const estimating = estimate.state === "loading";
+  const estimatePending = !!estimateLock.current;
+  const invalidateEstimate = (clearLock = false) => {
+    if (clearLock) clearRequestLock(estimateLock);
+    captureRequestRevision(estimateRevision);
+    setEstimate({ state: "idle", note: "", error: "", unit: "" });
+  };
   const change = (setValue) => (event) => {
     setSaveError("");
     setSaveNotice("");
+    invalidateEstimate();
     setValue(event.target.value);
   };
-  const save = () => withSubmissionLock(saveLock, async () => {
+  const save = () => {
+    if (estimateLock.current) return;
+    return withSubmissionLock(saveLock, async () => {
     setSaving(true);
     setSaveError("");
     setSaveNotice("");
@@ -39,8 +54,43 @@ export default function FoodEditor({ food, onSave, onDelete, onClose }) {
     } finally {
       setSaving(false);
     }
-  });
-  const close = () => { if (!saveLock.current && !saving) onClose(); };
+    });
+  };
+  const estimateNutrition = async () => {
+    if (!canEstimate || saving || saveLock.current) return;
+    const lockToken = acquireRequestLock(estimateLock);
+    if (!lockToken) return;
+    const request = captureFoodEstimateRequest(estimateRevision, name, unit);
+    setEstimate({ state: "loading", note: "", error: "", unit: request.unit });
+    try {
+      const result = await onEstimateNutrition(request.foodName, request.unit);
+      if (!request.isCurrent()) return;
+      if (result?.estimate) {
+        setProtein(String(Math.round(Number(result.estimate.protein_g) || 0)));
+        setCalories(String(Math.round(Number(result.estimate.calories) || 0)));
+        setEstimate({ state: "done", note: result.estimate.note || "אפשר לתקן את הערכים לפני השמירה.", error: "", unit: request.unit });
+      } else {
+        const error = result?.error === "daily_limit"
+          ? "נגמרו ההשלמות עם AI להיום — אפשר להמשיך למלא ידנית."
+          : "לא ניתן להשלים ערכים עם AI כרגע — אפשר להמשיך למלא ידנית.";
+        setEstimate({ state: "idle", note: "", error, unit: "" });
+      }
+    } catch {
+      if (request.isCurrent()) setEstimate({ state: "idle", note: "", error: "לא ניתן להשלים ערכים עם AI כרגע — אפשר להמשיך למלא ידנית.", unit: "" });
+    } finally {
+      if (estimateLock.current === lockToken) {
+        releaseRequestLock(estimateLock, lockToken);
+        setEstimate((current) => current.state === "loading"
+          ? { state: "idle", note: "", error: "", unit: "" }
+          : { ...current });
+      }
+    }
+  };
+  const close = () => {
+    if (saveLock.current || saving) return;
+    invalidateEstimate(true);
+    onClose();
+  };
 
   return (
     <div style={{ position: "absolute", inset: 0, zIndex: 55, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
@@ -60,6 +110,7 @@ export default function FoodEditor({ food, onSave, onDelete, onClose }) {
           <div>
             <label style={label}>שם</label>
             <input disabled={saving} value={name} onChange={change(setName)} placeholder="למשל: חזה עוף" aria-label="שם" style={inputStyle} />
+            {!isEdit && <div style={{ marginTop: 6, color: "#8a8a93", fontSize: 12, lineHeight: 1.4 }}>אפשר לדייק בשם עם מותג או מצב הכנה, למשל מבושל או נא.</div>}
           </div>
           <div>
             <label style={label}>מידה יומית</label>
@@ -80,7 +131,14 @@ export default function FoodEditor({ food, onSave, onDelete, onClose }) {
             </div>
           </div>
 
-          <button disabled={!canSave || saving} onClick={save} style={{ marginTop: 4, border: "none", fontFamily: "inherit", background: "linear-gradient(180deg,#39e6b2,#16a985)", color: "#03120d", fontSize: 16, fontWeight: 800, padding: 15, borderRadius: 15, cursor: canSave && !saving ? "pointer" : "not-allowed", opacity: canSave && !saving ? 1 : .45 }}>
+          {!isEdit && <div style={{ color: "#8a8a93", fontSize: 12, lineHeight: 1.4 }}>השלמת הערכים משתמשת בקריאת AI מהמכסה היומית.</div>}
+          {!isEdit && canEstimate && <button disabled={estimatePending || saving} onClick={estimateNutrition} style={{ border: "1px solid #42675b", fontFamily: "inherit", background: "#15231e", color: "#9ef2d2", fontSize: 15, fontWeight: 800, padding: 13, borderRadius: 14, cursor: estimatePending || saving ? "not-allowed" : "pointer", opacity: estimatePending || saving ? .55 : 1 }}>
+            {estimating || estimatePending ? "AI משלים..." : "השלם ערכים עם AI"}
+          </button>}
+          {estimate.state === "done" && <div role="status" style={{ color: "#9ef2d2", fontSize: 13, fontWeight: 700, lineHeight: 1.45 }}><strong>הערכת AI עבור <bdi>{estimate.unit}</bdi>:</strong> {estimate.note}</div>}
+          {estimate.error && <div role="alert" style={{ color: "#fbbf24", fontSize: 13, fontWeight: 700, lineHeight: 1.45 }}>{estimate.error}</div>}
+
+          <button disabled={!canSave || saving || estimatePending} onClick={save} style={{ marginTop: 4, border: "none", fontFamily: "inherit", background: "linear-gradient(180deg,#39e6b2,#16a985)", color: "#03120d", fontSize: 16, fontWeight: 800, padding: 15, borderRadius: 15, cursor: canSave && !saving && !estimatePending ? "pointer" : "not-allowed", opacity: canSave && !saving && !estimatePending ? 1 : .45 }}>
             {saving ? "שומר..." : isEdit ? "שמור שינויים" : "הוסף מאכל"}
           </button>
           {saveError && <div role="alert" style={{ color: "#fb7185", fontSize: 13, fontWeight: 700, textAlign: "center" }}>{saveError}</div>}

@@ -440,7 +440,7 @@ export default function App({ session }) {
         {foodUndo && <button onClick={() => requestEntryDelete(foodUndo.id)} style={{ border: "none", borderRadius: 9, background: "#39e6b2", color: "#03120d", fontFamily: "inherit", fontSize: 13, fontWeight: 800, padding: "7px 10px", cursor: "pointer", whiteSpace: "nowrap" }}>בטל הוספה</button>}
       </div>}
 
-      {editFood && <FoodEditor food={editFood} onSave={async (v) => { const result = await data.saveFood(v); if (!result.error && !result.reused) setEditFood(null); return result; }} onDelete={(id) => setConfirm({ title: "מחיקת מאכל", body: "המאכל יימחק מהרשימה שלך.", confirmLabel: "מחק", onConfirm: async () => { await data.deleteFood(id); setEditFood(null); } })} onClose={() => setEditFood(null)} />}
+      {editFood && <FoodEditor food={editFood} onSave={async (v) => { const result = await data.saveFood(v); if (!result.error && !result.reused) setEditFood(null); return result; }} onEstimateNutrition={data.estimateFoodNutrition} onDelete={(id) => setConfirm({ title: "מחיקת מאכל", body: "המאכל יימחק מהרשימה שלך.", confirmLabel: "מחק", onConfirm: async () => { await data.deleteFood(id); setEditFood(null); } })} onClose={() => setEditFood(null)} />}
 
       {selectedEntry && <ItemDetailModal entry={selectedEntry} busy={detailBusy} onClose={closeEntryDetail} onDelete={(id) => requestEntryDelete(id, true)} onMove={moveSelectedEntry} />}
 

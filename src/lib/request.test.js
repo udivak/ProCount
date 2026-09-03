@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { acquireRequestLock, capturePhotoRequest, captureRequestRevision, clearRequestLock, releaseRequestLock } from "./request.js";
+import { acquireRequestLock, captureFoodEstimateRequest, capturePhotoRequest, captureRequestRevision, clearRequestLock, releaseRequestLock } from "./request.js";
 
 test("captureRequestRevision marks an earlier request as stale", () => {
   const revision = { current: 0 };
@@ -19,6 +19,18 @@ test("capturePhotoRequest keeps its starting file and trimmed guidance", () => {
 
   assert.equal(request.file, file);
   assert.equal(request.guidance, "150 גרם בשר");
+  assert.equal(request.isCurrent(), true);
+
+  captureRequestRevision(revision);
+  assert.equal(request.isCurrent(), false);
+});
+
+test("captureFoodEstimateRequest snapshots trimmed fields and becomes stale after an edit", () => {
+  const revision = { current: 0 };
+  const request = captureFoodEstimateRequest(revision, "  יוגורט חלבון  ", "  יחידה  ");
+
+  assert.equal(request.foodName, "יוגורט חלבון");
+  assert.equal(request.unit, "יחידה");
   assert.equal(request.isCurrent(), true);
 
   captureRequestRevision(revision);

@@ -8,6 +8,14 @@ export function capturePhotoRequest(revision, file, guidance) {
   return { isCurrent: captureRequestRevision(revision), file, guidance: guidance.trim() };
 }
 
+export function captureFoodEstimateRequest(revision, foodName, unit) {
+  return {
+    isCurrent: captureRequestRevision(revision),
+    foodName: String(foodName ?? "").trim(),
+    unit: String(unit ?? "").trim(),
+  };
+}
+
 export function acquireRequestLock(lock) {
   if (lock.current) return null;
   const token = {};

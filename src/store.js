@@ -196,11 +196,22 @@ export function useData(session) {
     return { estimate: body };
   }, [session]);
 
+  const estimateFoodNutrition = useCallback(async (foodName, unit) => {
+    const res = await fetch(`${FUNCTIONS_URL}/analyze-food-photo`, {
+      method: "POST",
+      headers: { "content-type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ mode: "text", foodName: String(foodName ?? "").trim(), unit: String(unit ?? "").trim() }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) return { error: body.error || "error", status: res.status };
+    return { estimate: body };
+  }, [session]);
+
   const signOut = useCallback(() => supabase.auth.signOut(), []);
 
   return {
     loading, entries, foods, goal, waterGoal, name, today, email: session.user.email,
-    addQuick, addWater, addManual, addAi, deleteEntry, updateEntryMeal, saveFood, deleteFood, setGoal, setWaterGoal, setName, analyzePhoto, signOut,
+    addQuick, addWater, addManual, addAi, deleteEntry, updateEntryMeal, saveFood, deleteFood, setGoal, setWaterGoal, setName, analyzePhoto, estimateFoodNutrition, signOut,
   };
 }
 
