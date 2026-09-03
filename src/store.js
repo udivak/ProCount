@@ -4,6 +4,7 @@ import { todayLocal, lastNDates } from "./lib/date.js";
 import { gramsPerServing } from "./lib/nutrition.js";
 import { findExactFood, insertOrFind, nonNegativeNumber, saveLoggedFood } from "./lib/write.js";
 import { reconcileDeletedRow } from "./lib/delete.js";
+import { applyReturnedEntry, isValidEntryMealUpdate } from "./lib/meal.js";
 
 export const RANGE_DAYS = 35; // enough for the 7-day chart + streak look-back; also the day-nav look-back
 
@@ -146,6 +147,19 @@ export function useData(session) {
     });
   }, [entries]);
 
+  const updateEntryMeal = useCallback(async (id, mealType) => {
+    if (!isValidEntryMealUpdate(id, mealType)) return { data: null, error: new Error("invalid_write") };
+    let result;
+    try {
+      result = await supabase.from("entries").update({ meal_type: mealType }).eq("id", id).select().single();
+    } catch (error) {
+      return { data: null, error };
+    }
+    if (result?.error || !result?.data) return { data: null, error: result?.error || new Error("update_failed") };
+    setEntries((current) => applyReturnedEntry(current, result));
+    return { data: result.data, error: null };
+  }, []);
+
   const deleteFood = useCallback(async (id) => {
     setFoods((cur) => cur.filter((f) => f.id !== id));
     await supabase.from("foods").delete().eq("id", id);
@@ -186,7 +200,7 @@ export function useData(session) {
 
   return {
     loading, entries, foods, goal, waterGoal, name, today, email: session.user.email,
-    addQuick, addWater, addManual, addAi, deleteEntry, saveFood, deleteFood, setGoal, setWaterGoal, setName, analyzePhoto, signOut,
+    addQuick, addWater, addManual, addAi, deleteEntry, updateEntryMeal, saveFood, deleteFood, setGoal, setWaterGoal, setName, analyzePhoto, signOut,
   };
 }
 

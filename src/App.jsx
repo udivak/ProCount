@@ -41,6 +41,7 @@ export default function App({ session }) {
   const [photoGuidance, setPhotoGuidance] = useState("");
   const [editFood, setEditFood] = useState(null); // null | {} (new) | foodRow (edit)
   const [selectedEntry, setSelectedEntry] = useState(null); // null | a todayEntries vm item (detail modal)
+  const [detailBusy, setDetailBusy] = useState(false);
   const [confirm, setConfirm] = useState(null); // null | { title, body, confirmLabel, onConfirm } — delete guard
   const [chartRange, setChartRange] = useState("week"); // "week" | "month" — Trends bar chart range
   const [selectedDay, setSelectedDay] = useState(today); // which day the Today screen shows
@@ -60,6 +61,7 @@ export default function App({ session }) {
   const addSaveLock = useRef(false);
   const photoRequestRevision = useRef(0);
   const photoAnalysisLock = useRef(null);
+  const detailOperationLock = useRef(false);
   const [addSaving, setAddSaving] = useState(false);
 
   useEffect(() => () => {
@@ -169,6 +171,19 @@ export default function App({ session }) {
     waterUndoRevision.current = revision;
     setWaterUndo(undo);
     startWaterUndoTimer(revision);
+  };
+  const runDetailOperation = (operation) => {
+    if (detailOperationLock.current) return Promise.resolve({ data: null, error: new Error("busy") });
+    return withSubmissionLock(detailOperationLock, async () => {
+      setDetailBusy(true);
+      try {
+        return await operation();
+      } catch (error) {
+        return { data: null, error };
+      } finally {
+        setDetailBusy(false);
+      }
+    });
   };
 
   // ---- actions ----
@@ -338,24 +353,34 @@ export default function App({ session }) {
   };
 
   const deleteFoodEntry = async (id, closeDetail = false) => {
-    try {
-      const result = await data.deleteEntry(id);
-      if (result?.error) return "לא ניתן למחוק את הרישום כרגע. נסה שוב.";
-      if (foodUndoRef.current?.id === id) clearFoodUndo();
-      if (closeDetail) setSelectedEntry(null);
-      return "";
-    } catch {
-      return "לא ניתן למחוק את הרישום כרגע. נסה שוב.";
-    }
+    const remove = () => data.deleteEntry(id);
+    const result = closeDetail ? await runDetailOperation(remove) : await remove().catch((error) => ({ data: null, error }));
+    if (result?.error || !result?.data) return "לא ניתן למחוק את הרישום כרגע. נסה שוב.";
+    if (foodUndoRef.current?.id === id) clearFoodUndo();
+    if (closeDetail) setSelectedEntry(null);
+    return "";
   };
   const requestEntryDelete = (id, closeDetail = false) => {
-    if (!id) return;
+    if (!id || (closeDetail && detailOperationLock.current)) return;
     setConfirm({
       title: "מחיקת רישום",
       body: "הרישום יימחק מהיום.",
       confirmLabel: "מחק",
       onConfirm: () => deleteFoodEntry(id, closeDetail),
     });
+  };
+  const moveSelectedEntry = async (id, mealType) => {
+    const result = await runDetailOperation(() => data.updateEntryMeal(id, mealType));
+    if (!result?.error && result?.data) setSelectedEntry(null);
+    return result;
+  };
+  const openEntryDetail = (entry) => {
+    if (detailOperationLock.current) return;
+    setDetailBusy(false);
+    setSelectedEntry(entry);
+  };
+  const closeEntryDetail = () => {
+    if (!detailOperationLock.current) setSelectedEntry(null);
   };
 
   const goTo = (s) => { setScreen(s); setSettingsOpen(false); };
@@ -375,7 +400,7 @@ export default function App({ session }) {
       </div>
 
       <div className="pc-scroll app-scroll" style={{ flex: 1, overflowY: "auto" }}>
-        {screen === "today" && <Today totals={vm.totals} goal={goal} progress={vm.proteinProgress} remaining={vm.remaining} pace={vm.pace} calorieProgress={vm.calorieProgress} waterMl={vm.waterMl} waterGoal={waterGoal} onAddWater={addWater} waterUndo={waterUndo?.date === selectedDay ? waterUndo : null} onUndoWater={undoWater} waterError={waterError} mealGroups={vm.mealGroups} suggestion={vm.suggestion} onDelete={requestEntryDelete} onSelect={setSelectedEntry} dayLabel={dayLabel(selectedDay, today)} isToday={selectedDay === today} onToday={() => setSelectedDay(today)} onPrev={prevDay} onNext={nextDay} canPrev={canPrev} canNext={canNext} />}
+        {screen === "today" && <Today totals={vm.totals} goal={goal} progress={vm.proteinProgress} remaining={vm.remaining} pace={vm.pace} calorieProgress={vm.calorieProgress} waterMl={vm.waterMl} waterGoal={waterGoal} onAddWater={addWater} waterUndo={waterUndo?.date === selectedDay ? waterUndo : null} onUndoWater={undoWater} waterError={waterError} mealGroups={vm.mealGroups} suggestion={vm.suggestion} onDelete={requestEntryDelete} onSelect={openEntryDetail} dayLabel={dayLabel(selectedDay, today)} isToday={selectedDay === today} onToday={() => setSelectedDay(today)} onPrev={prevDay} onNext={nextDay} canPrev={canPrev} canNext={canNext} />}
         {screen === "trends" && <Trends goal={goal} streak={vm.streak} avg={vm.avg} bars={vm.bars} goalY={vm.goalY} calAvg={vm.calAvg} heading={vm.heading} range={chartRange} onRange={setChartRange} />}
         {screen === "foods" && <MyFoods foods={vm.foodVm} onNew={() => setEditFood({})} onEdit={(f) => setEditFood(f.raw)} />}
         {screen === "mealPlan" && <MealPlan />}
@@ -414,7 +439,7 @@ export default function App({ session }) {
 
       {editFood && <FoodEditor food={editFood} onSave={async (v) => { const result = await data.saveFood(v); if (!result.error && !result.reused) setEditFood(null); return result; }} onDelete={(id) => setConfirm({ title: "מחיקת מאכל", body: "המאכל יימחק מהרשימה שלך.", confirmLabel: "מחק", onConfirm: async () => { await data.deleteFood(id); setEditFood(null); } })} onClose={() => setEditFood(null)} />}
 
-      {selectedEntry && <ItemDetailModal entry={selectedEntry} onClose={() => setSelectedEntry(null)} onDelete={(id) => requestEntryDelete(id, true)} />}
+      {selectedEntry && <ItemDetailModal entry={selectedEntry} busy={detailBusy} onClose={closeEntryDetail} onDelete={(id) => requestEntryDelete(id, true)} onMove={moveSelectedEntry} />}
 
       {confirm && <ConfirmDialog title={confirm.title} body={confirm.body} confirmLabel={confirm.confirmLabel}
         onConfirm={async () => {
