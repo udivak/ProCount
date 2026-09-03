@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useData, RANGE_DAYS } from "./store.js";
 import { headerDate, lastNDates, lastNWeeks, weekdayLabel, weekRangeLabel, shiftDate, dayLabel, greeting } from "./lib/date.js";
 import { dailyTotals, dailyWaterTotal, remainingProtein, pct, dailyPace, streak, proteinByDay, weekSeries, weeklyAverageSeries, avgCaloriesPerActiveDay, average, entriesByMeal, proteinSuggestion } from "./lib/nutrition.js";
-import { captureRequestRevision } from "./lib/request.js";
+import { acquireRequestLock, capturePhotoRequest, captureRequestRevision, clearRequestLock, releaseRequestLock } from "./lib/request.js";
 import { withSubmissionLock } from "./lib/submission.js";
 import { Gear, Home, Chart, ListIcon, Plus, Utensils } from "./lib/icons.jsx";
 import Today from "./screens/Today.jsx";
@@ -52,6 +52,7 @@ export default function App({ session }) {
   const waterUndoTimer = useRef(null);
   const addSaveLock = useRef(false);
   const photoRequestRevision = useRef(0);
+  const photoAnalysisLock = useRef(null);
   const [addSaving, setAddSaving] = useState(false);
 
   useEffect(() => () => clearTimeout(waterUndoTimer.current), []);
@@ -113,7 +114,7 @@ export default function App({ session }) {
       streak: streak(proteinByDay(entries), goal),
       calAvg: avgCaloriesPerActiveDay(entries, dates).toLocaleString(),
       foodVm,
-      // quota is per real today (the server enforces the daily AI limit on the real calendar day)
+      // Local estimate only; the server enforces the UTC daily analysis limit.
       aiQuota: Math.max(0, 6 - entries.filter((e) => e.eaten_on === today && e.source === "ai").length),
     };
   }, [entries, foods, goal, today, selectedDay, chartRange]);
@@ -121,7 +122,10 @@ export default function App({ session }) {
   const header = { today: { sub: headerDate(), title: "ProCount", greet: greeting(data.name || data.email.split("@")[0]) }, trends: { sub: "מעקב לאורך זמן", title: "מגמות" }, foods: { sub: "התבניות שלי", title: "מאכלים שלי" }, mealPlan: { sub: "התזונה שלך", title: "תפריט" } }[screen];
 
   // ---- actions ----
-  const invalidatePhotoRequest = () => captureRequestRevision(photoRequestRevision);
+  const invalidatePhotoRequest = () => {
+    clearRequestLock(photoAnalysisLock);
+    return captureRequestRevision(photoRequestRevision);
+  };
   const openAdd = () => {
     if (addSaveLock.current) return;
     invalidatePhotoRequest();
@@ -205,6 +209,17 @@ export default function App({ session }) {
     setPhoto({ state: "idle", note: "", error: null });
   };
 
+  const changePhotoGuidance = (guidance) => {
+    if (form.entrySaved || guidance === photoGuidance) return;
+    invalidatePhotoRequest();
+    setPhotoGuidance(guidance);
+    setPhoto((current) => {
+      if (current.state === "loading") return { state: "idle", note: "", error: null };
+      if (current.state === "done") return { ...current, stale: true };
+      return current;
+    });
+  };
+
   const backFromPhotoResult = () => {
     if (form.entrySaved) return;
     invalidatePhotoRequest();
@@ -214,17 +229,25 @@ export default function App({ session }) {
 
   const analyzeSelectedPhoto = async () => {
     if (!photoFile || form.entrySaved) return;
-    const isCurrentPhotoRequest = captureRequestRevision(photoRequestRevision);
+    const lockToken = acquireRequestLock(photoAnalysisLock);
+    if (!lockToken) return;
+    const request = capturePhotoRequest(photoRequestRevision, photoFile, photoGuidance);
     setPhoto({ state: "loading", note: "", error: null });
-    const r = await data.analyzePhoto(photoFile, photoGuidance);
-    if (!isCurrentPhotoRequest()) return;
-    if (r.estimate) {
-      setForm((current) => ({ ...current, name: r.estimate.name || "", protein: String(round(r.estimate.protein_g)), calories: String(round(r.estimate.calories)), grams: "", quantity: "1", unit: "מנה", save: false }));
-      setPhoto({ state: "done", note: r.estimate.note || "", confidence: r.estimate.confidence, error: null });
-    } else {
-      // fall back to manual entry (design §6.5)
-      const msg = r.error === "daily_limit" ? "נגמרו הניתוחים להיום — עבור להזנה ידנית" : "הניתוח נכשל — נסה שוב או הזן ידנית";
-      setPhoto({ state: "idle", note: "", error: msg });
+    try {
+      const r = await data.analyzePhoto(request.file, request.guidance);
+      if (!request.isCurrent()) return;
+      if (r?.estimate) {
+        setForm((current) => ({ ...current, name: r.estimate.name || "", protein: String(round(r.estimate.protein_g)), calories: String(round(r.estimate.calories)), grams: "", quantity: "1", unit: "מנה", save: false }));
+        setPhoto({ state: "done", note: r.estimate.note || "", confidence: r.estimate.confidence, error: null, stale: false });
+      } else {
+        // fall back to manual entry (design §6.5)
+        const msg = r?.error === "daily_limit" ? "נגמרו הניתוחים להיום — עבור להזנה ידנית" : "הניתוח נכשל — נסה שוב או הזן ידנית";
+        setPhoto({ state: "idle", note: "", error: msg });
+      }
+    } catch {
+      if (request.isCurrent()) setPhoto({ state: "idle", note: "", error: "הניתוח נכשל — נסה שוב או הזן ידנית" });
+    } finally {
+      releaseRequestLock(photoAnalysisLock, lockToken);
     }
   };
 
@@ -287,7 +310,7 @@ export default function App({ session }) {
       {addOpen && (
         <AddSheet tab={addTab} onTab={onTab} onClose={discardAdd} foods={vm.foodVm} form={form} isGeneralFood={isGeneralFood} onOpenGeneral={openGeneralFood} onBackGeneral={backFromGeneralFood} onBackPhoto={backFromPhotoResult} error={addError} saving={addSaving}
           onField={onField} onToggleSave={onToggleSave} locked={form.entrySaved} onBeginQuick={() => setAddError("")}
-          onSubmit={submitAdd} onQuickAdd={quickAdd} photo={{ ...photo, quota: vm.aiQuota }} photoFile={photoFile} onPickPhoto={pickPhoto} onAnalyzePhoto={analyzeSelectedPhoto} photoGuidance={photoGuidance} onPhotoGuidance={(guidance) => { if (!form.entrySaved) setPhotoGuidance(guidance); }}
+          onSubmit={submitAdd} onQuickAdd={quickAdd} photo={{ ...photo, quota: vm.aiQuota }} photoFile={photoFile} onPickPhoto={pickPhoto} onAnalyzePhoto={analyzeSelectedPhoto} photoGuidance={photoGuidance} onPhotoGuidance={changePhotoGuidance}
           date={addDate} onDate={(date) => { if (!form.entrySaved) setAddDate(date); }} minDate={oldest} maxDate={today} mealType={mealType} onMealType={(type) => { if (!form.entrySaved) setMealType(type); }} />
       )}
 

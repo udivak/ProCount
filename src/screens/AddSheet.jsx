@@ -23,6 +23,7 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFo
   const [quickEntryId, setQuickEntryId] = useState(null);
   const [quickFoodId, setQuickFoodId] = useState(null);
   const disabled = locked || saving;
+  const photoControlsDisabled = disabled || photo.state === "loading";
 
   const tabBtn = (key, text) => {
     const active = tab === key;
@@ -112,12 +113,12 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFo
 
           {tab === "photo" && (
             <div>
-              <input disabled={disabled} ref={cameraRef} type="file" accept="image/*" capture="environment" hidden onChange={pickFile} />
-              <input disabled={disabled} ref={galleryRef} type="file" accept="image/*" hidden onChange={pickFile} />
+              <input disabled={photoControlsDisabled} ref={cameraRef} type="file" accept="image/*" capture="environment" hidden onChange={pickFile} />
+              <input disabled={photoControlsDisabled} ref={galleryRef} type="file" accept="image/*" hidden onChange={pickFile} />
 
               <div style={{ marginBottom: 14 }}>
                 <label style={label}>פרטים נוספים על המנה (אופציונלי)</label>
-                <textarea disabled={disabled} value={photoGuidance} onChange={(e) => onPhotoGuidance(e.target.value)} maxLength={1000} rows={3}
+                <textarea disabled={photoControlsDisabled} value={photoGuidance} onChange={(e) => onPhotoGuidance(e.target.value)} maxLength={1000} rows={3}
                   placeholder="למשל: שווארמה הודו עם פיתה, טחינה וסלט. בערך 150 גרם בשר"
                   aria-label="פרטים נוספים על המנה" style={{ ...input, resize: "vertical", lineHeight: 1.5 }} />
                 <div style={{ color: "#6f6f78", fontSize: 12, marginTop: 6 }}>המידע יעזור ל-AI לזהות מרכיבים וכמויות בתמונה.</div>
@@ -134,14 +135,14 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFo
                       <div style={{ maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 13, color: "#6f6f78", marginTop: 3 }}>{photoFile ? photoFile.name : "הוסף פרטים ואז שלח את הכול יחד ל-AI"}</div>
                     </div>
                     <div style={{ width: "100%", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                      <button disabled={disabled} className="h-drop" onClick={() => cameraRef.current?.click()} style={{ border: "1px solid #1f3831", background: "#101918", color: "#39e6b2", borderRadius: 14, padding: "12px 8px", cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? .45 : 1, fontFamily: "inherit", fontSize: 13, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
+                      <button disabled={photoControlsDisabled} className="h-drop" onClick={() => cameraRef.current?.click()} style={{ border: "1px solid #1f3831", background: "#101918", color: "#39e6b2", borderRadius: 14, padding: "12px 8px", cursor: photoControlsDisabled ? "not-allowed" : "pointer", opacity: photoControlsDisabled ? .45 : 1, fontFamily: "inherit", fontSize: 13, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
                         <Camera size={17} /> צלם עכשיו
                       </button>
-                      <button disabled={disabled} className="h-drop" onClick={() => galleryRef.current?.click()} style={{ border: "1px solid #26302f", background: "#111718", color: "#c4c4c9", borderRadius: 14, padding: "12px 8px", cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? .45 : 1, fontFamily: "inherit", fontSize: 13, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
+                      <button disabled={photoControlsDisabled} className="h-drop" onClick={() => galleryRef.current?.click()} style={{ border: "1px solid #26302f", background: "#111718", color: "#c4c4c9", borderRadius: 14, padding: "12px 8px", cursor: photoControlsDisabled ? "not-allowed" : "pointer", opacity: photoControlsDisabled ? .45 : 1, fontFamily: "inherit", fontSize: 13, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
                         <ImageIcon size={17} /> בחר מהגלריה
                       </button>
                     </div>
-                    <button onClick={onAnalyzePhoto} disabled={!photoFile || disabled} style={{ width: "100%", border: "none", background: "linear-gradient(180deg,#39e6b2,#16a985)", color: "#03120d", borderRadius: 14, padding: "13px 10px", cursor: photoFile && !disabled ? "pointer" : "not-allowed", fontFamily: "inherit", fontSize: 14, fontWeight: 900, opacity: photoFile && !disabled ? 1 : .45 }}>
+                    <button onClick={onAnalyzePhoto} disabled={!photoFile || photoControlsDisabled} style={{ width: "100%", border: "none", background: "linear-gradient(180deg,#39e6b2,#16a985)", color: "#03120d", borderRadius: 14, padding: "13px 10px", cursor: photoFile && !photoControlsDisabled ? "pointer" : "not-allowed", fontFamily: "inherit", fontSize: 14, fontWeight: 900, opacity: photoFile && !photoControlsDisabled ? 1 : .45 }}>
                       נתח תמונה
                     </button>
                   </div>
@@ -149,7 +150,7 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFo
                     <div style={{ marginTop: 14, textAlign: "center", fontSize: 13, fontWeight: 600, color: "#fb7185" }}>{photo.error}</div>
                   ) : (
                     <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 8, justifyContent: "center", fontSize: 12, color: "#5f5f68" }}>
-                      <Info size={14} /> נותרו {photo.quota} ניתוחים היום
+                      <Info size={14} /> הערכת יתרה מקומית: {photo.quota} ניתוחים היום
                     </div>
                   )}
                 </div>
@@ -168,10 +169,20 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFo
                   <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#101918", border: "1px solid #1f3831", borderRadius: 14, padding: "12px 14px" }}>
                     <span style={{ width: 30, height: 30, borderRadius: 8, background: "rgba(52,211,153,.15)", color: "#39e6b2", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800 }}>AI</span>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: "#39e6b2" }}>זוהה · ודאות {CONF[photo.confidence] || "בינונית"}</div>
-                      {photo.note && <div style={{ fontSize: 12, color: "#8a8a93", marginTop: 1 }}>{photo.note} · ניתן לתקן</div>}
+                      {photo.stale ? (
+                        <>
+                          <div role="status" style={{ fontSize: 13, fontWeight: 700, color: "#fb923c" }}>התיאור השתנה מאז הניתוח</div>
+                          <div style={{ fontSize: 12, color: "#8a8a93", marginTop: 1 }}>הערכים המוצגים הם מהניתוח הקודם.</div>
+                        </>
+                      ) : (
+                        <>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: "#39e6b2" }}>זוהה · ודאות {CONF[photo.confidence] || "בינונית"}</div>
+                          {photo.note && <div style={{ fontSize: 12, color: "#8a8a93", marginTop: 1 }}>{photo.note} · ניתן לתקן</div>}
+                        </>
+                      )}
                     </div>
                   </div>
+                  {photo.stale && <button disabled={!photoFile || disabled} onClick={onAnalyzePhoto} style={{ border: "none", background: "linear-gradient(180deg,#39e6b2,#16a985)", color: "#03120d", borderRadius: 13, padding: "11px 12px", cursor: photoFile && !disabled ? "pointer" : "not-allowed", opacity: photoFile && !disabled ? 1 : .45, fontFamily: "inherit", fontSize: 13, fontWeight: 900 }}>נתח שוב עם התיאור המעודכן</button>}
                   <ManualForm form={form} onField={onField} onToggleSave={onToggleSave} onSubmit={onSubmit} cta={saving ? "שומר..." : locked ? "נסה שוב לשמור את המאכל" : "אשר והוסף"} showSave error={error} locked={locked} saving={saving} />
                   <button disabled={disabled} onClick={() => galleryRef.current?.click()} style={{ border: "1px solid #26302f", background: "#111718", color: "#c4c4c9", borderRadius: 13, padding: "11px 12px", cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? .45 : 1, fontFamily: "inherit", fontSize: 13, fontWeight: 800 }}>בחר תמונה אחרת לניתוח</button>
                 </div>
