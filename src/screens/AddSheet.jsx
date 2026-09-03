@@ -103,7 +103,7 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFo
           )}
 
           {tab === "manual" && (
-            <ManualForm form={form} onField={onField} onToggleSave={onToggleSave} onSubmit={onSubmit} cta={saving ? "שומר..." : locked ? "נסה שוב לשמור את המאכל" : "הוסף לרישום"} showSave showMeasure requireAll={isGeneralFood} error={error} locked={locked} saving={saving} />
+            <ManualForm form={form} onField={onField} onToggleSave={onToggleSave} onSubmit={onSubmit} cta={saving ? "שומר..." : locked ? "נסה שוב לשמור את המאכל" : "הוסף לרישום"} showSave showMeasure showQuantity requireAll={isGeneralFood} error={error} locked={locked} saving={saving} />
           )}
 
           {tab === "photo" && (
@@ -213,14 +213,18 @@ function QtyPanel({ food, qty, setQty, onBack, onAdd, error, disabled }) {
 }
 
 // Shared name/protein/calories form — manual entry and the editable AI result.
-function ManualForm({ form, onField, onToggleSave, onSubmit, cta, showSave, showMeasure = false, requireAll = false, error, locked, saving }) {
+function ManualForm({ form, onField, onToggleSave, onSubmit, cta, showSave, showMeasure = false, showQuantity = false, requireAll = false, error, locked, saving }) {
   const selectedUnit = MEASURES.includes(form.unit) ? form.unit : "אחר";
   const customMeasureMissing = showMeasure && form.save && selectedUnit === "אחר" && !(form.unit || "").trim();
   const validNumber = (value) => String(value ?? "").trim() !== "" && Number.isFinite(Number(value)) && Number(value) >= 0;
+  const validQuantity = String(form.quantity ?? "").trim() !== "" && Number.isFinite(Number(form.quantity)) && Number(form.quantity) > 0;
+  const quantity = validQuantity ? Number(form.quantity) : 0;
+  const previewValue = (value) => Number.isFinite(Number(value)) ? Number(value) * quantity : 0;
   const invalidName = requireAll && !(form.name || "").trim();
   const invalidProtein = requireAll && !validNumber(form.protein);
   const invalidCalories = requireAll && !validNumber(form.calories);
-  const invalidGeneralFood = invalidName || invalidProtein || invalidCalories;
+  const invalidQuantity = showQuantity && !validQuantity;
+  const invalidGeneralFood = invalidName || invalidProtein || invalidCalories || invalidQuantity;
   const controlsDisabled = locked || saving;
   const submitDisabled = saving || customMeasureMissing || invalidGeneralFood;
   return (
@@ -246,6 +250,20 @@ function ManualForm({ form, onField, onToggleSave, onSubmit, cta, showSave, show
         <span style={{ width: 22, height: 22, display: "grid", placeItems: "center", borderRadius: 7, background: "#1f3831", color: "#39e6b2" }}>1</span>
         הערכים יישמרו עבור יחידה אחת
       </div>
+      {showQuantity && (
+        <>
+          <div>
+            <label style={label}>כמות</label>
+            <input disabled={controlsDisabled} value={form.quantity} onChange={(e) => onField("quantity", e.target.value)} inputMode="decimal" aria-label="כמות" placeholder="1" style={input} />
+            {invalidQuantity && <div style={{ color: "#fb7185", fontSize: 12, fontWeight: 700, marginTop: 7 }}>יש להזין כמות גדולה מאפס</div>}
+          </div>
+          <div style={{ textAlign: "center", background: "#101918", border: "1px solid #1f3831", borderRadius: 14, padding: "12px 14px", direction: "rtl" }}>
+            <span style={{ fontSize: 18, fontWeight: 800, color: "#39e6b2" }}>{round(previewValue(form.protein))}g חלבון</span>
+            <span style={{ color: "#7a7a82", margin: "0 8px" }}>·</span>
+            <span style={{ fontSize: 15, fontWeight: 700, color: "#fb923c" }}>{round(previewValue(form.calories))} קל׳</span>
+          </div>
+        </>
+      )}
       {showMeasure && (
         <div>
           <label style={label}>מידה יומית</label>
@@ -255,6 +273,13 @@ function ManualForm({ form, onField, onToggleSave, onSubmit, cta, showSave, show
           </select>
           {selectedUnit === "אחר" && <input disabled={controlsDisabled} value={form.unit || ""} onChange={(e) => onField("unit", e.target.value)} placeholder="למשל: חצי כוס" aria-label="מידה מותאמת" style={{ ...input, marginTop: 10 }} />}
           {customMeasureMissing && <div style={{ color: "#fb7185", fontSize: 12, fontWeight: 700, marginTop: 7 }}>יש להזין מידה מותאמת</div>}
+        </div>
+      )}
+      {showQuantity && (
+        <div>
+          <label style={label}>משקל שנאכל (גרם, אופציונלי)</label>
+          <input disabled={controlsDisabled} value={form.grams} onChange={(e) => onField("grams", e.target.value)} inputMode="decimal" aria-label="משקל שנאכל בגרמים" placeholder="למשל: 200" style={input} />
+          <div style={{ color: "#6f6f78", fontSize: 12, marginTop: 6 }}>אם המידה היא בגרמים ולא הוזן משקל, הוא יחושב לפי הכמות.</div>
         </div>
       )}
       {showSave && (

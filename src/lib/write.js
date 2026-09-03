@@ -1,3 +1,5 @@
+import { gramsPerServing } from "./nutrition.js";
+
 export function nonNegativeNumber(value) {
   if (String(value ?? "").trim() === "") return 0;
   const number = Number(value);
@@ -34,16 +36,26 @@ export async function insertOrFind({ row, findById, insert }) {
 }
 
 export async function saveLoggedFood({ values, date, mealType, source, addEntry, saveFood }) {
-  const { name, protein, calories, grams, unit, save, entryId, foodId, entrySaved } = values;
+  const { name, protein, calories, grams, quantity, unit, save, entryId, foodId, entrySaved } = values;
   const proteinG = nonNegativeNumber(protein);
   const calorieCount = nonNegativeNumber(calories);
-  const gramsValue = grams === "" || grams == null ? null : nonNegativeNumber(grams);
-  if (proteinG == null || calorieCount == null || gramsValue == null || !entryId || (save && !foodId)) return { entry: null, food: null, error: new Error("invalid_write") };
+  const manual = source === "manual";
+  const quantityValue = manual ? Number(quantity) : 1;
+  const validQuantity = !manual || (String(quantity ?? "").trim() !== "" && Number.isFinite(quantityValue) && quantityValue > 0);
+  const hasGrams = String(grams ?? "").trim() !== "";
+  const servingGrams = manual ? gramsPerServing(unit) : null;
+  const gramsValue = hasGrams
+    ? nonNegativeNumber(grams)
+    : servingGrams != null ? servingGrams * quantityValue : null;
+  const entryProtein = proteinG * quantityValue;
+  const entryCalories = calorieCount * quantityValue;
+  const validEntryValues = Number.isFinite(entryProtein) && Number.isFinite(entryCalories) && (gramsValue == null || Number.isFinite(gramsValue));
+  if (proteinG == null || calorieCount == null || !validQuantity || (hasGrams && gramsValue == null) || !validEntryValues || !entryId || (save && !foodId)) return { entry: null, food: null, error: new Error("invalid_write") };
 
   const nameValue = (name || "").trim() || "רישום ללא שם";
   const entry = entrySaved
     ? { data: null, error: null, skipped: true }
-    : await addEntry({ id: entryId, name: nameValue, protein_g: proteinG, calories: calorieCount, grams: gramsValue, source, meal_type: mealType }, date);
+    : await addEntry({ id: entryId, name: nameValue, protein_g: entryProtein, calories: entryCalories, grams: gramsValue, source, meal_type: mealType }, date);
   if (entry.error) return { entry, food: null, error: entry.error };
   if (!save) return { entry, food: null, error: null };
 

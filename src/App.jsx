@@ -21,7 +21,7 @@ const SOURCE = {
   ai: { tag: "AI", iconBg: "rgba(167,139,250,.14)", iconColor: "#a78bfa", sub: "מצילום · AI" },
 };
 const round = (n) => Math.round(Number(n) || 0);
-const blankForm = () => ({ name: "", protein: "", calories: "", grams: "", unit: "מנה", save: false, entryId: crypto.randomUUID(), foodId: crypto.randomUUID(), entrySaved: false });
+const blankForm = () => ({ name: "", protein: "", calories: "", grams: "", quantity: "1", unit: "מנה", save: false, entryId: crypto.randomUUID(), foodId: crypto.randomUUID(), entrySaved: false });
 const isNonNegative = (value) => String(value ?? "").trim() !== "" && Number.isFinite(Number(value)) && Number(value) >= 0;
 
 export default function App({ session }) {
@@ -178,7 +178,7 @@ export default function App({ session }) {
     setPhoto({ state: "loading", note: "", error: null });
     const r = await data.analyzePhoto(photoFile, photoGuidance);
     if (r.estimate) {
-      setForm((current) => ({ ...current, name: r.estimate.name || "", protein: String(round(r.estimate.protein_g)), calories: String(round(r.estimate.calories)), grams: "", unit: "מנה", save: false }));
+      setForm((current) => ({ ...current, name: r.estimate.name || "", protein: String(round(r.estimate.protein_g)), calories: String(round(r.estimate.calories)), grams: "", quantity: "1", unit: "מנה", save: false }));
       setPhoto({ state: "done", note: r.estimate.note || "", confidence: r.estimate.confidence, error: null });
     } else {
       // fall back to manual entry (design §6.5)

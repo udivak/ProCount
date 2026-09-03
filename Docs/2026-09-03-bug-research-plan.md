@@ -68,7 +68,7 @@ npm run build
 | 03 | B06 | מניעת שליחה כפולה | `fix(B06): prevent duplicate food submissions` | בוצע בקוד; אימות כתיבה חי ברשת מושהית ממתין |
 | 04 | B07 | מניעת כפילות במאגר | `fix(B07): reuse exact catalog matches` | טרם התחיל |
 | 05 | B11 | דיוק מד החלבון | `fix(B11): calibrate the protein progress arc` | בוצע ואומת בתצוגה מקומית ללא כתיבה |
-| 06 | B03 | כמויות בהזנה ידנית | `feat(B03): support quantities in manual food entries` | טרם התחיל |
+| 06 | B03 | כמויות בהזנה ידנית | `feat(B03): support quantities in manual food entries` | בוצע בקוד; בדיקת UI מקומית ממתינה |
 | 07 | B01 | חזרה בשלבי ההוספה | `fix(B01): preserve drafts when navigating back` | טרם התחיל |
 | 08 | B12 | השפעת התיאור על ניתוח צילום | `fix(B12): analyze photos with the current description` | טרם התחיל |
 | 09 | B02 | מחיקה ישירה לאחר הוספה | `feat(B02): delete food entries from their immediate context` | טרם התחיל |
@@ -166,6 +166,8 @@ npm run build
 - [ ] יחידת 100 גרם בכמות 2 נרשמת כ־200 גרם; מידה שאינה משקל אינה מקבלת משקל מומצא.
 
 **קבצים:** AddSheet, App, store, ולפי הצורך [nutrition.js](</Users/udivak/Self Projects/ProCount/src/lib/nutrition.js>) ובדיקותיו. **תלות:** B04, B06, B07. המכפיל אינו דורש מיגרציה; תצוגת מספר כפות לאחר רענון, מעבר לגרמים ולסיכומים, תצריך בהמשך שדות מובנים אם תידרש.
+
+**תוצאת ביצוע (3.9.2026):** בטופס ידני/מוצר כללי נוספו כמות ברירת־מחדל 1, תצוגת חלבון וקלוריות מחושבת ושדה משקל אופציונלי. `saveLoggedFood` מאמת כמות חיובית סופית רק ברישום ידני, מכפיל את ערכי ה־entry פעם אחת ושומר את ערכי יחידת הבסיס למאגר; כמות שמייצרת ערך מחושב לא־סופי נדחית לפני כל כתיבה. משקל ידוע נשמר כערך כולל; כשהוא ריק, יחידת גרמים מחושבת לפי הכמות ומידה שאינה משקל נשארת ללא משקל. תוצאת צילום אינה מוכפלת. `node --test src/lib/write.test.js` עבר 14/14, `npm test` עבר 39/39, `npm run build` ו־`git diff --check` עברו. לא בוצעו כתיבות ל־Supabase החי; בדיקת פתיחה מקומית בממשק ממתינה כי ה־Mac נעול.
 
 ### קומיט 07 — B01: חזרה בלי לאבד את הטיוטה
 
