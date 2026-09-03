@@ -66,7 +66,7 @@ npm run build
 | 01 | B08 | יצירת מאכל במאגר בלבד | `fix(B08): separate catalog creation from daily logging` | בוצע בקוד; אימות שמירה מול נתוני בדיקה ממתין |
 | 02 | B04 | שמירה עקבית וטיפול בכשלים | `fix(B04): preserve food save outcomes and retry state` | בוצע בקוד; אימות כתיבה חי ממתין |
 | 03 | B06 | מניעת שליחה כפולה | `fix(B06): prevent duplicate food submissions` | בוצע בקוד; אימות כתיבה חי ברשת מושהית ממתין |
-| 04 | B07 | מניעת כפילות במאגר | `fix(B07): reuse exact catalog matches` | טרם התחיל |
+| 04 | B07 | מניעת כפילות במאגר | `fix(B07): reuse exact catalog matches` | בוצע בקוד; אימות חי מול Supabase ממתין |
 | 05 | B11 | דיוק מד החלבון | `fix(B11): calibrate the protein progress arc` | בוצע ואומת בתצוגה מקומית ללא כתיבה |
 | 06 | B03 | כמויות בהזנה ידנית | `feat(B03): support quantities in manual food entries` | בוצע בקוד; בדיקת UI מקומית ממתינה |
 | 07 | B01 | חזרה בשלבי ההוספה | `fix(B01): preserve drafts when navigating back` | בוצע בקוד; בדיקת ניווט מקומית ממתינה |
@@ -76,6 +76,8 @@ npm run build
 | 11 | B05 | הצגת קלוריות מול התפריט | `fix(B05): show calorie intake against the meal plan target` | בוצע בקוד; אימות UI מקומי ממתין |
 | 12 | B09 | שילובים עם אבקת חלבון | `feat(B09): add protein powder meal options` | בוצע בקוד; ערכים מדויקים ואימות UI מקומי ממתינים |
 | 13 | B13 | השלמת ערכים ב־AI לפי שם מאכל ומידה | `feat(B13): autofill catalog nutrition using AI` | בוצע בקוד; בדיקות Deno/UI/Edge חיות ואיכות מול ייחוס ממתינות |
+
+**סנכרון סופי (3.9.2026):** כל 13 התיקונים בוצעו בקומיטים נפרדים לפי סדר המפה. בדיקות Node ובניית frontend סופיות מתועדות; סעיפי קבלה שנותרו לא מסומנים בכוונה עד לאימות UI, Deno, Edge/AI חי, קריאה או כתיבה מול Supabase, או נתוני ייחוס חסרים. לא בוצעה פריסה או כתיבה חיה.
 
 ## משימות התיקון
 
