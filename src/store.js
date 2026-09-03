@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase, FUNCTIONS_URL } from "./lib/supabase.js";
 import { todayLocal, lastNDates } from "./lib/date.js";
 import { gramsPerServing } from "./lib/nutrition.js";
-import { insertOrFind, nonNegativeNumber, saveLoggedFood } from "./lib/write.js";
+import { findExactFood, insertOrFind, nonNegativeNumber, saveLoggedFood } from "./lib/write.js";
 
 export const RANGE_DAYS = 35; // enough for the 7-day chart + streak look-back; also the day-nav look-back
 
@@ -92,6 +92,24 @@ export function useData(session) {
       protein_g: proteinG,
       calories: calorieCount,
     };
+    const matchResult = (food) => isEdit
+      ? { data: null, error: new Error("duplicate_food"), reused: false, conflict: true }
+      : { data: food, error: null, reused: true };
+    const matchingFood = findExactFood(foods, row, isEdit ? id : undefined);
+    if (matchingFood) return matchResult(matchingFood);
+
+    let freshCandidates;
+    try {
+      freshCandidates = await supabase.from("foods").select().eq("protein_g", proteinG).eq("calories", calorieCount);
+    } catch (error) {
+      return { data: null, error, reused: false };
+    }
+    if (freshCandidates.error) return { data: null, error: freshCandidates.error, reused: false };
+    const freshMatch = findExactFood(freshCandidates.data || [], row, isEdit ? id : undefined);
+    if (freshMatch) {
+      if (!isEdit) setFoods((cur) => cur.some((food) => food.id === freshMatch.id) ? cur : [freshMatch, ...cur]);
+      return matchResult(freshMatch);
+    }
     const updated = isEdit ? await supabase.from("foods").update(row).eq("id", id).select().single() : null;
     const result = isEdit
       ? updated.data || updated.error ? updated : failedWrite()
@@ -102,7 +120,7 @@ export function useData(session) {
       });
     if (result.data) setFoods((cur) => isEdit ? cur.map((food) => food.id === result.data.id ? result.data : food) : cur.some((food) => food.id === result.data.id) ? cur : [result.data, ...cur]);
     return result;
-  }, []);
+  }, [foods]);
 
   const addLogged = useCallback((values, date, mealType, source) => saveLoggedFood({ values, date, mealType, source, addEntry, saveFood }), [addEntry, saveFood]);
 

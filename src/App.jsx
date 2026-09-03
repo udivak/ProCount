@@ -47,6 +47,7 @@ export default function App({ session }) {
   const [waterUndo, setWaterUndo] = useState(null);
   const [waterError, setWaterError] = useState("");
   const [addError, setAddError] = useState("");
+  const [addNotice, setAddNotice] = useState("");
   const waterUndoTimer = useRef(null);
   const addSaveLock = useRef(false);
   const [addSaving, setAddSaving] = useState(false);
@@ -118,7 +119,7 @@ export default function App({ session }) {
   const header = { today: { sub: headerDate(), title: "ProCount", greet: greeting(data.name || data.email.split("@")[0]) }, trends: { sub: "מעקב לאורך זמן", title: "מגמות" }, foods: { sub: "התבניות שלי", title: "מאכלים שלי" }, mealPlan: { sub: "התזונה שלך", title: "תפריט" } }[screen];
 
   // ---- actions ----
-  const openAdd = () => { if (!addSaveLock.current) { setForm(blankForm()); setAddError(""); setMealType("snack"); setAddDate(selectedDay); setPhoto({ state: "idle", note: "", error: null }); setPhotoFile(null); setPhotoGuidance(""); setAddTab("quick"); setIsGeneralFood(false); setAddOpen(true); } };
+  const openAdd = () => { if (!addSaveLock.current) { setForm(blankForm()); setAddError(""); setAddNotice(""); setMealType("snack"); setAddDate(selectedDay); setPhoto({ state: "idle", note: "", error: null }); setPhotoFile(null); setPhotoGuidance(""); setAddTab("quick"); setIsGeneralFood(false); setAddOpen(true); } };
   const openGeneralFood = () => { if (!form.entrySaved) { setForm(blankForm()); setAddError(""); setAddTab("manual"); setIsGeneralFood(true); } };
   const onTab = (tab) => { if (!form.entrySaved) { setAddError(""); setAddTab(tab); setIsGeneralFood(false); setPhoto({ state: "idle", note: "", error: null }); setPhotoFile(null); } };
   const onField = (key, value) => { if (!form.entrySaved) { setAddError(""); setForm((current) => ({ ...current, [key]: value })); } };
@@ -156,6 +157,7 @@ export default function App({ session }) {
         setPhotoGuidance(submitted.photoGuidance);
       }
       if (result.error) return setAddError(partial ? "הרישום נשמר, אך המאכל לא נשמר. נסה שוב." : "לא ניתן לשמור את הרישום כרגע. נסה שוב.");
+      setAddNotice(result.food?.reused ? "הרישום נוסף. המאכל כבר קיים במאגר, ולכן לא נוצר מאכל נוסף." : "");
       setForm(blankForm());
       setAddError("");
       setPhotoGuidance("");
@@ -254,7 +256,9 @@ export default function App({ session }) {
           onWaterDec={() => data.setWaterGoal(Math.max(250, waterGoal - 250))} onWaterInc={() => data.setWaterGoal(Math.min(10000, waterGoal + 250))} onSignOut={data.signOut} />
       )}
 
-      {editFood && <FoodEditor food={editFood} onSave={async (v) => { const result = await data.saveFood(v); if (!result.error) setEditFood(null); return result; }} onDelete={(id) => setConfirm({ title: "מחיקת מאכל", body: "המאכל יימחק מהרשימה שלך.", confirmLabel: "מחק", onConfirm: async () => { await data.deleteFood(id); setEditFood(null); } })} onClose={() => setEditFood(null)} />}
+      {addNotice && !addOpen && <div role="status" style={{ position: "absolute", insetInline: 20, bottom: "calc(var(--bottom-nav-height) + 18px)", zIndex: 25, border: "1px solid #1f3831", borderRadius: 14, background: "#101918", color: "#9ef2d2", padding: "10px 14px", fontSize: 13, fontWeight: 700, textAlign: "center" }}>{addNotice}</div>}
+
+      {editFood && <FoodEditor food={editFood} onSave={async (v) => { const result = await data.saveFood(v); if (!result.error && !result.reused) setEditFood(null); return result; }} onDelete={(id) => setConfirm({ title: "מחיקת מאכל", body: "המאכל יימחק מהרשימה שלך.", confirmLabel: "מחק", onConfirm: async () => { await data.deleteFood(id); setEditFood(null); } })} onClose={() => setEditFood(null)} />}
 
       {selectedEntry && <ItemDetailModal entry={selectedEntry} onClose={() => setSelectedEntry(null)} />}
 

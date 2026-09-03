@@ -12,6 +12,7 @@ export default function FoodEditor({ food, onSave, onDelete, onClose }) {
   const isEdit = !!food.id;
   const [draftId] = useState(() => food.id || crypto.randomUUID());
   const [saveError, setSaveError] = useState("");
+  const [saveNotice, setSaveNotice] = useState("");
   const saveLock = useRef(false);
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState(food.name || "");
@@ -22,12 +23,19 @@ export default function FoodEditor({ food, onSave, onDelete, onClose }) {
   const [calories, setCalories] = useState(food.calories != null ? String(food.calories) : "");
   const unit = selectedUnit === "אחר" ? customUnit.trim() : selectedUnit;
   const canSave = selectedUnit !== "אחר" || !!unit;
+  const change = (setValue) => (event) => {
+    setSaveError("");
+    setSaveNotice("");
+    setValue(event.target.value);
+  };
   const save = () => withSubmissionLock(saveLock, async () => {
     setSaving(true);
     setSaveError("");
+    setSaveNotice("");
     try {
       const result = await onSave({ id: draftId, isEdit, name, unit, protein, calories });
-      if (result.error) setSaveError("לא ניתן לשמור את המאכל כרגע. נסה שוב.");
+      if (result.error) setSaveError(result.conflict ? "כבר קיים מאכל זהה במאגר. לא בוצע שינוי." : "לא ניתן לשמור את המאכל כרגע. נסה שוב.");
+      else if (result.reused) setSaveNotice("המאכל כבר קיים במאגר — לא נוצר מאכל נוסף.");
     } finally {
       setSaving(false);
     }
@@ -51,24 +59,24 @@ export default function FoodEditor({ food, onSave, onDelete, onClose }) {
         <div className="pc-scroll" style={{ flex: 1, overflowY: "auto", padding: "6px 20px 28px", display: "flex", flexDirection: "column", gap: 14 }}>
           <div>
             <label style={label}>שם</label>
-            <input disabled={saving} value={name} onChange={(e) => setName(e.target.value)} placeholder="למשל: חזה עוף" aria-label="שם" style={inputStyle} />
+            <input disabled={saving} value={name} onChange={change(setName)} placeholder="למשל: חזה עוף" aria-label="שם" style={inputStyle} />
           </div>
           <div>
             <label style={label}>מידה יומית</label>
-            <select disabled={saving} value={selectedUnit} onChange={(e) => setSelectedUnit(e.target.value)} aria-label="מידה יומית" style={inputStyle}>
+            <select disabled={saving} value={selectedUnit} onChange={change(setSelectedUnit)} aria-label="מידה יומית" style={inputStyle}>
               {MEASURES.map((measure) => <option key={measure} value={measure}>{measure}</option>)}
               <option value="אחר">אחר</option>
             </select>
-            {selectedUnit === "אחר" && <input disabled={saving} value={customUnit} onChange={(e) => setCustomUnit(e.target.value)} placeholder="למשל: חצי כוס" aria-label="מידה מותאמת" style={{ ...inputStyle, marginTop: 10 }} />}
+            {selectedUnit === "אחר" && <input disabled={saving} value={customUnit} onChange={change(setCustomUnit)} placeholder="למשל: חצי כוס" aria-label="מידה מותאמת" style={{ ...inputStyle, marginTop: 10 }} />}
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
               <label style={label}>חלבון (גרם)</label>
-              <input disabled={saving} value={protein} onChange={(e) => setProtein(e.target.value)} inputMode="decimal" aria-label="חלבון בגרמים" placeholder="0" style={{ ...inputStyle, color: "#39e6b2", fontSize: 18, fontWeight: 800 }} />
+              <input disabled={saving} value={protein} onChange={change(setProtein)} inputMode="decimal" aria-label="חלבון בגרמים" placeholder="0" style={{ ...inputStyle, color: "#39e6b2", fontSize: 18, fontWeight: 800 }} />
             </div>
             <div>
               <label style={label}>קלוריות</label>
-              <input disabled={saving} value={calories} onChange={(e) => setCalories(e.target.value)} inputMode="decimal" aria-label="קלוריות" placeholder="0" style={{ ...inputStyle, color: "#fb923c", fontSize: 18, fontWeight: 800 }} />
+              <input disabled={saving} value={calories} onChange={change(setCalories)} inputMode="decimal" aria-label="קלוריות" placeholder="0" style={{ ...inputStyle, color: "#fb923c", fontSize: 18, fontWeight: 800 }} />
             </div>
           </div>
 
@@ -76,6 +84,7 @@ export default function FoodEditor({ food, onSave, onDelete, onClose }) {
             {saving ? "שומר..." : isEdit ? "שמור שינויים" : "הוסף מאכל"}
           </button>
           {saveError && <div role="alert" style={{ color: "#fb7185", fontSize: 13, fontWeight: 700, textAlign: "center" }}>{saveError}</div>}
+          {saveNotice && <div role="status" style={{ color: "#39e6b2", fontSize: 13, fontWeight: 700, textAlign: "center" }}>{saveNotice}</div>}
 
           {isEdit && (
             <button disabled={saving} onClick={() => onDelete(food.id)} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, border: "none", fontFamily: "inherit", background: "none", color: "#fb7185", fontSize: 14, fontWeight: 700, padding: 8, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? .45 : 1 }}>

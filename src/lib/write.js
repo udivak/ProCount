@@ -4,6 +4,18 @@ export function nonNegativeNumber(value) {
   return Number.isFinite(number) && number >= 0 ? number : null;
 }
 
+const normalizeFoodText = (value) => String(value ?? "").normalize("NFKC").replace(/[\u200B-\u200F\u2060\uFEFF]/g, "").trim().replace(/\s+/g, " ").toLocaleLowerCase("he-IL");
+const sameFoodNumber = (left, right) => left != null && right != null && String(left).trim() !== "" && String(right).trim() !== "" && Number.isFinite(Number(left)) && Number(left) === Number(right);
+
+// The shared catalog is small and already loaded; compare its unrounded raw values before writing.
+export function findExactFood(foods, row, excludeId) {
+  return foods.find((food) => food.id !== excludeId
+    && normalizeFoodText(food.name) === normalizeFoodText(row.name)
+    && normalizeFoodText(food.unit) === normalizeFoodText(row.unit)
+    && sameFoodNumber(food.protein_g, row.protein_g)
+    && sameFoodNumber(food.calories, row.calories)) || null;
+}
+
 export async function insertOrFind({ row, findById, insert }) {
   try {
     const existing = await findById(row.id);
