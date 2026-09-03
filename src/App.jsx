@@ -4,6 +4,7 @@ import { headerDate, lastNDates, lastNWeeks, weekdayLabel, weekRangeLabel, shift
 import { dailyTotals, dailyWaterTotal, remainingProtein, pct, dailyPace, streak, proteinByDay, weekSeries, weeklyAverageSeries, avgCaloriesPerActiveDay, average, entriesByMeal, proteinSuggestion } from "./lib/nutrition.js";
 import { acquireRequestLock, capturePhotoRequest, captureRequestRevision, clearRequestLock, releaseRequestLock } from "./lib/request.js";
 import { withSubmissionLock } from "./lib/submission.js";
+import { foodUndoTarget } from "./lib/delete.js";
 import { Gear, Home, Chart, ListIcon, Plus, Utensils } from "./lib/icons.jsx";
 import Today from "./screens/Today.jsx";
 import Trends from "./screens/Trends.jsx";
@@ -46,16 +47,25 @@ export default function App({ session }) {
   const [addDate, setAddDate] = useState(today); // which day the add sheet logs onto
   const [mealType, setMealType] = useState("snack");
   const [waterUndo, setWaterUndo] = useState(null);
+  const [foodUndo, setFoodUndo] = useState(null);
   const [waterError, setWaterError] = useState("");
   const [addError, setAddError] = useState("");
   const [addNotice, setAddNotice] = useState("");
   const waterUndoTimer = useRef(null);
+  const waterUndoRevision = useRef(0);
+  const waterUndoLock = useRef(false);
+  const foodUndoTimer = useRef(null);
+  const foodUndoRef = useRef(null);
+  const foodUndoPendingTimer = useRef(false);
   const addSaveLock = useRef(false);
   const photoRequestRevision = useRef(0);
   const photoAnalysisLock = useRef(null);
   const [addSaving, setAddSaving] = useState(false);
 
-  useEffect(() => () => clearTimeout(waterUndoTimer.current), []);
+  useEffect(() => () => {
+    clearTimeout(waterUndoTimer.current);
+    clearTimeout(foodUndoTimer.current);
+  }, []);
 
   // ponytail: nav clamped to the loaded window; fetch older entries on demand if you ever need >35 days back.
   const oldest = lastNDates(RANGE_DAYS)[0];
@@ -121,6 +131,46 @@ export default function App({ session }) {
 
   const header = { today: { sub: headerDate(), title: "ProCount", greet: greeting(data.name || data.email.split("@")[0]) }, trends: { sub: "מעקב לאורך זמן", title: "מגמות" }, foods: { sub: "התבניות שלי", title: "מאכלים שלי" }, mealPlan: { sub: "התזונה שלך", title: "תפריט" } }[screen];
 
+  const clearFoodUndo = () => {
+    clearTimeout(foodUndoTimer.current);
+    foodUndoTimer.current = null;
+    foodUndoRef.current = null;
+    foodUndoPendingTimer.current = false;
+    setFoodUndo(null);
+  };
+  const rememberFoodUndo = (target) => {
+    if (!target) return;
+    clearTimeout(foodUndoTimer.current);
+    foodUndoTimer.current = null;
+    foodUndoRef.current = target;
+    foodUndoPendingTimer.current = true;
+    setFoodUndo(target);
+  };
+  const armFoodUndoTimer = () => {
+    const target = foodUndoRef.current;
+    if (!target || !foodUndoPendingTimer.current) return;
+    foodUndoPendingTimer.current = false;
+    clearTimeout(foodUndoTimer.current);
+    foodUndoTimer.current = setTimeout(() => {
+      if (foodUndoRef.current?.id === target.id) {
+        foodUndoRef.current = null;
+        setFoodUndo(null);
+      }
+    }, 6000);
+  };
+  const startWaterUndoTimer = (revision) => {
+    clearTimeout(waterUndoTimer.current);
+    waterUndoTimer.current = setTimeout(() => {
+      if (waterUndoRevision.current === revision) setWaterUndo(null);
+    }, 6000);
+  };
+  const rememberWaterUndo = (undo) => {
+    const revision = waterUndoRevision.current + 1;
+    waterUndoRevision.current = revision;
+    setWaterUndo(undo);
+    startWaterUndoTimer(revision);
+  };
+
   // ---- actions ----
   const invalidatePhotoRequest = () => {
     clearRequestLock(photoAnalysisLock);
@@ -163,6 +213,7 @@ export default function App({ session }) {
     setPhotoFile(null);
     setPhotoGuidance("");
     setAddOpen(false);
+    armFoodUndoTimer();
   };
   const discardAdd = () => { if (!addSaveLock.current) finishAdd(); };
   const runAddSave = (operation) => withSubmissionLock(addSaveLock, async () => {
@@ -176,6 +227,7 @@ export default function App({ session }) {
   const quickAdd = (foodRow, qty, entryId) => runAddSave(async () => {
     const result = await data.addQuick(foodRow.raw || foodRow, qty, addDate, mealType, entryId);
     if (result.error) return setAddError("לא ניתן לשמור את הרישום כרגע. נסה שוב.");
+    rememberFoodUndo(foodUndoTarget(result));
     setSelectedDay(addDate);
     finishAdd();
   });
@@ -185,6 +237,7 @@ export default function App({ session }) {
     return runAddSave(async () => {
       const submitted = { form, tab: addTab, isGeneralFood, date: addDate, mealType, photoGuidance };
       const result = addTab === "photo" ? await data.addAi(form, addDate, mealType) : await data.addManual(form, addDate, mealType);
+      rememberFoodUndo(foodUndoTarget(result));
       const partial = !!result.food?.error && (!!result.entry?.data || form.entrySaved);
       if (partial) {
         setForm({ ...submitted.form, entrySaved: true });
@@ -258,17 +311,51 @@ export default function App({ session }) {
       return;
     }
     setWaterError("");
-    clearTimeout(waterUndoTimer.current);
     const undo = { id: result.data.id, amount: result.data.water_ml, date: selectedDay };
-    setWaterUndo(undo);
-    waterUndoTimer.current = setTimeout(() => setWaterUndo(null), 6000);
+    rememberWaterUndo(undo);
   };
 
-  const undoWater = async () => {
-    if (!waterUndo) return;
-    clearTimeout(waterUndoTimer.current);
-    setWaterUndo(null);
-    await data.deleteEntry(waterUndo.id);
+  const undoWater = () => {
+    const undo = waterUndo;
+    if (!undo) return;
+    return withSubmissionLock(waterUndoLock, async () => {
+      const revision = waterUndoRevision.current + 1;
+      waterUndoRevision.current = revision;
+      clearTimeout(waterUndoTimer.current);
+      setWaterUndo(null);
+      try {
+        const result = await data.deleteEntry(undo.id);
+        if (result?.error) throw result.error;
+        if (waterUndoRevision.current === revision) setWaterError("");
+      } catch {
+        if (waterUndoRevision.current === revision) {
+          setWaterError("לא ניתן לבטל את הוספת המים כרגע. נסה שוב.");
+          setWaterUndo(undo);
+          startWaterUndoTimer(revision);
+        }
+      }
+    });
+  };
+
+  const deleteFoodEntry = async (id, closeDetail = false) => {
+    try {
+      const result = await data.deleteEntry(id);
+      if (result?.error) return "לא ניתן למחוק את הרישום כרגע. נסה שוב.";
+      if (foodUndoRef.current?.id === id) clearFoodUndo();
+      if (closeDetail) setSelectedEntry(null);
+      return "";
+    } catch {
+      return "לא ניתן למחוק את הרישום כרגע. נסה שוב.";
+    }
+  };
+  const requestEntryDelete = (id, closeDetail = false) => {
+    if (!id) return;
+    setConfirm({
+      title: "מחיקת רישום",
+      body: "הרישום יימחק מהיום.",
+      confirmLabel: "מחק",
+      onConfirm: () => deleteFoodEntry(id, closeDetail),
+    });
   };
 
   const goTo = (s) => { setScreen(s); setSettingsOpen(false); };
@@ -288,7 +375,7 @@ export default function App({ session }) {
       </div>
 
       <div className="pc-scroll app-scroll" style={{ flex: 1, overflowY: "auto" }}>
-        {screen === "today" && <Today totals={vm.totals} goal={goal} progress={vm.proteinProgress} remaining={vm.remaining} pace={vm.pace} calorieProgress={vm.calorieProgress} waterMl={vm.waterMl} waterGoal={waterGoal} onAddWater={addWater} waterUndo={waterUndo?.date === selectedDay ? waterUndo : null} onUndoWater={undoWater} waterError={waterError} mealGroups={vm.mealGroups} suggestion={vm.suggestion} onDelete={(id) => setConfirm({ title: "מחיקת רישום", body: "הרישום יימחק מהיום.", confirmLabel: "מחק", onConfirm: () => data.deleteEntry(id) })} onSelect={setSelectedEntry} dayLabel={dayLabel(selectedDay, today)} isToday={selectedDay === today} onToday={() => setSelectedDay(today)} onPrev={prevDay} onNext={nextDay} canPrev={canPrev} canNext={canNext} />}
+        {screen === "today" && <Today totals={vm.totals} goal={goal} progress={vm.proteinProgress} remaining={vm.remaining} pace={vm.pace} calorieProgress={vm.calorieProgress} waterMl={vm.waterMl} waterGoal={waterGoal} onAddWater={addWater} waterUndo={waterUndo?.date === selectedDay ? waterUndo : null} onUndoWater={undoWater} waterError={waterError} mealGroups={vm.mealGroups} suggestion={vm.suggestion} onDelete={requestEntryDelete} onSelect={setSelectedEntry} dayLabel={dayLabel(selectedDay, today)} isToday={selectedDay === today} onToday={() => setSelectedDay(today)} onPrev={prevDay} onNext={nextDay} canPrev={canPrev} canNext={canNext} />}
         {screen === "trends" && <Trends goal={goal} streak={vm.streak} avg={vm.avg} bars={vm.bars} goalY={vm.goalY} calAvg={vm.calAvg} heading={vm.heading} range={chartRange} onRange={setChartRange} />}
         {screen === "foods" && <MyFoods foods={vm.foodVm} onNew={() => setEditFood({})} onEdit={(f) => setEditFood(f.raw)} />}
         {screen === "mealPlan" && <MealPlan />}
@@ -320,14 +407,22 @@ export default function App({ session }) {
           onWaterDec={() => data.setWaterGoal(Math.max(250, waterGoal - 250))} onWaterInc={() => data.setWaterGoal(Math.min(10000, waterGoal + 250))} onSignOut={data.signOut} />
       )}
 
-      {addNotice && !addOpen && <div role="status" style={{ position: "absolute", insetInline: 20, bottom: "calc(var(--bottom-nav-height) + 18px)", zIndex: 25, border: "1px solid #1f3831", borderRadius: 14, background: "#101918", color: "#9ef2d2", padding: "10px 14px", fontSize: 13, fontWeight: 700, textAlign: "center" }}>{addNotice}</div>}
+      {(addNotice || foodUndo) && !addOpen && <div role="status" style={{ position: "absolute", insetInline: 20, bottom: "calc(var(--bottom-nav-height) + 18px)", zIndex: 25, border: "1px solid #1f3831", borderRadius: 14, background: "#101918", color: "#9ef2d2", padding: "10px 14px", fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+        <span>{addNotice || "הרישום נוסף."}</span>
+        {foodUndo && <button onClick={() => requestEntryDelete(foodUndo.id)} style={{ border: "none", borderRadius: 9, background: "#39e6b2", color: "#03120d", fontFamily: "inherit", fontSize: 13, fontWeight: 800, padding: "7px 10px", cursor: "pointer", whiteSpace: "nowrap" }}>בטל הוספה</button>}
+      </div>}
 
       {editFood && <FoodEditor food={editFood} onSave={async (v) => { const result = await data.saveFood(v); if (!result.error && !result.reused) setEditFood(null); return result; }} onDelete={(id) => setConfirm({ title: "מחיקת מאכל", body: "המאכל יימחק מהרשימה שלך.", confirmLabel: "מחק", onConfirm: async () => { await data.deleteFood(id); setEditFood(null); } })} onClose={() => setEditFood(null)} />}
 
-      {selectedEntry && <ItemDetailModal entry={selectedEntry} onClose={() => setSelectedEntry(null)} />}
+      {selectedEntry && <ItemDetailModal entry={selectedEntry} onClose={() => setSelectedEntry(null)} onDelete={(id) => requestEntryDelete(id, true)} />}
 
       {confirm && <ConfirmDialog title={confirm.title} body={confirm.body} confirmLabel={confirm.confirmLabel}
-        onConfirm={async () => { await confirm.onConfirm(); setConfirm(null); }}
+        onConfirm={async () => {
+          const error = await confirm.onConfirm();
+          if (error) return error;
+          setConfirm(null);
+          return "";
+        }}
         onCancel={() => setConfirm(null)} />}
     </div>
   );

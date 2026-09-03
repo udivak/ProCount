@@ -1,4 +1,4 @@
-import { X } from "./lib/icons.jsx";
+import { Trash, X } from "./lib/icons.jsx";
 import { proteinPer100g } from "./lib/nutrition.js";
 
 // Read-only detail view for a logged entry (clicked from the Today screen). Bottom sheet
@@ -9,7 +9,7 @@ const round = (n) => Math.round(Number(n) || 0);
 const label = { fontSize: 13, fontWeight: 600, color: "#8a8a93" };
 const dash = "—";
 
-export default function ItemDetailModal({ entry, onClose }) {
+export default function ItemDetailModal({ entry, onClose, onDelete }) {
   const per100 = proteinPer100g(entry.proteinRaw, entry.grams);
   const rows = [
     { k: "כמות שנאכלה", v: entry.grams != null ? `${round(entry.grams)} גרם` : dash },
@@ -47,6 +47,9 @@ export default function ItemDetailModal({ entry, onClose }) {
               </div>
             ))}
           </div>
+          <button onClick={() => onDelete(entry.id)} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, border: "none", fontFamily: "inherit", background: "none", color: "#fb7185", fontSize: 14, fontWeight: 700, padding: "10px 8px", cursor: "pointer" }}>
+            <Trash size={16} /> מחק רישום
+          </button>
         </div>
       </div>
     </div>

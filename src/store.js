@@ -3,6 +3,7 @@ import { supabase, FUNCTIONS_URL } from "./lib/supabase.js";
 import { todayLocal, lastNDates } from "./lib/date.js";
 import { gramsPerServing } from "./lib/nutrition.js";
 import { findExactFood, insertOrFind, nonNegativeNumber, saveLoggedFood } from "./lib/write.js";
+import { reconcileDeletedRow } from "./lib/delete.js";
 
 export const RANGE_DAYS = 35; // enough for the 7-day chart + streak look-back; also the day-nav look-back
 
@@ -128,9 +129,22 @@ export function useData(session) {
   const addAi = useCallback((values, date, mealType = "snack") => addLogged(values, date, mealType, "ai"), [addLogged]);
 
   const deleteEntry = useCallback(async (id) => {
-    setEntries((cur) => cur.filter((e) => e.id !== id));
-    await supabase.from("entries").delete().eq("id", id);
-  }, []);
+    const index = entries.findIndex((entry) => entry.id === id);
+    const snapshot = entries[index];
+    if (!snapshot) return { data: null, error: new Error("missing_entry") };
+
+    return reconcileDeletedRow({
+      snapshot,
+      remove: (entryId) => setEntries((current) => current.filter((entry) => entry.id !== entryId)),
+      restore: (entry) => setEntries((current) => {
+        if (current.some((existing) => existing.id === entry.id)) return current;
+        const restoreAt = Math.min(index, current.length);
+        return [...current.slice(0, restoreAt), entry, ...current.slice(restoreAt)];
+      }),
+      deleteRemote: (entryId) => supabase.from("entries").delete().eq("id", entryId).select().maybeSingle(),
+      findById: (entryId) => supabase.from("entries").select().eq("id", entryId).maybeSingle(),
+    });
+  }, [entries]);
 
   const deleteFood = useCallback(async (id) => {
     setFoods((cur) => cur.filter((f) => f.id !== id));

@@ -71,7 +71,7 @@ npm run build
 | 06 | B03 | כמויות בהזנה ידנית | `feat(B03): support quantities in manual food entries` | בוצע בקוד; בדיקת UI מקומית ממתינה |
 | 07 | B01 | חזרה בשלבי ההוספה | `fix(B01): preserve drafts when navigating back` | בוצע בקוד; בדיקת ניווט מקומית ממתינה |
 | 08 | B12 | השפעת התיאור על ניתוח צילום | `fix(B12): analyze photos with the current description` | בוצע בקוד; בדיקות Deno/UI/מודל חיות ממתינות |
-| 09 | B02 | מחיקה ישירה לאחר הוספה | `feat(B02): delete food entries from their immediate context` | טרם התחיל |
+| 09 | B02 | מחיקה ישירה לאחר הוספה | `feat(B02): delete food entries from their immediate context` | בוצע בקוד; אימות UI וכתיבה חי ממתינים |
 | 10 | B10 | העברה בין ארוחות | `feat(B10): move logged food between meals` | טרם התחיל |
 | 11 | B05 | הצגת קלוריות מול התפריט | `fix(B05): show calorie intake against the meal plan target` | טרם התחיל |
 | 12 | B09 | שילובים עם אבקת חלבון | `feat(B09): add protein powder meal options` | טרם התחיל |
@@ -218,6 +218,8 @@ npm run build
 - [ ] כשל מחיקה אינו מוצג כהצלחה, הסיכומים עקביים לאחר רענון, וביטול הוספת מים ממשיך לעבוד.
 
 **קבצים:** App, [ItemDetailModal.jsx](</Users/udivak/Self Projects/ProCount/src/ItemDetailModal.jsx>), store. **תלות:** B04, B06. להשתמש בתבנית החיווי הקיימת למים בלי לשתף בין הפעולות את ה־ID לביטול.
+
+**תוצאת ביצוע (3.9.2026):** לאחר הוספה מהירה, ידנית או מצילום נשמר יעד `foodUndo` נפרד עם מזהה ה־entry בפועל בלבד; הוא אינו נדרס בניסיון B04 שבו `entry.skipped`, והטיימר שלו נדרך רק בעת סגירת גיליון ההוספה. הודעת ההצלחה מציגה פעולת "בטל הוספה" שעוברת, יחד עם פח האשפה של היום והמחיקה מחלונית הפרטים, דרך אישור App משותף אל `deleteEntry` בלבד — בלי למחוק מאכל מן המאגר. `deleteEntry` מחזיר `{ data, error }`, מסיר אופטימית רק snapshot של הרשומה המבוקשת, מאשר מחיקה על שורה מוחזרת, ובתגובה חסרה/שגויה בודק את אותו ID: מחזיר את ה־snapshot רק אם הוא עדיין קיים או אם הבדיקה כשלה, ומשאירו מוסר אם אושר כחסר. חלונית הפרטים נסגרת רק לאחר הצלחה. אישור המחיקה נעול סינכרונית בזמן הבקשה, כך שלחיצה כפולה או ביטול בזמן מחיקה אינם מפעילים פעולה נוספת. ביטול מים נשאר בעל יעד, טיימר ושגיאה משלו; בכשל הוא משחזר רק את פעולת ביטול המים. `node --test src/lib/delete.test.js`, `node --test src/lib/write.test.js`, `node --test src/lib/submission.test.js` עברו (5/5, 14/14, 1/1); `npm test` עבר 47/47 ו־`npm run build` עבר. `git diff --check` עבר. לא בוצעו כתיבות ל־Supabase; אימות UI מקומי ומחיקה/רענון חיים ממתינים כי ה־Mac נעול.
 
 ### קומיט 10 — B10: העברת רישום בין ארוחות
 
