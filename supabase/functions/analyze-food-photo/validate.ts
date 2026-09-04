@@ -13,31 +13,58 @@ export type Estimate = {
 export function parseEstimate(msg: unknown): Estimate | null {
   const text = firstText(msg);
   if (!text) return null;
-  let raw: Record<string, unknown>;
+
+  const parsed = tryParseJson(text);
+  if (!parsed) return null;
+
+  return coerce(parsed);
+}
+
+function tryParseJson(text: string): Record<string, unknown> | null {
+  const direct = maybeJson(text);
+  if (direct) return direct;
+
+  const fenced = text.match(/```(?:json)?\n([\s\S]*?)```/i);
+  if (fenced?.[1]) {
+    const fromFence = maybeJson(fenced[1]);
+    if (fromFence) return fromFence;
+  }
+
+  const wrapped = text.match(/\{[\s\S]*\}/);
+  if (wrapped) return maybeJson(wrapped[0]);
+
+  return null;
+}
+
+function maybeJson(value: string): Record<string, unknown> | null {
   try {
-    raw = JSON.parse(text);
+    const parsed = JSON.parse(value);
+    return isRecord(parsed) ? parsed : null;
   } catch {
     return null;
   }
-  return coerce(raw);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 // output_config.format guarantees the shape, but the AI estimate is still a guess:
 // clamp negatives, drop non-numbers, and never trust a missing/blank name.
-export function coerce(raw: Record<string, unknown>): Estimate | null {
-  const calories = num(raw.calories);
-  const protein_g = num(raw.protein_g);
-  const confidence = raw.confidence;
+export function coerce(rawInput: Record<string, unknown>): Estimate | null {
+  const calories = num(rawInput.calories ?? rawInput.calorie);
+  const protein_g = num(rawInput.protein_g ?? rawInput.protein);
+  const confidence = rawInput.confidence;
   if (calories === null || protein_g === null) return null;
   if (confidence !== "low" && confidence !== "medium" && confidence !== "high") return null;
 
-  const name = typeof raw.name === "string" ? raw.name.trim() : "";
+  const name = typeof rawInput.name === "string" ? rawInput.name.trim() : "";
   return {
     name: name || "מנה",
     calories: Math.max(0, calories),
     protein_g: Math.max(0, protein_g),
     confidence,
-    note: typeof raw.note === "string" ? raw.note : "",
+    note: typeof rawInput.note === "string" ? rawInput.note : "",
   };
 }
 
