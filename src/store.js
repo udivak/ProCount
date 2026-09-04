@@ -2,12 +2,14 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase, FUNCTIONS_URL } from "./lib/supabase.js";
 import { todayLocal, lastNDates } from "./lib/date.js";
 import { gramsPerServing } from "./lib/nutrition.js";
+import { findExactFood, insertOrFind, nonNegativeNumber, saveLoggedFood } from "./lib/write.js";
+import { reconcileDeletedRow } from "./lib/delete.js";
+import { applyReturnedEntry, isValidEntryMealUpdate } from "./lib/meal.js";
 
 export const RANGE_DAYS = 35; // enough for the 7-day chart + streak look-back; also the day-nav look-back
 
 // Central data layer: loads entries/foods/goal for the signed-in user and exposes
-// mutations. Writes are local-optimistic (update state, then persist) so the UI
-// stays instant — RLS guarantees every row belongs to this user.
+// mutations. Entry and food inserts return their explicit database outcome.
 export function useData(session) {
   const [entries, setEntries] = useState([]); // last RANGE_DAYS, newest first
   const [foods, setFoods] = useState([]);
@@ -39,19 +41,26 @@ export function useData(session) {
 
   // date is the YYYY-MM-DD to log onto; defaults to today (retro entries pass a past day).
   const addEntry = useCallback(async (row, date) => {
-    const { data, error } = await supabase
-      .from("entries").insert({ ...row, eaten_on: date || today }).select().single();
-    if (!error && data) setEntries((cur) => [data, ...cur]);
-    return { data, error };
+    const result = await insertOrFind({
+      row: { ...row, eaten_on: date || today },
+      findById: (id) => supabase.from("entries").select().eq("id", id).maybeSingle(),
+      insert: (entry) => supabase.from("entries").insert(entry).select().single(),
+    });
+    if (result.data) setEntries((cur) => cur.some((entry) => entry.id === result.data.id) ? cur : [result.data, ...cur]);
+    return result;
   }, [today]);
 
-  const addQuick = useCallback((food, qty = 1, date, mealType = "snack") => {
-    const n = Number(qty) || 1; // servings; foods store per-1-serving macros
+  const addQuick = useCallback((food, qty = 1, date, mealType = "snack", entryId) => {
+    const n = Number(qty); // servings; foods store per-1-serving macros
+    const protein = nonNegativeNumber(food.protein_g);
+    const calories = nonNegativeNumber(food.calories);
+    if (!Number.isFinite(n) || n <= 0 || protein == null || calories == null || !entryId) return Promise.resolve(failedWrite());
     const perServingG = gramsPerServing(food.unit); // grams if the unit is gram-denominated, else null
     return addEntry({
+      id: entryId,
       name: food.name,
-      protein_g: (Number(food.protein_g) || 0) * n,
-      calories: (Number(food.calories) || 0) * n,
+      protein_g: protein * n,
+      calories: calories * n,
       grams: perServingG != null ? perServingG * n : null,
       source: "saved",
       food_id: food.id,
@@ -63,6 +72,7 @@ export function useData(session) {
     const waterMl = Math.round(Number(amount));
     if (!(waterMl > 0)) return Promise.resolve({ data: null, error: new Error("invalid_water_amount") });
     return addEntry({
+      id: crypto.randomUUID(),
       name: "מים",
       protein_g: 0,
       calories: 0,
@@ -73,57 +83,81 @@ export function useData(session) {
     }, date);
   }, [addEntry]);
 
-  const addManual = useCallback(async ({ name, protein, calories, grams, unit, save }, date, mealType = "snack") => {
-    const p = parseFloat(protein) || 0;
-    const c = parseFloat(calories) || 0;
-    const g = grams === "" || grams == null ? null : parseFloat(grams) || null;
-    const nm = (name || "").trim() || "רישום ללא שם";
-    await addEntry({ name: nm, protein_g: p, calories: c, grams: g, source: "manual", meal_type: mealType }, date);
-    if (save) {
-      const { data } = await supabase
-        .from("foods").insert({ name: nm, unit: (unit || "מנה").trim(), protein_g: p, calories: c }).select().single();
-      if (data) setFoods((cur) => [data, ...cur]);
-    }
-  }, [addEntry]);
-
-  const addAi = useCallback(async ({ name, protein, calories, grams, save }, date, mealType = "snack") => {
-    const p = parseFloat(protein) || 0;
-    const c = parseFloat(calories) || 0;
-    const nm = (name || "").trim() || "רישום ללא שם";
-    await addEntry({
-      name: nm,
-      protein_g: p,
-      calories: c,
-      grams: grams === "" || grams == null ? null : parseFloat(grams) || null,
-      source: "ai",
-      meal_type: mealType,
-    }, date);
-    if (save) {
-      const { data } = await supabase
-        .from("foods").insert({ name: nm, unit: "מנה", protein_g: p, calories: c }).select().single();
-      if (data) setFoods((cur) => [data, ...cur]);
-    }
-  }, [addEntry]);
-
-  const deleteEntry = useCallback(async (id) => {
-    setEntries((cur) => cur.filter((e) => e.id !== id));
-    await supabase.from("entries").delete().eq("id", id);
-  }, []);
-
-  const saveFood = useCallback(async ({ id, name, unit, protein, calories }) => {
+  const saveFood = useCallback(async ({ id, name, unit, protein, calories, isEdit = false }) => {
+    const proteinG = nonNegativeNumber(protein);
+    const calorieCount = nonNegativeNumber(calories);
+    if (proteinG == null || calorieCount == null || !id) return failedWrite();
     const row = {
+      id,
       name: (name || "").trim() || "מאכל",
       unit: (unit || "").trim() || null,
-      protein_g: parseFloat(protein) || 0,
-      calories: parseFloat(calories) || 0,
+      protein_g: proteinG,
+      calories: calorieCount,
     };
-    if (id) {
-      const { data } = await supabase.from("foods").update(row).eq("id", id).select().single();
-      if (data) setFoods((cur) => cur.map((f) => (f.id === id ? data : f)));
-    } else {
-      const { data } = await supabase.from("foods").insert(row).select().single();
-      if (data) setFoods((cur) => [data, ...cur]);
+    const matchResult = (food) => isEdit
+      ? { data: null, error: new Error("duplicate_food"), reused: false, conflict: true }
+      : { data: food, error: null, reused: true };
+    const matchingFood = findExactFood(foods, row, isEdit ? id : undefined);
+    if (matchingFood) return matchResult(matchingFood);
+
+    let freshCandidates;
+    try {
+      freshCandidates = await supabase.from("foods").select().eq("protein_g", proteinG).eq("calories", calorieCount);
+    } catch (error) {
+      return { data: null, error, reused: false };
     }
+    if (freshCandidates.error) return { data: null, error: freshCandidates.error, reused: false };
+    const freshMatch = findExactFood(freshCandidates.data || [], row, isEdit ? id : undefined);
+    if (freshMatch) {
+      if (!isEdit) setFoods((cur) => cur.some((food) => food.id === freshMatch.id) ? cur : [freshMatch, ...cur]);
+      return matchResult(freshMatch);
+    }
+    const updated = isEdit ? await supabase.from("foods").update(row).eq("id", id).select().single() : null;
+    const result = isEdit
+      ? updated.data || updated.error ? updated : failedWrite()
+      : await insertOrFind({
+        row,
+        findById: (foodId) => supabase.from("foods").select().eq("id", foodId).maybeSingle(),
+        insert: (food) => supabase.from("foods").insert(food).select().single(),
+      });
+    if (result.data) setFoods((cur) => isEdit ? cur.map((food) => food.id === result.data.id ? result.data : food) : cur.some((food) => food.id === result.data.id) ? cur : [result.data, ...cur]);
+    return result;
+  }, [foods]);
+
+  const addLogged = useCallback((values, date, mealType, source) => saveLoggedFood({ values, date, mealType, source, addEntry, saveFood }), [addEntry, saveFood]);
+
+  const addManual = useCallback((values, date, mealType = "snack") => addLogged(values, date, mealType, "manual"), [addLogged]);
+  const addAi = useCallback((values, date, mealType = "snack") => addLogged(values, date, mealType, "ai"), [addLogged]);
+
+  const deleteEntry = useCallback(async (id) => {
+    const index = entries.findIndex((entry) => entry.id === id);
+    const snapshot = entries[index];
+    if (!snapshot) return { data: null, error: new Error("missing_entry") };
+
+    return reconcileDeletedRow({
+      snapshot,
+      remove: (entryId) => setEntries((current) => current.filter((entry) => entry.id !== entryId)),
+      restore: (entry) => setEntries((current) => {
+        if (current.some((existing) => existing.id === entry.id)) return current;
+        const restoreAt = Math.min(index, current.length);
+        return [...current.slice(0, restoreAt), entry, ...current.slice(restoreAt)];
+      }),
+      deleteRemote: (entryId) => supabase.from("entries").delete().eq("id", entryId).select().maybeSingle(),
+      findById: (entryId) => supabase.from("entries").select().eq("id", entryId).maybeSingle(),
+    });
+  }, [entries]);
+
+  const updateEntryMeal = useCallback(async (id, mealType) => {
+    if (!isValidEntryMealUpdate(id, mealType)) return { data: null, error: new Error("invalid_write") };
+    let result;
+    try {
+      result = await supabase.from("entries").update({ meal_type: mealType }).eq("id", id).select().single();
+    } catch (error) {
+      return { data: null, error };
+    }
+    if (result?.error || !result?.data) return { data: null, error: result?.error || new Error("update_failed") };
+    setEntries((current) => applyReturnedEntry(current, result));
+    return { data: result.data, error: null };
   }, []);
 
   const deleteFood = useCallback(async (id) => {
@@ -162,11 +196,22 @@ export function useData(session) {
     return { estimate: body };
   }, [session]);
 
+  const estimateFoodNutrition = useCallback(async (foodName, unit) => {
+    const res = await fetch(`${FUNCTIONS_URL}/analyze-food-photo`, {
+      method: "POST",
+      headers: { "content-type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ mode: "text", foodName: String(foodName ?? "").trim(), unit: String(unit ?? "").trim() }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) return { error: body.error || "error", status: res.status };
+    return { estimate: body };
+  }, [session]);
+
   const signOut = useCallback(() => supabase.auth.signOut(), []);
 
   return {
     loading, entries, foods, goal, waterGoal, name, today, email: session.user.email,
-    addQuick, addWater, addManual, addAi, deleteEntry, saveFood, deleteFood, setGoal, setWaterGoal, setName, analyzePhoto, signOut,
+    addQuick, addWater, addManual, addAi, deleteEntry, updateEntryMeal, saveFood, deleteFood, setGoal, setWaterGoal, setName, analyzePhoto, estimateFoodNutrition, signOut,
   };
 }
 
@@ -188,4 +233,8 @@ function compressToBase64(file, max = 1024, quality = 0.8) {
     img.onerror = (e) => { URL.revokeObjectURL(src); reject(e); };
     img.src = src;
   });
+}
+
+function failedWrite() {
+  return { data: null, error: new Error("invalid_write"), reused: false };
 }
