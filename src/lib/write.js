@@ -6,8 +6,13 @@ export function nonNegativeNumber(value) {
   return Number.isFinite(number) && number >= 0 ? number : null;
 }
 
-const normalizeFoodText = (value) => String(value ?? "").normalize("NFKC").replace(/[\u200B-\u200F\u2060\uFEFF]/g, "").trim().replace(/\s+/g, " ").toLocaleLowerCase("he-IL");
+export const normalizeFoodText = (value) => String(value ?? "").normalize("NFKC").replace(/[\u200B-\u200F\u2060\uFEFF]/g, "").trim().replace(/\s+/g, " ").toLocaleLowerCase("he-IL");
 const sameFoodNumber = (left, right) => left != null && right != null && String(left).trim() !== "" && String(right).trim() !== "" && Number.isFinite(Number(left)) && Number(left) === Number(right);
+
+export function searchFoods(foods, query) {
+  const needle = normalizeFoodText(query);
+  return needle ? foods.filter((food) => normalizeFoodText(food.name).includes(needle)) : foods;
+}
 
 // The shared catalog is small and already loaded; compare its unrounded raw values before writing.
 export function findExactFood(foods, row, excludeId) {

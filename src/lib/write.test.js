@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { findExactFood, insertOrFind, nonNegativeNumber, saveLoggedFood } from "./write.js";
+import { findExactFood, insertOrFind, nonNegativeNumber, saveLoggedFood, searchFoods } from "./write.js";
 
 test("insertOrFind reuses an existing row without inserting", async () => {
   let inserts = 0;
@@ -78,6 +78,16 @@ test("findExactFood excludes the row being edited", () => {
   const row = { name: "חזה עוף", unit: "מנה", protein_g: 25, calories: 165 };
 
   assert.equal(findExactFood([food], row, "food-1"), null);
+});
+
+test("searchFoods matches normalized partial names and keeps an empty search unfiltered", () => {
+  const foods = [
+    { id: "food-1", name: "חזה\u200F  עוף" },
+    { id: "food-2", name: "יוגורט חלבון" },
+  ];
+
+  assert.deepEqual(searchFoods(foods, " \u200Fעוף ").map((food) => food.id), ["food-1"]);
+  assert.equal(searchFoods(foods, "").length, 2);
 });
 
 test("saveLoggedFood retries only the failed catalog write after an entry succeeds", async () => {
