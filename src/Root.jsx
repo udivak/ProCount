@@ -2,10 +2,13 @@ import { useEffect, useState } from "react";
 import { supabase } from "./lib/supabase.js";
 import Login from "./Login.jsx";
 import App from "./App.jsx";
+import { installStandaloneViewport } from "./lib/viewport.js";
 
 // Auth gate: the session persists on the device, so this is rarely seen.
 export default function Root() {
   const [session, setSession] = useState(undefined); // undefined = still checking
+
+  useEffect(() => installStandaloneViewport(), []);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));

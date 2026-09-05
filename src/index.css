@@ -33,12 +33,13 @@ body {
 
 /* Browser tabs need the dynamic viewport so their toolbar can expand/collapse.
    Installed apps have no browser toolbar; pinning the shell to the viewport edges
-   avoids iOS standalone builds that under-report 100dvh. */
+   avoids iOS standalone builds that under-report 100dvh. If those edges become
+   stale after resume, viewport.js supplies the measured layout height. */
 @media (display-mode: standalone), (display-mode: fullscreen) {
   .app {
     position: fixed;
     inset: 0;
-    height: auto;
+    height: var(--app-viewport-height, auto);
   }
 }
 
