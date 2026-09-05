@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { X, Camera, ImageIcon, Info } from "../lib/icons.jsx";
 
-const input = { width: "100%", background: "#111718", border: "1px solid #26302f", borderRadius: 14, padding: 14, color: "#f4f4f5", fontSize: 16, fontFamily: "inherit", outline: "none" };
-const label = { fontSize: 13, fontWeight: 600, color: "#8a8a93", display: "block", marginBottom: 7 };
+const input = { width: "100%", minHeight: 50, background: "#171b18", border: "1px solid #2b342f", borderRadius: 13, padding: 13, color: "#f4f7f6", fontSize: 16, fontFamily: "inherit", outline: "none" };
+const label = { fontSize: 13, fontWeight: 700, color: "#8a9994", display: "block", marginBottom: 7 };
+const formSection = { padding: 15, border: "1px solid #2b342f", borderRadius: 18, background: "#111512" };
 const CONF = { low: "נמוכה", medium: "בינונית", high: "גבוהה" };
 const stepBtn = { width: 46, height: 46, border: "1px solid #26302f", background: "#1e1e23", color: "#f4f4f5", borderRadius: 14, fontSize: 24, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center" };
 const round = (n) => Math.round(Number(n) || 0);
@@ -243,13 +244,14 @@ function ManualForm({ form, onField, onToggleSave, onSubmit, cta, showSave, show
   const controlsDisabled = locked || saving;
   const submitDisabled = saving || customMeasureMissing || invalidGeneralFood;
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <section style={formSection}>
       <div>
         <label style={label}>שם {showSave && !requireAll ? "(אופציונלי)" : ""}</label>
         <input disabled={controlsDisabled} value={form.name} onChange={(e) => onField("name", e.target.value)} placeholder="למשל: חזה עוף" aria-label="שם" style={input} />
         {invalidName && <div style={{ color: "#fb7185", fontSize: 12, fontWeight: 700, marginTop: 7 }}>יש להזין שם למאכל</div>}
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 14 }}>
         <div>
           <label style={label}>חלבון (גרם)</label>
           <input disabled={controlsDisabled} value={form.protein} onChange={(e) => onField("protein", e.target.value)} inputMode="decimal" aria-label="חלבון בגרמים" placeholder="0" style={{ ...input, color: "#39e6b2", fontSize: 18, fontWeight: 800 }} />
@@ -261,26 +263,13 @@ function ManualForm({ form, onField, onToggleSave, onSubmit, cta, showSave, show
           {invalidCalories && <div style={{ color: "#fb7185", fontSize: 12, fontWeight: 700, marginTop: 7 }}>יש להזין קלוריות תקינות</div>}
         </div>
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#697874", fontSize: 12, fontWeight: 700 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12, color: "#75827d", fontSize: 12, fontWeight: 700 }}>
         <span style={{ width: 22, height: 22, display: "grid", placeItems: "center", borderRadius: 7, background: "#1f3831", color: "#39e6b2" }}>1</span>
         הערכים יישמרו עבור יחידה אחת
       </div>
-      {showQuantity && (
-        <>
-          <div>
-            <label style={label}>כמות</label>
-            <input disabled={controlsDisabled} value={form.quantity} onChange={(e) => onField("quantity", e.target.value)} inputMode="decimal" aria-label="כמות" placeholder="1" style={input} />
-            {invalidQuantity && <div style={{ color: "#fb7185", fontSize: 12, fontWeight: 700, marginTop: 7 }}>יש להזין כמות גדולה מאפס</div>}
-          </div>
-          <div style={{ textAlign: "center", background: "#101918", border: "1px solid #1f3831", borderRadius: 14, padding: "12px 14px", direction: "rtl" }}>
-            <span style={{ fontSize: 18, fontWeight: 800, color: "#39e6b2" }}>{round(previewValue(form.protein))}g חלבון</span>
-            <span style={{ color: "#7a7a82", margin: "0 8px" }}>·</span>
-            <span style={{ fontSize: 15, fontWeight: 700, color: "#fb923c" }}>{round(previewValue(form.calories))} קל׳</span>
-          </div>
-        </>
-      )}
+      </section>
       {showMeasure && (
-        <div>
+        <section style={formSection}>
           <label style={label}>מידה יומית</label>
           <select disabled={controlsDisabled} value={selectedUnit} onChange={(e) => onField("unit", e.target.value === "אחר" ? "" : e.target.value)} aria-label="מידה יומית" style={input}>
             {MEASURES.map((measure) => <option key={measure} value={measure}>{measure}</option>)}
@@ -288,23 +277,37 @@ function ManualForm({ form, onField, onToggleSave, onSubmit, cta, showSave, show
           </select>
           {selectedUnit === "אחר" && <input disabled={controlsDisabled} value={form.unit || ""} onChange={(e) => onField("unit", e.target.value)} placeholder="למשל: חצי כוס" aria-label="מידה מותאמת" style={{ ...input, marginTop: 10 }} />}
           {customMeasureMissing && <div style={{ color: "#fb7185", fontSize: 12, fontWeight: 700, marginTop: 7 }}>יש להזין מידה מותאמת</div>}
-        </div>
+        </section>
       )}
       {showQuantity && (
-        <div>
+        <section style={formSection}>
+          <div>
+            <label style={label}>כמות</label>
+            <input disabled={controlsDisabled} value={form.quantity} onChange={(e) => onField("quantity", e.target.value)} inputMode="decimal" aria-label="כמות" placeholder="1" style={input} />
+            {invalidQuantity && <div style={{ color: "#fb7185", fontSize: 12, fontWeight: 700, marginTop: 7 }}>יש להזין כמות גדולה מאפס</div>}
+          </div>
+          <div style={{ marginTop: 10, textAlign: "center", background: "#15231e", border: "1px solid #315548", borderRadius: 13, padding: "12px 14px", direction: "rtl" }}>
+            <span style={{ fontSize: 18, fontWeight: 800, color: "#39e6b2" }}>{round(previewValue(form.protein))} גרם חלבון</span>
+            <span style={{ color: "#7a7a82", margin: "0 8px" }}>·</span>
+            <span style={{ fontSize: 15, fontWeight: 700, color: "#fb923c" }}>{round(previewValue(form.calories))} קל׳</span>
+          </div>
+        </section>
+      )}
+      {showQuantity && (
+        <section style={formSection}>
           <label style={label}>משקל שנאכל (גרם, אופציונלי)</label>
           <input disabled={controlsDisabled} value={form.grams} onChange={(e) => onField("grams", e.target.value)} inputMode="decimal" aria-label="משקל שנאכל בגרמים" placeholder="למשל: 200" style={input} />
           <div style={{ color: "#6f6f78", fontSize: 12, marginTop: 6 }}>אם המידה היא בגרמים ולא הוזן משקל, הוא יחושב לפי הכמות.</div>
-        </div>
+        </section>
       )}
       {showSave && (
-        <button disabled={controlsDisabled} onClick={onToggleSave} style={{ display: "flex", alignItems: "center", gap: 10, background: "none", border: "none", cursor: controlsDisabled ? "not-allowed" : "pointer", opacity: controlsDisabled ? .6 : 1, fontFamily: "inherit", padding: 2 }}>
-          <span style={{ width: 22, height: 22, borderRadius: 7, border: `2px solid ${form.save ? "#39e6b2" : "#3a3a42"}`, background: form.save ? "#39e6b2" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#03120d" }}>{form.save ? "✓" : ""}</span>
-          <span style={{ fontSize: 14, fontWeight: 600, color: "#c4c4c9" }}>שמור למאכלים שלי</span>
+        <button type="button" role="switch" aria-checked={form.save} disabled={controlsDisabled} onClick={onToggleSave} style={{ minHeight: 58, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, background: "#111512", border: "1px solid #2b342f", borderRadius: 18, cursor: controlsDisabled ? "not-allowed" : "pointer", opacity: controlsDisabled ? .6 : 1, fontFamily: "inherit", padding: "10px 14px" }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: "#dce4e1" }}>שמור למאכלים שלי</span>
+          <span aria-hidden="true" style={{ width: 48, height: 28, borderRadius: 99, padding: 3, background: form.save ? "#39e6b2" : "#343c38", display: "flex", justifyContent: form.save ? "flex-end" : "flex-start", transition: "background .2s ease" }}><span style={{ width: 22, height: 22, borderRadius: "50%", background: "#f4f7f6", boxShadow: "0 1px 4px rgba(0,0,0,.35)" }} /></span>
         </button>
       )}
-      <button disabled={submitDisabled} onClick={onSubmit} style={{ marginTop: 4, border: "none", fontFamily: "inherit", background: "linear-gradient(180deg,#39e6b2,#16a985)", color: "#03120d", fontSize: 16, fontWeight: 800, padding: 15, borderRadius: 15, cursor: submitDisabled ? "not-allowed" : "pointer", opacity: submitDisabled ? .45 : 1 }}>{cta}</button>
       {error && <div role="alert" style={{ color: "#fb7185", fontSize: 13, fontWeight: 700, textAlign: "center" }}>{error}</div>}
+      <button disabled={submitDisabled} onClick={onSubmit} style={{ position: "sticky", bottom: 0, minHeight: 52, marginTop: 4, border: "none", fontFamily: "inherit", background: "linear-gradient(180deg,#39e6b2,#24bd91)", color: "#03120d", fontSize: 16, fontWeight: 900, padding: 15, borderRadius: 16, cursor: submitDisabled ? "not-allowed" : "pointer", opacity: submitDisabled ? .45 : 1, boxShadow: "0 -10px 26px #0f1311" }}>{cta}</button>
     </div>
   );
 }
