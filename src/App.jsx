@@ -63,6 +63,7 @@ export default function App({ session }) {
   const photoAnalysisLock = useRef(null);
   const detailOperationLock = useRef(false);
   const addReturnFocus = useRef(null);
+  const appScrollRef = useRef(null);
   const [addSaving, setAddSaving] = useState(false);
 
   useEffect(() => () => {
@@ -76,6 +77,8 @@ export default function App({ session }) {
       addReturnFocus.current = null;
     }
   }, [addOpen]);
+
+  useEffect(() => { if (appScrollRef.current) appScrollRef.current.scrollTop = 0; }, [screen]);
 
   // ponytail: nav clamped to the loaded window; fetch older entries on demand if you ever need >35 days back.
   const oldest = lastNDates(RANGE_DAYS)[0];
@@ -412,14 +415,14 @@ export default function App({ session }) {
         </button>
       </header>
 
-      <div className="pc-scroll app-scroll" style={{ flex: 1, overflowY: "auto" }}>
+      <div ref={appScrollRef} className="pc-scroll app-scroll" style={{ flex: 1, overflowY: "auto" }}>
         {screen === "today" && <Today totals={vm.totals} goal={goal} progress={vm.proteinProgress} remaining={vm.remaining} pace={vm.pace} calorieProgress={vm.calorieProgress} calorieIntake={vm.calorieIntake} calorieGoal={CALORIE_GOAL} calorieBalance={vm.calorieBalance} waterMl={vm.waterMl} waterGoal={waterGoal} onAddWater={addWater} waterUndo={waterUndo?.date === selectedDay ? waterUndo : null} onUndoWater={undoWater} waterError={waterError} mealGroups={vm.mealGroups} suggestion={vm.suggestion} onAdd={openAdd} onDelete={requestEntryDelete} onSelect={openEntryDetail} dayLabel={dayLabel(selectedDay, today)} isToday={selectedDay === today} onToday={() => setSelectedDay(today)} onPrev={prevDay} onNext={nextDay} canPrev={canPrev} canNext={canNext} />}
         {screen === "trends" && <Trends goal={goal} streak={vm.streak} avg={vm.avg} bars={vm.bars} goalY={vm.goalY} calAvg={vm.calAvg} heading={vm.heading} range={chartRange} onRange={setChartRange} />}
         {screen === "foods" && <MyFoods foods={vm.foodVm} onNew={() => setEditFood({})} onEdit={(f) => setEditFood(f.raw)} />}
         {screen === "mealPlan" && <MealPlan />}
       </div>
 
-      {!addOpen && !settingsOpen && !editFood && !selectedEntry && !confirm && screen !== "mealPlan" && (
+      {!addOpen && !settingsOpen && !editFood && !selectedEntry && !confirm && screen !== "mealPlan" && screen !== "today" && (
         <button disabled={addSaving} className="h-fab" onClick={openAdd} aria-label="הוסף מזון" style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", zIndex: 30, minWidth: 136, height: 48, padding: "0 22px", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, border: "1px solid #74f0c8", fontFamily: "inherit", fontSize: 15, fontWeight: 900, background: "#39e6b2", color: "#03120d", borderRadius: 24, cursor: addSaving ? "not-allowed" : "pointer", opacity: addSaving ? .45 : 1, boxShadow: "0 8px 28px rgba(57,230,178,.28)" }}>
           <Plus size={20} sw={3} /> הוסף
         </button>

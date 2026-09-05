@@ -53,7 +53,7 @@ export default function ItemDetailModal({ entry, busy = false, onClose, onDelete
   return (
     <div style={{ position: "absolute", inset: 0, zIndex: 56, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
       <div onClick={close} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,.7)", animation: "fadeIn .2s ease", cursor: isBusy ? "wait" : "pointer" }} />
-      <div role="dialog" aria-modal="true" aria-labelledby="entry-detail-title" aria-busy={isBusy} style={{ position: "relative", background: "rgba(15,19,17,.97)", WebkitBackdropFilter: "blur(24px)", backdropFilter: "blur(24px)", borderTop: "1px solid #34403b", borderRadius: "28px 28px 0 0", maxHeight: "92%", display: "flex", flexDirection: "column", animation: "sheetUp .28s cubic-bezier(.2,.8,.2,1)", boxShadow: "0 -18px 50px rgba(0,0,0,.35)" }}>
+      <div className="pc-sheet" role="dialog" aria-modal="true" aria-labelledby="entry-detail-title" aria-busy={isBusy} style={{ position: "relative", background: "rgba(15,19,17,.97)", WebkitBackdropFilter: "blur(24px)", backdropFilter: "blur(24px)", borderTop: "1px solid #34403b", borderRadius: "28px 28px 0 0", maxHeight: "92%", display: "flex", flexDirection: "column", animation: "sheetUp .28s cubic-bezier(.2,.8,.2,1)", boxShadow: "0 -18px 50px rgba(0,0,0,.35)" }}>
         <div style={{ flex: "none", padding: "18px 20px 10px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
             <div id="entry-detail-title" style={{ fontSize: 22, fontWeight: 900 }}>פרטי רישום</div>

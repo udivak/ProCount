@@ -16,6 +16,7 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFo
   const cameraRef = useRef(null);
   const galleryRef = useRef(null);
   const closeRef = useRef(null);
+  const scrollRef = useRef(null);
   const [q, setQ] = useState("");
   // ponytail: client-side substring filter on name; the list is tiny, no debounce needed.
   const ql = q.trim().toLowerCase();
@@ -28,8 +29,11 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFo
   const disabled = locked || saving;
   const photoControlsDisabled = disabled || photo.state === "loading";
 
+  useEffect(() => { closeRef.current?.focus(); }, []);
+
+  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = 0; }, [tab]);
+
   useEffect(() => {
-    closeRef.current?.focus();
     const escape = (event) => { if (event.key === "Escape") onClose(); };
     window.addEventListener("keydown", escape);
     return () => window.removeEventListener("keydown", escape);
@@ -58,7 +62,7 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFo
   return (
     <div style={{ position: "absolute", inset: 0, zIndex: 50, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
       <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,.7)", animation: "fadeIn .2s ease", cursor: disabled ? "wait" : "pointer" }} />
-      <div role="dialog" aria-modal="true" aria-labelledby="add-sheet-title" aria-busy={saving} style={{ position: "relative", background: "rgba(15,19,17,.97)", WebkitBackdropFilter: "blur(24px)", backdropFilter: "blur(24px)", borderTop: "1px solid #34403b", borderRadius: "28px 28px 0 0", maxHeight: "92%", display: "flex", flexDirection: "column", animation: "sheetUp .28s cubic-bezier(.2,.8,.2,1)", boxShadow: "0 -18px 50px rgba(0,0,0,.35)" }}>
+      <div className="pc-sheet" role="dialog" aria-modal="true" aria-labelledby="add-sheet-title" aria-busy={saving} style={{ position: "relative", background: "rgba(15,19,17,.97)", WebkitBackdropFilter: "blur(24px)", backdropFilter: "blur(24px)", borderTop: "1px solid #34403b", borderRadius: "28px 28px 0 0", maxHeight: "92%", display: "flex", flexDirection: "column", animation: "sheetUp .28s cubic-bezier(.2,.8,.2,1)", boxShadow: "0 -18px 50px rgba(0,0,0,.35)" }}>
         <div style={{ flex: "none", padding: "18px 20px 10px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
             <div id="add-sheet-title" style={{ fontSize: 22, fontWeight: 900 }}>הוספת מזון</div>
@@ -77,7 +81,7 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFo
           </div>
         </div>
 
-        <div className="pc-scroll" style={{ flex: 1, overflowY: "auto", padding: "14px 20px max(28px, env(safe-area-inset-bottom))" }}>
+        <div ref={scrollRef} className="pc-scroll" style={{ flex: 1, overflowY: "auto", padding: "14px 20px max(28px, env(safe-area-inset-bottom))" }}>
           {tab === "quick" && (
             picking ? (
               <QtyPanel food={picking} qty={qty} setQty={(value) => { onBeginQuick(); setQty(value); }} onBack={() => setPicking(null)} onAdd={() => onQuickAdd(picking, qty, quickEntryId)} error={error} disabled={disabled} />

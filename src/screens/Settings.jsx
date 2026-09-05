@@ -1,62 +1,62 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronLeft } from "../lib/icons.jsx";
 
-// Settings — full-screen overlay from the header gear. Protein goal + account.
 export default function Settings({ goal, waterGoal, name, email, onBack, onName, onDec, onInc, onWaterDec, onWaterInc, onSignOut }) {
   const [nameInput, setNameInput] = useState(name || "");
+  const backRef = useRef(null);
+
+  useEffect(() => { backRef.current?.focus(); }, []);
+  useEffect(() => {
+    const escape = (event) => { if (event.key === "Escape") onBack(); };
+    window.addEventListener("keydown", escape);
+    return () => window.removeEventListener("keydown", escape);
+  }, [onBack]);
+
   return (
-    <div style={{ position: "absolute", inset: 0, zIndex: 60, background: "#070a0a", animation: "fadeIn .2s ease", display: "flex", flexDirection: "column" }}>
-      <div style={{ flex: "none", padding: "calc(18px + env(safe-area-inset-top)) 20px 14px", display: "flex", alignItems: "center", gap: 14 }}>
-        <button onClick={onBack} aria-label="חזרה" style={{ width: 40, height: 40, border: "none", borderRadius: 12, background: "#101516", color: "#c4c4c9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-          <ChevronLeft size={20} />
-        </button>
-        <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: ".02em" }}>הגדרות</div>
-      </div>
+    <div role="dialog" aria-modal="true" aria-labelledby="settings-title" style={{ position: "absolute", inset: 0, zIndex: 60, background: "#070a09", animation: "fadeIn .2s ease", display: "flex", flexDirection: "column" }}>
+      <header style={{ flex: "none", padding: "calc(14px + env(safe-area-inset-top)) 20px 12px", display: "grid", gridTemplateColumns: "44px 1fr 44px", alignItems: "center", gap: 10 }}>
+        <button ref={backRef} onClick={onBack} aria-label="חזרה" style={{ width: 44, height: 44, border: "1px solid #2b342f", borderRadius: 14, background: "#111512", color: "#b7c1bd", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}><ChevronLeft size={21} /></button>
+        <div id="settings-title" style={{ textAlign: "center", fontSize: 24, fontWeight: 900, letterSpacing: "-.025em" }}>הגדרות</div>
+        <span />
+      </header>
 
-      <div style={{ flex: 1, overflowY: "auto", padding: "8px 20px 30px" }}>
-        <div style={{ background: "#101516", border: "1px solid #232328", borderRadius: 20, padding: 20, marginBottom: 14 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: "#6f6f78", marginBottom: 14 }}>יעד חלבון יומי</div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <button onClick={onDec} aria-label="הפחת יעד" style={{ width: 46, height: 46, border: "1px solid #26302f", background: "#1e1e23", color: "#f4f4f5", borderRadius: 14, fontSize: 22, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>−</button>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
-              <span style={{ fontSize: 40, fontWeight: 900, letterSpacing: "-.02em" }}>{goal}</span>
-              <span style={{ fontSize: 16, fontWeight: 700, color: "#6f6f78" }}>גרם</span>
-            </div>
-            <button onClick={onInc} aria-label="הגדל יעד" style={{ width: 46, height: 46, border: "1px solid #1f3831", background: "#101918", color: "#39e6b2", borderRadius: 14, fontSize: 22, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>+</button>
-          </div>
-        </div>
+      <div className="pc-scroll" style={{ flex: 1, overflowY: "auto", padding: "16px 20px max(30px, env(safe-area-inset-bottom))" }}>
+        <SectionTitle>יעדים יומיים</SectionTitle>
+        <section style={groupStyle}>
+          <SettingStepper label="חלבון" value={goal} unit="גרם" color="#39e6b2" onDec={onDec} onInc={onInc} decLabel="הפחת יעד חלבון" incLabel="הגדל יעד חלבון" />
+          <SettingStepper label="מים" value={formatLiters(waterGoal)} unit="ליטר" color="#60a5fa" onDec={onWaterDec} onInc={onWaterInc} decLabel="הפחת יעד מים" incLabel="הגדל יעד מים" />
+        </section>
 
-        <div style={{ background: "#101516", border: "1px solid #203532", borderRadius: 20, padding: 20, marginBottom: 14 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: "#6f6f78", marginBottom: 14 }}>יעד מים יומי</div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <button onClick={onWaterDec} aria-label="הפחת יעד מים" style={{ width: 46, height: 46, border: "1px solid #26302f", background: "#1e1e23", color: "#f4f4f5", borderRadius: 14, fontSize: 22, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>−</button>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
-              <span style={{ fontSize: 40, fontWeight: 900, letterSpacing: "-.02em", color: "#60a5fa" }}>{formatLiters(waterGoal)}</span>
-              <span style={{ fontSize: 16, fontWeight: 700, color: "#6f6f78" }}>ליטר</span>
-            </div>
-            <button onClick={onWaterInc} aria-label="הגדל יעד מים" style={{ width: 46, height: 46, border: "1px solid #1f3831", background: "#101918", color: "#39e6b2", borderRadius: 14, fontSize: 22, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>+</button>
-          </div>
-        </div>
+        <SectionTitle>פרופיל</SectionTitle>
+        <section style={groupStyle}>
+          <label style={rowStyle}><span style={rowLabel}>שם</span><input value={nameInput} onChange={(event) => setNameInput(event.target.value)} onBlur={() => onName(nameInput.trim())} placeholder="השם שלך" maxLength={24} aria-label="שם" style={{ minWidth: 0, width: "60%", minHeight: 44, background: "none", border: "none", textAlign: "left", color: "#f4f7f6", fontSize: 15, fontFamily: "inherit", outline: "none" }} /></label>
+          <div style={rowStyle}><span style={rowLabel}>חשבון</span><span style={{ minWidth: 0, overflow: "hidden", color: "#8a9994", fontSize: 14, textOverflow: "ellipsis", whiteSpace: "nowrap" }} dir="ltr">{email}</span></div>
+        </section>
 
-        <div style={{ background: "#101516", border: "1px solid #232328", borderRadius: 20, overflow: "hidden" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "17px 18px", borderBottom: "1px solid #202024" }}>
-            <span style={{ fontSize: 15, fontWeight: 600 }}>שם</span>
-            <input value={nameInput} onChange={(e) => setNameInput(e.target.value)} onBlur={() => onName(nameInput.trim())}
-              placeholder="השם שלך" maxLength={24}
-              style={{ background: "none", border: "none", textAlign: "left", color: "#f4f4f5", fontSize: 14, fontFamily: "inherit", outline: "none" }} />
-          </div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "17px 18px", borderBottom: "1px solid #202024" }}>
-            <span style={{ fontSize: 15, fontWeight: 600 }}>חשבון</span>
-            <span style={{ fontSize: 14, color: "#6f6f78" }} dir="ltr">{email}</span>
-          </div>
-          <button onClick={onSignOut} style={{ width: "100%", textAlign: "right", background: "none", border: "none", padding: "17px 18px", fontSize: 15, fontWeight: 700, color: "#fb7185", cursor: "pointer", fontFamily: "inherit" }}>התנתקות</button>
-        </div>
+        <SectionTitle>חשבון</SectionTitle>
+        <section style={groupStyle}><button onClick={onSignOut} style={{ width: "100%", minHeight: 58, textAlign: "right", background: "transparent", border: "none", padding: "0 18px", fontSize: 16, fontWeight: 800, color: "#fb5d67", cursor: "pointer", fontFamily: "inherit" }}>התנתקות</button></section>
 
-        <div style={{ textAlign: "center", marginTop: 24, fontSize: 12, color: "#3f3f47" }}>ProCount · גרסה 1.0</div>
+        <div style={{ textAlign: "center", marginTop: 34, fontSize: 12, color: "#59635f" }}>ProCount · גרסה 1.0</div>
       </div>
     </div>
   );
 }
+
+function SectionTitle({ children }) { return <div style={{ margin: "22px 5px 9px", color: "#8a9994", fontSize: 14, fontWeight: 800 }}>{children}</div>; }
+
+function SettingStepper({ label, value, unit, color, onDec, onInc, decLabel, incLabel }) {
+  return <div style={{ minHeight: 88, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, padding: "14px 16px", borderBottom: "1px solid #2b342f" }}>
+    <div><strong style={{ display: "block", color, fontSize: 18 }}>{label}</strong><span style={{ display: "block", marginTop: 3, color: "#8a9994", fontSize: 14 }}><bdi>{value} {unit}</bdi></span></div>
+    <div style={{ display: "flex", overflow: "hidden", border: "1px solid #39433e", borderRadius: 13 }}>
+      <button onClick={onDec} aria-label={decLabel} style={{ width: 52, height: 48, border: 0, borderInlineEnd: "1px solid #39433e", background: "#171b18", color, fontSize: 24, fontFamily: "inherit", cursor: "pointer" }}>−</button>
+      <button onClick={onInc} aria-label={incLabel} style={{ width: 52, height: 48, border: 0, background: "#171b18", color, fontSize: 24, fontFamily: "inherit", cursor: "pointer" }}>+</button>
+    </div>
+  </div>;
+}
+
+const groupStyle = { overflow: "hidden", border: "1px solid #2b342f", borderRadius: 20, background: "#111512" };
+const rowStyle = { minHeight: 62, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, padding: "8px 18px", borderBottom: "1px solid #2b342f" };
+const rowLabel = { flex: "none", fontSize: 15, fontWeight: 700 };
 
 function formatLiters(ml) {
   return (Number(ml || 0) / 1000).toLocaleString("he-IL", { maximumFractionDigits: 2 });

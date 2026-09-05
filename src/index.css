@@ -175,9 +175,11 @@ button:active:not(:disabled) { transform: scale(.97); transition: transform 100m
 
 @media (prefers-reduced-transparency: reduce) {
   .bottom-nav { background: #0c100e; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .pc-sheet { background: #0f1311 !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 }
 
 @media (prefers-contrast: more) {
   .bottom-nav { background: #070a09; border-color: #7a8984; }
+  .pc-sheet { border-color: #7a8984 !important; }
   button:focus-visible { outline-width: 3px; }
 }
