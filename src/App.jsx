@@ -62,12 +62,20 @@ export default function App({ session }) {
   const photoRequestRevision = useRef(0);
   const photoAnalysisLock = useRef(null);
   const detailOperationLock = useRef(false);
+  const addReturnFocus = useRef(null);
   const [addSaving, setAddSaving] = useState(false);
 
   useEffect(() => () => {
     clearTimeout(waterUndoTimer.current);
     clearTimeout(foodUndoTimer.current);
   }, []);
+
+  useEffect(() => {
+    if (!addOpen && addReturnFocus.current) {
+      addReturnFocus.current.focus?.();
+      addReturnFocus.current = null;
+    }
+  }, [addOpen]);
 
   // ponytail: nav clamped to the loaded window; fetch older entries on demand if you ever need >35 days back.
   const oldest = lastNDates(RANGE_DAYS)[0];
@@ -197,6 +205,7 @@ export default function App({ session }) {
   };
   const openAdd = () => {
     if (addSaveLock.current) return;
+    addReturnFocus.current = document.activeElement;
     invalidatePhotoRequest();
     setForm(blankForm());
     setAddError("");

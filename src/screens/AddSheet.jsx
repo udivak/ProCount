@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X, Camera, ImageIcon, Info } from "../lib/icons.jsx";
 
 const input = { width: "100%", background: "#111718", border: "1px solid #26302f", borderRadius: 14, padding: 14, color: "#f4f4f5", fontSize: 16, fontFamily: "inherit", outline: "none" };
@@ -14,6 +14,7 @@ const MEASURES = ["יחידה", "כף", "כפית", "כוס", "פרוסה", "ס�
 export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFood, onOpenGeneral, onBackGeneral, onBackPhoto, onField, onToggleSave, onSubmit, onQuickAdd, photo, photoFile, onPickPhoto, onAnalyzePhoto, photoGuidance, onPhotoGuidance, date, onDate, minDate, maxDate, mealType, onMealType, error, locked, saving, onBeginQuick }) {
   const cameraRef = useRef(null);
   const galleryRef = useRef(null);
+  const closeRef = useRef(null);
   const [q, setQ] = useState("");
   // ponytail: client-side substring filter on name; the list is tiny, no debounce needed.
   const ql = q.trim().toLowerCase();
@@ -25,10 +26,17 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFo
   const disabled = locked || saving;
   const photoControlsDisabled = disabled || photo.state === "loading";
 
+  useEffect(() => {
+    closeRef.current?.focus();
+    const escape = (event) => { if (event.key === "Escape") onClose(); };
+    window.addEventListener("keydown", escape);
+    return () => window.removeEventListener("keydown", escape);
+  }, [onClose]);
+
   const tabBtn = (key, text) => {
     const active = tab === key;
     return (
-      <button disabled={disabled} onClick={() => onTab(key)} style={{ flex: 1, border: "none", fontFamily: "inherit", fontSize: 13, fontWeight: 800, padding: 9, borderRadius: 10, cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? .45 : 1, background: active ? "#39e6b2" : "transparent", color: active ? "#03120d" : "#8a8a93" }}>{text}</button>
+      <button disabled={disabled} aria-pressed={active} onClick={() => onTab(key)} style={{ minHeight: 44, flex: 1, border: "none", fontFamily: "inherit", fontSize: 14, fontWeight: 800, padding: 9, borderRadius: 12, cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? .45 : 1, background: active ? "#235044" : "transparent", color: active ? "#68edc1" : "#8a9994" }}>{text}</button>
     );
   };
 
@@ -40,58 +48,49 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFo
 
   return (
     <div style={{ position: "absolute", inset: 0, zIndex: 50, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
-      <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,.6)", animation: "fadeIn .2s ease" }} />
-      <div style={{ position: "relative", background: "#0b1112", borderTop: "1px solid #26302f", borderRadius: "26px 26px 0 0", maxHeight: "90%", display: "flex", flexDirection: "column", animation: "sheetUp .28s cubic-bezier(.2,.8,.2,1)" }}>
-        <div style={{ flex: "none", padding: "14px 20px 8px" }}>
-          <div style={{ width: 40, height: 4, borderRadius: 99, background: "#33333a", margin: "0 auto 16px" }} />
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-            <div style={{ fontSize: 20, fontWeight: 800 }}>הוספת מזון</div>
-            <button onClick={onClose} aria-label="סגור" style={{ width: 34, height: 34, border: "none", borderRadius: 10, background: "#1e1e23", color: "#8a8a93", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+      <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,.7)", animation: "fadeIn .2s ease", cursor: disabled ? "wait" : "pointer" }} />
+      <div role="dialog" aria-modal="true" aria-labelledby="add-sheet-title" aria-busy={saving} style={{ position: "relative", background: "rgba(15,19,17,.97)", WebkitBackdropFilter: "blur(24px)", backdropFilter: "blur(24px)", borderTop: "1px solid #34403b", borderRadius: "28px 28px 0 0", maxHeight: "92%", display: "flex", flexDirection: "column", animation: "sheetUp .28s cubic-bezier(.2,.8,.2,1)", boxShadow: "0 -18px 50px rgba(0,0,0,.35)" }}>
+        <div style={{ flex: "none", padding: "18px 20px 10px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+            <div id="add-sheet-title" style={{ fontSize: 22, fontWeight: 900 }}>הוספת מזון</div>
+            <button ref={closeRef} onClick={onClose} aria-label="סגור" style={{ width: 44, height: 44, border: "1px solid #333c38", borderRadius: 14, background: "#202521", color: "#aab5b1", display: "flex", alignItems: "center", justifyContent: "center", cursor: disabled ? "wait" : "pointer" }}>
               <X size={18} />
             </button>
           </div>
-          <div style={{ display: "flex", gap: 6, background: "#1a1a1e", padding: 5, borderRadius: 14 }}>
+          <div role="group" aria-label="שיטת הוספה" style={{ display: "flex", gap: 4, background: "#171b18", border: "1px solid #2b342f", padding: 4, borderRadius: 16 }}>
             {tabBtn("quick", "מהיר")}
             {tabBtn("manual", "ידני")}
             {tabBtn("photo", "צילום")}
           </div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 12 }}>
-            <label htmlFor="add-date" style={label}>תאריך</label>
-            <input disabled={disabled} id="add-date" type="date" value={date} min={minDate} max={maxDate} onChange={(e) => onDate(e.target.value)}
-              style={{ background: "#111718", border: "1px solid #26302f", borderRadius: 12, padding: "10px 12px", color: "#f4f4f5", fontSize: 15, fontFamily: "inherit", outline: "none", colorScheme: "dark" }} />
-          </div>
-          <div style={{ marginTop: 12 }}>
-            <label style={label}>ארוחה</label>
-            <div style={{ display: "flex", gap: 6 }}>
-              {MEALS.map(([type, title]) => <button disabled={disabled} key={type} onClick={() => onMealType(type)} style={{ flex: 1, border: `1px solid ${mealType === type ? "#39e6b2" : "#26302f"}`, background: mealType === type ? "rgba(57,230,178,.14)" : "#111718", color: mealType === type ? "#39e6b2" : "#8a8a93", borderRadius: 10, padding: "8px 4px", fontFamily: "inherit", fontSize: 12, fontWeight: 800, cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? .45 : 1 }}>{title}</button>)}
-            </div>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 10, marginTop: 12 }}>
+            <div><label htmlFor="add-date" style={label}>תאריך</label><input disabled={disabled} id="add-date" type="date" value={date} min={minDate} max={maxDate} onChange={(e) => onDate(e.target.value)} style={{ width: "100%", minHeight: 44, background: "#171b18", border: "1px solid #2b342f", borderRadius: 12, padding: "9px 10px", color: "#f4f7f6", fontSize: 14, fontFamily: "inherit", outline: "none", colorScheme: "dark" }} /></div>
+            <div><label htmlFor="add-meal" style={label}>ארוחה</label><select disabled={disabled} id="add-meal" value={mealType} onChange={(event) => onMealType(event.target.value)} style={{ width: "100%", minHeight: 44, background: "#171b18", border: "1px solid #2b342f", borderRadius: 12, padding: "9px 10px", color: "#f4f7f6", fontSize: 14, fontFamily: "inherit" }}>{MEALS.map(([type, title]) => <option key={type} value={type}>{title}</option>)}</select></div>
           </div>
         </div>
 
-        <div className="pc-scroll" style={{ flex: 1, overflowY: "auto", padding: "14px 20px 28px" }}>
+        <div className="pc-scroll" style={{ flex: 1, overflowY: "auto", padding: "14px 20px max(28px, env(safe-area-inset-bottom))" }}>
           {tab === "quick" && (
             picking ? (
               <QtyPanel food={picking} qty={qty} setQty={(value) => { onBeginQuick(); setQty(value); }} onBack={() => setPicking(null)} onAdd={() => onQuickAdd(picking, qty, quickEntryId)} error={error} disabled={disabled} />
             ) : (
               <>
-                <button disabled={disabled} onClick={onOpenGeneral} style={{ width: "100%", marginBottom: 14, border: "1px dashed #2d6354", background: "#0e1c19", color: "#39e6b2", borderRadius: 14, padding: "11px 14px", cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? .45 : 1, fontFamily: "inherit", fontSize: 13, fontWeight: 800 }}>
-                  + מוצר כללי · הזן ערכים למידה אחת
+                <button disabled={disabled} onClick={onOpenGeneral} style={{ width: "100%", minHeight: 48, marginBottom: 14, border: "1px solid #39e6b2", background: "transparent", color: "#39e6b2", borderRadius: 15, padding: "11px 14px", cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? .45 : 1, fontFamily: "inherit", fontSize: 14, fontWeight: 800 }}>
+                  + מוצר כללי
                 </button>
                 {foods.length === 0 ? (
                   <div style={{ textAlign: "center", color: "#5f5f68", fontSize: 14, padding: "20px 0" }}>אין מאכלים שמורים עדיין</div>
                 ) : (
                   <>
-                    <input disabled={disabled} value={q} onChange={(e) => setQ(e.target.value)} placeholder="חיפוש מאכל…" aria-label="חיפוש מאכל"
-                      style={{ ...input, marginBottom: 12 }} />
+                    <input disabled={disabled} type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="חיפוש מאכל…" aria-label="חיפוש מאכל" autoComplete="off" style={{ ...input, minHeight: 50, marginBottom: 12, background: "#171b18" }} />
                     {shown.length === 0 ? (
                       <div style={{ textAlign: "center", color: "#5f5f68", fontSize: 14, padding: "20px 0" }}>לא נמצא מאכל בשם זה</div>
                     ) : (
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10 }}>
+                      <div style={{ overflow: "hidden", border: "1px solid #2b342f", borderRadius: 18, background: "#111512" }}>
                         {shown.map((f) => (
-                          <button disabled={disabled} key={f.id} className="h-quick quick-food-card" onClick={() => { onBeginQuick(); if (quickFoodId !== f.id) { setQuickFoodId(f.id); setQuickEntryId(crypto.randomUUID()); setQty(Number(f.raw?.default_qty) || 1); } setPicking(f); }} style={{ textAlign: "right", border: "1px solid #232328", background: "#111718", borderRadius: 16, padding: 14, cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? .45 : 1, fontFamily: "inherit", display: "flex", flexDirection: "column", gap: 8 }}>
+                          <button disabled={disabled} key={f.id} className="h-quick quick-food-card" onClick={() => { onBeginQuick(); if (quickFoodId !== f.id) { setQuickFoodId(f.id); setQuickEntryId(crypto.randomUUID()); setQty(Number(f.raw?.default_qty) || 1); } setPicking(f); }} style={{ minHeight: 72, textAlign: "right", border: 0, borderBottom: "1px solid #2b342f", background: "transparent", color: "#f4f7f6", padding: "13px 15px", cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? .45 : 1, fontFamily: "inherit", display: "flex", flexDirection: "column", gap: 7 }}>
                             <div className="quick-food-name" style={{ fontSize: 14, fontWeight: 700, color: "#f4f4f5", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.name}</div>
                             <div className="quick-food-macros" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", direction: "ltr" }}>
-                              <span className="quick-food-protein" style={{ fontSize: 13, fontWeight: 800, color: "#39e6b2", direction: "rtl" }}>{f.protein}g חלבון</span>
+                              <span className="quick-food-protein" style={{ fontSize: 13, fontWeight: 800, color: "#39e6b2", direction: "rtl" }}>{f.protein} גרם חלבון</span>
                               <span className="quick-food-calories" style={{ fontSize: 12, fontWeight: 700, color: "#7a7a82", direction: "rtl" }}>{f.calories} קל׳</span>
                             </div>
                           </button>
@@ -202,11 +201,11 @@ function QtyPanel({ food, qty, setQty, onBack, onAdd, error, disabled }) {
   const n = Number(qty) || 1;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-      <button disabled={disabled} onClick={onBack} style={{ alignSelf: "flex-start", background: "none", border: "none", color: "#8a8a93", fontFamily: "inherit", fontSize: 14, fontWeight: 700, cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? .45 : 1, padding: 0 }}>‹ חזרה לרשימה</button>
+      <button disabled={disabled} onClick={onBack} style={{ alignSelf: "flex-start", minHeight: 44, background: "none", border: "none", color: "#8a9994", fontFamily: "inherit", fontSize: 14, fontWeight: 700, cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? .45 : 1, padding: "0 4px" }}>‹ חזרה לרשימה</button>
 
       <div style={{ textAlign: "center" }}>
         <div style={{ fontSize: 20, fontWeight: 800, color: "#f4f4f5" }}>{food.name}</div>
-        <div style={{ fontSize: 13, color: "#6f6f78", marginTop: 4, direction: "rtl" }}>{round(p)}g חלבון · {round(c)} קל׳ ל{food.unit || "מנה"}</div>
+        <div style={{ fontSize: 13, color: "#8a9994", marginTop: 4, direction: "rtl" }}>{round(p)} גרם חלבון · {round(c)} קל׳ ל{food.unit || "מנה"}</div>
       </div>
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 18 }}>
@@ -217,7 +216,7 @@ function QtyPanel({ food, qty, setQty, onBack, onAdd, error, disabled }) {
       </div>
 
       <div style={{ textAlign: "center", background: "#101918", border: "1px solid #1f3831", borderRadius: 14, padding: "12px 14px", direction: "rtl" }}>
-        <span style={{ fontSize: 18, fontWeight: 800, color: "#39e6b2" }}>{round(p * n)}g חלבון</span>
+        <span style={{ fontSize: 18, fontWeight: 800, color: "#39e6b2" }}>{round(p * n)} גרם חלבון</span>
         <span style={{ color: "#7a7a82", margin: "0 8px" }}>·</span>
         <span style={{ fontSize: 15, fontWeight: 700, color: "#fb923c" }}>{round(c * n)} קל׳</span>
       </div>
