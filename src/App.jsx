@@ -390,28 +390,28 @@ export default function App({ session }) {
 
   return (
     <div className="app">
-      <div style={{ flex: "none", padding: "calc(18px + env(safe-area-inset-top)) 20px 10px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <header style={{ flex: "none", minHeight: 74, padding: "calc(14px + env(safe-area-inset-top)) 20px 10px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: "#6f6f78", letterSpacing: ".02em" }}>{header.sub}</div>
-          <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: ".02em" }}>{header.title}</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#8a9994" }}>{header.sub}</div>
+          <div style={{ fontSize: 25, lineHeight: 1.05, fontWeight: 900, letterSpacing: "-.025em" }}>{header.title}</div>
           {/* ponytail: greeting recomputes on render via new Date(); no live ticking — refreshes on next re-render, good enough. */}
-          {header.greet && <div style={{ fontSize: 13, fontWeight: 600, color: "#39e6b2", letterSpacing: ".01em" }}>{header.greet}</div>}
+          {header.greet && <div style={{ fontSize: 13, fontWeight: 700, color: "#8a9994" }}>{header.greet}</div>}
         </div>
-        <button className="h-gear" aria-label="הגדרות" onClick={() => setSettingsOpen(true)} style={{ width: 42, height: 42, border: "none", borderRadius: 14, background: "#101516", color: "#8a8a93", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+        <button className="h-gear" aria-label="הגדרות" onClick={() => setSettingsOpen(true)} style={{ width: 44, height: 44, border: "1px solid #27302c", borderRadius: 14, background: "#111512", color: "#a8b2ae", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
           <Gear size={20} />
         </button>
-      </div>
+      </header>
 
       <div className="pc-scroll app-scroll" style={{ flex: 1, overflowY: "auto" }}>
-        {screen === "today" && <Today totals={vm.totals} goal={goal} progress={vm.proteinProgress} remaining={vm.remaining} pace={vm.pace} calorieProgress={vm.calorieProgress} calorieIntake={vm.calorieIntake} calorieGoal={CALORIE_GOAL} calorieBalance={vm.calorieBalance} waterMl={vm.waterMl} waterGoal={waterGoal} onAddWater={addWater} waterUndo={waterUndo?.date === selectedDay ? waterUndo : null} onUndoWater={undoWater} waterError={waterError} mealGroups={vm.mealGroups} suggestion={vm.suggestion} onDelete={requestEntryDelete} onSelect={openEntryDetail} dayLabel={dayLabel(selectedDay, today)} isToday={selectedDay === today} onToday={() => setSelectedDay(today)} onPrev={prevDay} onNext={nextDay} canPrev={canPrev} canNext={canNext} />}
+        {screen === "today" && <Today totals={vm.totals} goal={goal} progress={vm.proteinProgress} remaining={vm.remaining} pace={vm.pace} calorieProgress={vm.calorieProgress} calorieIntake={vm.calorieIntake} calorieGoal={CALORIE_GOAL} calorieBalance={vm.calorieBalance} waterMl={vm.waterMl} waterGoal={waterGoal} onAddWater={addWater} waterUndo={waterUndo?.date === selectedDay ? waterUndo : null} onUndoWater={undoWater} waterError={waterError} mealGroups={vm.mealGroups} suggestion={vm.suggestion} onAdd={openAdd} onDelete={requestEntryDelete} onSelect={openEntryDetail} dayLabel={dayLabel(selectedDay, today)} isToday={selectedDay === today} onToday={() => setSelectedDay(today)} onPrev={prevDay} onNext={nextDay} canPrev={canPrev} canNext={canNext} />}
         {screen === "trends" && <Trends goal={goal} streak={vm.streak} avg={vm.avg} bars={vm.bars} goalY={vm.goalY} calAvg={vm.calAvg} heading={vm.heading} range={chartRange} onRange={setChartRange} />}
         {screen === "foods" && <MyFoods foods={vm.foodVm} onNew={() => setEditFood({})} onEdit={(f) => setEditFood(f.raw)} />}
         {screen === "mealPlan" && <MealPlan />}
       </div>
 
       {!addOpen && !settingsOpen && !editFood && !selectedEntry && !confirm && screen !== "mealPlan" && (
-        <button disabled={addSaving} className="h-fab" onClick={openAdd} aria-label="הוסף מזון" style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", zIndex: 30, width: 68, height: 68, display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #071a14", fontFamily: "inherit", background: "#39e6b2", color: "#03120d", borderRadius: "50%", cursor: addSaving ? "not-allowed" : "pointer", opacity: addSaving ? .45 : 1, boxShadow: "0 0 0 6px rgba(57,230,178,.12), 0 8px 30px rgba(57,230,178,.48)" }}>
-          <Plus size={30} sw={3} />
+        <button disabled={addSaving} className="h-fab" onClick={openAdd} aria-label="הוסף מזון" style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", zIndex: 30, minWidth: 136, height: 48, padding: "0 22px", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, border: "1px solid #74f0c8", fontFamily: "inherit", fontSize: 15, fontWeight: 900, background: "#39e6b2", color: "#03120d", borderRadius: 24, cursor: addSaving ? "not-allowed" : "pointer", opacity: addSaving ? .45 : 1, boxShadow: "0 8px 28px rgba(57,230,178,.28)" }}>
+          <Plus size={20} sw={3} /> הוסף
         </button>
       )}
 
@@ -458,7 +458,7 @@ export default function App({ session }) {
 
 function NavBtn({ color, label, onClick, children }) {
   return (
-    <button onClick={onClick} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", color }}>
+    <button onClick={onClick} aria-current={color === "#39e6b2" ? "page" : undefined} style={{ minHeight: 44, flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", color }}>
       {children}
       <span style={{ fontSize: 11, fontWeight: 700 }}>{label}</span>
     </button>
