@@ -24,6 +24,7 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFo
   const [qty, setQty] = useState(1);
   const [quickEntryId, setQuickEntryId] = useState(null);
   const [quickFoodId, setQuickFoodId] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState("");
   const disabled = locked || saving;
   const photoControlsDisabled = disabled || photo.state === "loading";
 
@@ -33,6 +34,13 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFo
     window.addEventListener("keydown", escape);
     return () => window.removeEventListener("keydown", escape);
   }, [onClose]);
+
+  useEffect(() => {
+    if (!photoFile) { setPreviewUrl(""); return undefined; }
+    const url = URL.createObjectURL(photoFile);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [photoFile]);
 
   const tabBtn = (key, text) => {
     const active = tab === key;
@@ -116,7 +124,7 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFo
               <input disabled={photoControlsDisabled} ref={cameraRef} type="file" accept="image/*" capture="environment" hidden onChange={pickFile} />
               <input disabled={photoControlsDisabled} ref={galleryRef} type="file" accept="image/*" hidden onChange={pickFile} />
 
-              <div style={{ marginBottom: 14 }}>
+              <div style={{ ...formSection, marginBottom: 14 }}>
                 <label style={label}>פרטים נוספים על המנה (אופציונלי)</label>
                 <textarea disabled={photoControlsDisabled} value={photoGuidance} onChange={(e) => onPhotoGuidance(e.target.value)} maxLength={1000} rows={3}
                   placeholder="למשל: שווארמה הודו עם פיתה, טחינה וסלט. בערך 150 גרם בשר"
@@ -126,10 +134,8 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFo
 
               {photo.state === "idle" && (
                 <div>
-                  <div style={{ width: "100%", border: "2px dashed #2e2e36", background: "#141417", borderRadius: 20, padding: "26px 20px", display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
-                    <div style={{ width: 64, height: 64, borderRadius: 20, background: "rgba(52,211,153,.12)", display: "flex", alignItems: "center", justifyContent: "center", color: "#39e6b2" }}>
-                      <Camera size={30} />
-                    </div>
+                  <div style={{ width: "100%", border: "1px solid #2b342f", background: "#111512", borderRadius: 20, padding: "18px", display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
+                    {previewUrl ? <img src={previewUrl} alt="תצוגה מקדימה של המנה" style={{ width: "100%", height: 180, objectFit: "cover", borderRadius: 16, background: "#171b18" }} /> : <div style={{ width: 64, height: 64, borderRadius: 20, background: "rgba(52,211,153,.12)", display: "flex", alignItems: "center", justifyContent: "center", color: "#39e6b2" }}><Camera size={30} /></div>}
                     <div style={{ textAlign: "center" }}>
                       <div style={{ fontSize: 16, fontWeight: 700, color: "#f4f4f5" }}>{photoFile ? "התמונה מוכנה לניתוח" : "צלם או בחר תמונה"}</div>
                       <div style={{ maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 13, color: "#6f6f78", marginTop: 3 }}>{photoFile ? photoFile.name : "הוסף פרטים ואז שלח את הכול יחד ל-AI"}</div>
@@ -142,12 +148,12 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFo
                         <ImageIcon size={17} /> בחר מהגלריה
                       </button>
                     </div>
-                    <button onClick={onAnalyzePhoto} disabled={!photoFile || photoControlsDisabled} style={{ width: "100%", border: "none", background: "linear-gradient(180deg,#39e6b2,#16a985)", color: "#03120d", borderRadius: 14, padding: "13px 10px", cursor: photoFile && !photoControlsDisabled ? "pointer" : "not-allowed", fontFamily: "inherit", fontSize: 14, fontWeight: 900, opacity: photoFile && !photoControlsDisabled ? 1 : .45 }}>
+                    <button onClick={onAnalyzePhoto} disabled={!photoFile || photoControlsDisabled} style={{ width: "100%", minHeight: 48, border: "none", background: "linear-gradient(180deg,#39e6b2,#24bd91)", color: "#03120d", borderRadius: 14, padding: "13px 10px", cursor: photoFile && !photoControlsDisabled ? "pointer" : "not-allowed", fontFamily: "inherit", fontSize: 14, fontWeight: 900, opacity: photoFile && !photoControlsDisabled ? 1 : .45 }}>
                       נתח תמונה
                     </button>
                   </div>
                   {photo.error ? (
-                    <div style={{ marginTop: 14, textAlign: "center", fontSize: 13, fontWeight: 600, color: "#fb7185" }}>{photo.error}</div>
+                    <div role="alert" style={{ marginTop: 14, textAlign: "center", fontSize: 13, fontWeight: 700, color: "#fb7185" }}>{photo.error}</div>
                   ) : (
                     <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 8, justifyContent: "center", fontSize: 12, color: "#5f5f68" }}>
                       <Info size={14} /> הערכת יתרה מקומית: {photo.quota} ניתוחים היום
@@ -164,9 +170,10 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFo
               )}
 
               {photo.state === "done" && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                  <button disabled={disabled} onClick={onBackPhoto} style={{ alignSelf: "flex-start", background: "none", border: "none", color: "#8a8a93", fontFamily: "inherit", fontSize: 14, fontWeight: 700, cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? .45 : 1, padding: 0 }}>‹ חזרה לבחירת תמונה</button>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#101918", border: "1px solid #1f3831", borderRadius: 14, padding: "12px 14px" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  <button disabled={disabled} onClick={onBackPhoto} style={{ alignSelf: "flex-start", minHeight: 44, background: "none", border: "none", color: "#8a9994", fontFamily: "inherit", fontSize: 14, fontWeight: 700, cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? .45 : 1, padding: "0 4px" }}>‹ חזרה לבחירת תמונה</button>
+                  {previewUrl && <img src={previewUrl} alt="התמונה שנותחה" style={{ width: "100%", height: 176, objectFit: "cover", borderRadius: 18, background: "#171b18", border: "1px solid #2b342f" }} />}
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#15231e", border: "1px solid #315548", borderRadius: 16, padding: "13px 14px" }}>
                     <span style={{ width: 30, height: 30, borderRadius: 8, background: "rgba(52,211,153,.15)", color: "#39e6b2", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800 }}>AI</span>
                     <div style={{ flex: 1 }}>
                       {photo.stale ? (
@@ -184,7 +191,7 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFo
                   </div>
                   {photo.stale && <button disabled={!photoFile || disabled} onClick={onAnalyzePhoto} style={{ border: "none", background: "linear-gradient(180deg,#39e6b2,#16a985)", color: "#03120d", borderRadius: 13, padding: "11px 12px", cursor: photoFile && !disabled ? "pointer" : "not-allowed", opacity: photoFile && !disabled ? 1 : .45, fontFamily: "inherit", fontSize: 13, fontWeight: 900 }}>נתח שוב עם התיאור המעודכן</button>}
                   <ManualForm form={form} onField={onField} onToggleSave={onToggleSave} onSubmit={onSubmit} cta={saving ? "שומר..." : locked ? "נסה שוב לשמור את המאכל" : "אשר והוסף"} showSave error={error} locked={locked} saving={saving} />
-                  <button disabled={disabled} onClick={() => galleryRef.current?.click()} style={{ border: "1px solid #26302f", background: "#111718", color: "#c4c4c9", borderRadius: 13, padding: "11px 12px", cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? .45 : 1, fontFamily: "inherit", fontSize: 13, fontWeight: 800 }}>בחר תמונה אחרת לניתוח</button>
+                  <button disabled={disabled} onClick={() => galleryRef.current?.click()} style={{ minHeight: 44, border: "1px solid #2b342f", background: "#171b18", color: "#b8c2be", borderRadius: 13, padding: "11px 12px", cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? .45 : 1, fontFamily: "inherit", fontSize: 13, fontWeight: 800 }}>בחר תמונה אחרת לניתוח</button>
                 </div>
               )}
             </div>
