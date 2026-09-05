@@ -1,5 +1,16 @@
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 :root {
+  color-scheme: dark;
+  --pc-bg: #070a09;
+  --pc-surface: #111512;
+  --pc-raised: #171b18;
+  --pc-border: #27302c;
+  --pc-text: #f4f7f6;
+  --pc-muted: #8a9994;
+  --pc-protein: #39e6b2;
+  --pc-calories: #fb923c;
+  --pc-water: #60a5fa;
+  --pc-danger: #fb5d67;
   --safe-area-bottom: env(safe-area-inset-bottom, 0px);
   --bottom-nav-bottom-padding: max(8px, var(--safe-area-bottom));
   --bottom-nav-height: calc(56px + var(--bottom-nav-bottom-padding));
@@ -67,10 +78,11 @@ body {
   z-index: 20;
 }
 
-input::placeholder { color: #5f5f68; }
+input::placeholder { color: #68736f; opacity: 1; }
 input { -webkit-appearance: none; }
-input:focus { border-color: #39e6b2 !important; box-shadow: 0 0 0 3px rgba(57,230,178,.12); }
+input:focus, select:focus, textarea:focus { border-color: #39e6b2 !important; box-shadow: 0 0 0 3px rgba(57,230,178,.12); outline: none; }
 button:focus-visible { outline: 2px solid #39e6b2; outline-offset: 2px; }
+button:active:not(:disabled) { transform: scale(.97); transition: transform 100ms ease-out; }
 
 .today-neon { padding-top: 2px; }
 .today-daybar { display: flex; align-items: center; justify-content: space-between; margin: 4px 0 16px; }
@@ -131,4 +143,22 @@ button:focus-visible { outline: 2px solid #39e6b2; outline-offset: 2px; }
   .my-food-macros { gap:8px !important; }
   .my-food-macros > div > div:first-child { font-size:14px !important; }
   .my-food-card .h-pencil { width:34px !important; height:34px !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .bottom-nav { background: #0c100e; -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+
+@media (prefers-contrast: more) {
+  .bottom-nav { background: #070a09; border-color: #7a8984; }
+  button:focus-visible { outline-width: 3px; }
 }
