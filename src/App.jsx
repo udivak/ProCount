@@ -16,7 +16,7 @@ import FoodEditor from "./FoodEditor.jsx";
 import ItemDetailModal from "./ItemDetailModal.jsx";
 import ConfirmDialog from "./ConfirmDialog.jsx";
 
-const SCALE = 200, CHART_H = 132;
+const SCALE = 200, CHART_H = 210;
 const SOURCE = {
   saved: { tag: "מהיר", iconBg: "rgba(52,211,153,.12)", iconColor: "#39e6b2", sub: "מהיר" },
   manual: { tag: "ידני", iconBg: "rgba(96,165,250,.12)", iconColor: "#60a5fa", sub: "הזנה ידנית" },
@@ -93,6 +93,7 @@ export default function App({ session }) {
     // Bar height/color share one formula across ranges so the daily goal line stays comparable.
     const bar = (protein, current, met, label) => ({
       label,
+      value: round(protein),
       h: Math.max(2, Math.round((Math.min(protein, SCALE) / SCALE) * CHART_H)),
       color: current ? "linear-gradient(180deg,#6ee7b7,#39e6b2)" : met ? "#2a9d6f" : "#2b2b31",
       glow: current ? "0 0 12px rgba(52,211,153,.5)" : "none",
