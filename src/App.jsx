@@ -5,6 +5,7 @@ import { CALORIE_GOAL, calorieBalance, dailyTotals, dailyWaterTotal, remainingPr
 import { acquireRequestLock, capturePhotoRequest, captureRequestRevision, clearRequestLock, releaseRequestLock } from "./lib/request.js";
 import { withSubmissionLock } from "./lib/submission.js";
 import { foodUndoTarget } from "./lib/delete.js";
+import { defaultMealType, isLearnedSnack, learnedSnackFoods, resolveAddedMeal } from "./lib/meal.js";
 import { Gear, Home, Chart, ListIcon, Plus, Utensils } from "./lib/icons.jsx";
 import Today from "./screens/Today.jsx";
 import Trends from "./screens/Trends.jsx";
@@ -86,6 +87,7 @@ export default function App({ session }) {
   const canNext = selectedDay < today;
   const prevDay = () => { if (canPrev) setSelectedDay(shiftDate(selectedDay, -1)); };
   const nextDay = () => { if (canNext) setSelectedDay(shiftDate(selectedDay, 1)); };
+  const learnedSnacks = useMemo(() => learnedSnackFoods(entries, today), [entries, today]);
 
   // ---- view model (mirrors the prototype's renderVals, from real data) ----
   const vm = useMemo(() => {
@@ -213,7 +215,7 @@ export default function App({ session }) {
     setForm(blankForm());
     setAddError("");
     setAddNotice("");
-    setMealType("snack");
+    setMealType(defaultMealType());
     setAddDate(selectedDay);
     setPhoto({ state: "idle", note: "", error: null });
     setPhotoFile(null);
@@ -256,7 +258,8 @@ export default function App({ session }) {
     }
   });
   const quickAdd = (foodRow, qty, entryId) => runAddSave(async () => {
-    const result = await data.addQuick(foodRow.raw || foodRow, qty, addDate, mealType, entryId);
+    const food = foodRow.raw || foodRow;
+    const result = await data.addQuick(food, qty, addDate, resolveAddedMeal(mealType, food, learnedSnacks), entryId);
     if (result.error) return setAddError("לא ניתן לשמור את הרישום כרגע. נסה שוב.");
     rememberFoodUndo(foodUndoTarget(result));
     setSelectedDay(addDate);
@@ -266,8 +269,9 @@ export default function App({ session }) {
   const submitAdd = () => {
     if (isGeneralFood && (!(form.name || "").trim() || !isNonNegative(form.protein) || !isNonNegative(form.calories))) return;
     return runAddSave(async () => {
-      const submitted = { form, tab: addTab, isGeneralFood, date: addDate, mealType, photoGuidance };
-      const result = addTab === "photo" ? await data.addAi(form, addDate, mealType) : await data.addManual(form, addDate, mealType);
+      const finalMealType = resolveAddedMeal(mealType, { name: form.name }, learnedSnacks);
+      const submitted = { form, tab: addTab, isGeneralFood, date: addDate, mealType: finalMealType, photoGuidance };
+      const result = addTab === "photo" ? await data.addAi(form, addDate, finalMealType) : await data.addManual(form, addDate, finalMealType);
       rememberFoodUndo(foodUndoTarget(result));
       const partial = !!result.food?.error && (!!result.entry?.data || form.entrySaved);
       if (partial) {
@@ -437,7 +441,7 @@ export default function App({ session }) {
 
       {addOpen && (
         <AddSheet tab={addTab} onTab={onTab} onClose={discardAdd} foods={vm.foodVm} form={form} isGeneralFood={isGeneralFood} onOpenGeneral={openGeneralFood} onBackGeneral={backFromGeneralFood} onBackPhoto={backFromPhotoResult} error={addError} saving={addSaving}
-          onField={onField} onToggleSave={onToggleSave} locked={form.entrySaved} onBeginQuick={() => setAddError("")}
+          onField={onField} onToggleSave={onToggleSave} locked={form.entrySaved} onBeginQuick={() => setAddError("")} isLearnedSnack={(food) => isLearnedSnack(food, learnedSnacks)}
           onSubmit={submitAdd} onQuickAdd={quickAdd} photo={{ ...photo, quota: vm.aiQuota }} photoFile={photoFile} onPickPhoto={pickPhoto} onAnalyzePhoto={analyzeSelectedPhoto} photoGuidance={photoGuidance} onPhotoGuidance={changePhotoGuidance}
           date={addDate} onDate={(date) => { if (!form.entrySaved) setAddDate(date); }} minDate={oldest} maxDate={today} mealType={mealType} onMealType={(type) => { if (!form.entrySaved) setMealType(type); }} />
       )}

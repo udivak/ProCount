@@ -12,7 +12,7 @@ const round = (n) => Math.round(Number(n) || 0);
 const MEALS = [["breakfast", "בוקר"], ["lunch", "צהריים"], ["dinner", "ערב"], ["snack", "נשנוש"]];
 const MEASURES = ["יחידה", "כף", "כפית", "כוס", "פרוסה", "סקופ", "קופסה", "מנה", "100 גרם"];
 
-export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFood, onOpenGeneral, onBackGeneral, onBackPhoto, onField, onToggleSave, onSubmit, onQuickAdd, photo, photoFile, onPickPhoto, onAnalyzePhoto, photoGuidance, onPhotoGuidance, date, onDate, minDate, maxDate, mealType, onMealType, error, locked, saving, onBeginQuick }) {
+export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFood, onOpenGeneral, onBackGeneral, onBackPhoto, onField, onToggleSave, onSubmit, onQuickAdd, photo, photoFile, onPickPhoto, onAnalyzePhoto, photoGuidance, onPhotoGuidance, date, onDate, minDate, maxDate, mealType, onMealType, error, locked, saving, onBeginQuick, isLearnedSnack }) {
   const cameraRef = useRef(null);
   const galleryRef = useRef(null);
   const closeRef = useRef(null);
@@ -28,6 +28,8 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFo
   const [previewUrl, setPreviewUrl] = useState("");
   const disabled = locked || saving;
   const photoControlsDisabled = disabled || photo.state === "loading";
+  const forcedSnack = tab === "quick" ? isLearnedSnack(picking?.raw || picking) : isLearnedSnack({ name: form.name });
+  const selectedMeal = forcedSnack ? "snack" : mealType;
 
   useEffect(() => { closeRef.current?.focus(); }, []);
 
@@ -77,7 +79,7 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFo
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 10, marginTop: 12 }}>
             <div><label htmlFor="add-date" style={label}>תאריך</label><input disabled={disabled} id="add-date" type="date" value={date} min={minDate} max={maxDate} onChange={(e) => onDate(e.target.value)} style={{ width: "100%", minHeight: 44, background: "#171b18", border: "1px solid #2b342f", borderRadius: 12, padding: "9px 10px", color: "#f4f7f6", fontSize: 14, fontFamily: "inherit", outline: "none", colorScheme: "dark" }} /></div>
-            <div><label htmlFor="add-meal" style={label}>ארוחה</label><select disabled={disabled} id="add-meal" value={mealType} onChange={(event) => onMealType(event.target.value)} style={{ width: "100%", minHeight: 44, background: "#171b18", border: "1px solid #2b342f", borderRadius: 12, padding: "9px 10px", color: "#f4f7f6", fontSize: 14, fontFamily: "inherit" }}>{MEALS.map(([type, title]) => <option key={type} value={type}>{title}</option>)}</select></div>
+            <div><label htmlFor="add-meal" style={label}>ארוחה</label><select disabled={disabled || forcedSnack} id="add-meal" value={selectedMeal} onChange={(event) => onMealType(event.target.value)} style={{ width: "100%", minHeight: 44, background: "#171b18", border: "1px solid #2b342f", borderRadius: 12, padding: "9px 10px", color: "#f4f7f6", fontSize: 14, fontFamily: "inherit" }}>{MEALS.map(([type, title]) => <option key={type} value={type}>{title}</option>)}</select>{forcedSnack && <div style={{ color: "#8a9994", fontSize: 11, fontWeight: 700, marginTop: 5 }}>נשנוש לפי ההיסטוריה שלך</div>}</div>
           </div>
         </div>
 
