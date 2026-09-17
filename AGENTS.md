@@ -4,7 +4,7 @@ This file provides guidance to coding agents (Codex, Cursor, and other AGENTS.md
 
 ## What this is
 
-ProCount — a personal, **single-user** PWA for daily protein + calorie tracking. Hebrew, RTL, dark mode, iPhone-first. All UI strings are Hebrew literals written inline; RTL is global (`index.html` has `dir="rtl"`), with `dir="ltr"` overrides only on technical fields (email, numeric inputs). React + Vite, **plain JS (no TypeScript)**, **inline styles only** — no UI framework, no CSS-in-JS; one global `src/index.css` holds resets/animations, font is `Heebo`.
+ProCount — a personal, **single-user** PWA for daily protein, calorie, and water tracking. Hebrew, RTL, dark mode, iPhone-first. All UI strings are Hebrew literals written inline; RTL is global (`index.html` has `dir="rtl"`), with `dir="ltr"` overrides only on technical fields (email, numeric inputs). React + Vite, **plain JS (no TypeScript)**, **inline styles only** — no UI framework, no CSS-in-JS; one global `src/index.css` holds resets/animations, font is `Heebo`.
 
 ## Commands
 
@@ -15,34 +15,39 @@ npm run preview    # serve the built app → :4173
 npm test           # pure-function tests: node --test src/lib/*.test.js
 ```
 
-- Two test files (`nutrition.test.js`, `date.test.js`); one at a time: `node --test src/lib/nutrition.test.js`
+- Eight colocated test files currently cover the pure helpers in `src/lib/`; one at a time: `node --test src/lib/meal.test.js`
 - One test by name: `node --test --test-name-pattern="streak" src/lib/*.test.js`
-- Edge-function tests run on **Deno**, a separate runtime: `deno test supabase/functions/analyze-food-photo/`
+- Edge-function validation and guidance tests run on **Deno**, a separate runtime: `deno test supabase/functions/analyze-food-photo/`
 - Dev needs `.env.local` with `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (the anon key is public — RLS protects the data). Backend redeploy steps live in `supabase/README.md`.
 
 ## Architecture
 
 **The frontend is a thin client over Supabase.** There is no app server: the PWA talks to Postgres directly through `supabase-js` and to one Edge Function for AI photo analysis. `Root.jsx` and `Login.jsx` are the only UI files besides the store that call the Supabase client, and only for session/authentication work; keep application-data queries and mutations in the store.
 
-Render path: `main.jsx` → `Root.jsx` (auth gate — owns the Supabase session, renders `Login` or `App`) → `App.jsx` (the shell: header, bottom nav, FAB, sheets/overlays/dialogs, selected day, meal type, Trends range, and a `useMemo` view-model). Screens plus `FoodEditor.jsx`, `ItemDetailModal.jsx`, and `ConfirmDialog.jsx` are presentational: receive data and callbacks, and do not perform data access. `MealPlan.jsx` is intentionally static guidance, not profile- or entry-derived data. Destructive actions route through `ConfirmDialog` rather than firing directly.
+Render path: `main.jsx` → `Root.jsx` (auth gate and standalone-viewport recovery; renders `Login` or `App`) → `App.jsx` (the shell: header, bottom nav, FAB, sheets/overlays/dialogs, selected day, meal type, Trends range, undo state, and a `useMemo` view-model). Screens plus `FoodEditor.jsx`, `ItemDetailModal.jsx`, and `ConfirmDialog.jsx` are presentational: receive data and callbacks, and do not perform data access. `MealPlan.jsx` is intentionally static guidance, not profile- or entry-derived data. Destructive actions route through `ConfirmDialog`; food and water entry deletes also expose a six-second undo.
 
-**`src/store.js` (`useData` hook) is the single data layer.** On mount it loads the last `RANGE_DAYS` (35) of entries, all foods, and the profile in one `Promise.all`. Creation and food edits wait for Supabase's returned row before updating state; entry/food deletion and profile edits update local state before their write. Preserve the current error-handling semantics when changing mutations—there is no general rollback layer. `App.jsx` only consumes the hook's return value.
+**`src/store.js` (`useData` hook) is the single application-data layer.** On mount it loads the last `RANGE_DAYS` (35) of entries, all foods, and the profile in one `Promise.all`. Creation, food edits, and meal moves wait for Supabase's returned row before updating state. Entry deletion is optimistic but reconciles ambiguous failures with a lookup and restores the snapshot when needed; food deletion and profile edits remain optimistic without general rollback. Preserve those mutation semantics. `App.jsx` only consumes the hook's return value.
+
+**`src/lib/` contains the pure behavior boundaries.** Keep database-independent rules there and covered by their colocated Node tests: local dates (`date`), nutrition and water totals (`nutrition`), meal selection/moves (`meal`), duplicate-safe writes and food search (`write`), deletion reconciliation (`delete`), request staleness/locks (`request`), submission locking (`submission`), and standalone viewport recovery (`viewport`). `App.jsx` coordinates these helpers; do not duplicate their guards in screens.
 
 **Dates are local, never UTC (design §4).** The "today" boundary follows the device timezone. Each entry carries `eaten_on` — a `YYYY-MM-DD` the *client* assigns — so retroactive logging onto past days and day-navigation work without server involvement. All helpers in `src/lib/date.js` build dates from local Y/M/D; do **not** reach for `toISOString()`. The day-nav window is clamped to `RANGE_DAYS`.
 
 **Nutrition math is pure and dependency-free** in `src/lib/nutrition.js` — it aggregates `entries` by `eaten_on` (`dailyTotals`, `remainingProtein`, `pct`, `dailyPace`, `streak`, `weekSeries`, `weeklyAverageSeries`, `entriesByMeal`, `proteinSuggestion`, …) and derives detail-modal values (`proteinPer100g`, `gramsPerServing`, which parses a gram amount from the free-text Hebrew `unit`). The meal suggestion may combine one or two catalog foods and permits at most 10g over the remaining protein target. It is the unit-tested core (`nutrition.test.js`, alongside `date.test.js`). Keep both libs import-free so they stay runnable under `node --test`.
 
+**Meal defaults are client-side and history-aware.** Opening the add sheet selects breakfast from 05:00–11:59, lunch from 12:00–16:59, and dinner otherwise. Foods logged as snacks during the last 14 local dates are forced back to `snack`, matched first by `food_id` and also by normalized name for manual/photo entries. The already-loaded 35-day window is the only history source; keep this rule in `src/lib/meal.js`.
+
 ## Data model & RLS (`supabase/migrations/`)
 
 - **`foods` is a shared catalog, NOT per-user.** Migration `0002` dropped its `user_id`; any authenticated user reads/writes all foods (fine for a single-user app). Don't filter foods by user.
 - **`entries` and `profile` are per-user**, scoped by an `own rows` policy (`user_id = auth.uid()`). `entries.source` ∈ `('manual','saved','ai')`; `food_id` is a soft link (nulled when a food is deleted). `entries.meal_type` is a non-null `breakfast`, `lunch`, `dinner`, or `snack` value (migration `0006`); older client rows with no value are treated as snacks by `entriesByMeal`.
+- **Water uses dated entries, not the food catalog.** Water rows have `entry_kind = 'water'`, a positive `water_ml`, zero protein/calories, and no `food_id`; existing/food rows use `entry_kind = 'food'` and `water_ml = null`. The database enforces this shape. `profile.water_goal_ml` defaults to 3000.
 - **`entries.grams` is nullable on purpose** (migration `0004`): it records how much was eaten so `ItemDetailModal` can show amount + protein-per-100g. Legacy and non-gram entries stay null and the UI renders `—`. Migration `0005` backfilled past quick-add rows by reconstructing servings from the protein ratio — read its header comment before trusting old `grams` values.
-- **`profile`** holds `protein_goal_g`, `name` (used in the header greeting), and the AI-quota fields. There is **no signup trigger** — the row is created lazily by the client's first `upsert` (saving a goal or name). Any code that reads the profile must tolerate a missing row.
+- **`profile`** holds `protein_goal_g`, `water_goal_ml`, `name` (used in the header greeting), and the AI-quota fields. There is **no signup trigger** — the row is created lazily by the client's first `upsert` (saving a goal, water goal, or name). Any code that reads the profile must tolerate a missing row.
 - The **AI daily cap is enforced server-side**: `consume_ai_call(limit)` (SECURITY INVOKER RPC, UTC day) atomically reserves one of 6 calls. Counting client-dated entries would be spoofable; this isn't.
 
 ## AI photo flow (`supabase/functions/analyze-food-photo/`)
 
-`store.js` `analyzePhoto` compresses a camera or gallery image to ~1024px JPEG base64 → `POST /functions/v1/analyze-food-photo` with the user's JWT. The function keeps `ANTHROPIC_API_KEY` server-side, calls `consume_ai_call` (→ 429 `daily_limit` when spent), then makes one non-streaming Claude Messages call (`claude-sonnet-4-6`, structured `output_config` JSON schema). Success returns `{ name, calories, protein_g, confidence, note }`, shown in editable fields before saving an `ai` entry; saving that result to the shared catalog is explicit opt-in. Every failure (401/422/502) falls back to manual entry—see the response table in `supabase/README.md`. `validate.ts` enforces non-negativity (the schema cannot express it); `validate.test.ts` is its self-check.
+`store.js` `analyzePhoto` compresses a camera or gallery image to ~1024px JPEG base64 → `POST /functions/v1/analyze-food-photo` with the user's JWT. The same function accepts `mode: "text"` for saved-food nutrition estimates. It keeps `ANTHROPIC_API_KEY` server-side, calls `consume_ai_call` (→ 429 `daily_limit` when spent), then makes one non-streaming Claude Messages call (`claude-sonnet-4-6`, structured `output_config` JSON schema). Photo success returns `{ name, calories, protein_g, confidence, note }`, shown in editable fields before saving an `ai` entry; saving that result to the shared catalog is explicit opt-in. Every failure falls back to editable/manual UI—see the response table in `supabase/README.md`. `validate.ts` enforces result shape and non-negativity; `guidance.ts` bounds optional user guidance. Both have colocated Deno tests.
 
 ## Conventions
 
