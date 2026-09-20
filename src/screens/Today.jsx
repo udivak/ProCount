@@ -63,11 +63,11 @@ function WaterCard({ total, goal, onAdd, undo, onUndo, error }) {
     <div className="mini-value"><b>{format(total / 1000)}</b><span> / {format(goal / 1000)} ל׳</span></div>
     <div className="water-track" aria-label={`שתית ${total} מתוך ${goal} מיליליטר`}><i style={{ width: `${progress}%` }} /></div>
     <div className="water-actions">
-      {[250, 500].map((amount) => <button key={amount} onClick={() => onAdd(amount)}>+{amount}</button>)}
+      {[275, 700].map((amount) => <button key={amount} onClick={() => onAdd(amount)}>+{amount}</button>)}
       <button aria-expanded={showMore} onClick={() => setShowMore((value) => !value)}>אחר</button>
     </div>
     {showMore && <div className="water-more">
-      <button onClick={() => onAdd(700)}>+700 מ״ל</button>
+      <button onClick={() => onAdd(500)}>+500 מ״ל</button>
       <div className="water-custom"><input value={custom} onChange={(event) => setCustom(event.target.value.replace(/[^\d]/g, ""))} inputMode="numeric" dir="ltr" placeholder="מ״ל" aria-label="כמות מים אחרת במיליליטר" /><button onClick={addCustom} disabled={!(Number(custom) > 0)}>הוסף</button></div>
     </div>}
     {undo && <button className="water-undo" onClick={onUndo}>בטל +{undo.amount} מ״ל</button>}
