@@ -42,7 +42,7 @@ Render path: `main.jsx` → `Root.jsx` (auth gate and standalone-viewport recove
 - **`entries` and `profile` are per-user**, scoped by an `own rows` policy (`user_id = auth.uid()`). `entries.source` ∈ `('manual','saved','ai')`; `food_id` is a soft link (nulled when a food is deleted). `entries.meal_type` is a non-null `breakfast`, `lunch`, `dinner`, or `snack` value (migration `0006`); older client rows with no value are treated as snacks by `entriesByMeal`.
 - **Water uses dated entries, not the food catalog.** Water rows have `entry_kind = 'water'`, a positive `water_ml`, zero protein/calories, and no `food_id`; existing/food rows use `entry_kind = 'food'` and `water_ml = null`. The database enforces this shape. `profile.water_goal_ml` defaults to 3000.
 - **`entries.grams` is nullable on purpose** (migration `0004`): it records how much was eaten so `ItemDetailModal` can show amount + protein-per-100g. Legacy and non-gram entries stay null and the UI renders `—`. Migration `0005` backfilled past quick-add rows by reconstructing servings from the protein ratio — read its header comment before trusting old `grams` values.
-- **`profile`** holds `protein_goal_g`, `water_goal_ml`, `name` (used in the header greeting), and the AI-quota fields. There is **no signup trigger** — the row is created lazily by the client's first `upsert` (saving a goal, water goal, or name). Any code that reads the profile must tolerate a missing row.
+- **`profile`** holds `protein_goal_g`, `water_goal_ml`, `name` (used in the header greeting), and the AI-quota fields. There is **no signup trigger** — the row is created lazily by the client's first `upsert` (saving a goal, water goal, or name) or by `consume_ai_call` on first AI use, whichever happens first. Any code that reads the profile must tolerate a missing row.
 - The **AI daily cap is enforced server-side**: `consume_ai_call(limit)` (SECURITY INVOKER RPC, UTC day) atomically reserves one of 6 calls. Counting client-dated entries would be spoofable; this isn't.
 
 ## AI photo flow (`supabase/functions/analyze-food-photo/`)
@@ -53,9 +53,9 @@ Render path: `main.jsx` → `Root.jsx` (auth gate and standalone-viewport recove
 
 ## Local Graphify
 
-- The local, untracked code graph is in `graphify-out/`. For architecture, dependency, or code-path questions, use `graphify query`, `graphify path`, or `graphify affected` before broad searches when the graph exists.
-- Rebuild semantic relations with `npm run graphify`; it reads only `OPENAI_API_KEY` from ignored `.env.local` and sends source chunks to OpenAI. Never add the key or graph output to Git.
-- Graph edges guide investigation, not mutations: inspect the cited current source before editing.
+- Use the existing local graph in `graphify-out/graph.json` first for architecture, dependencies, code paths, and change-impact investigation: run `graphify query`, `graphify path`, or `graphify affected` from this checkout before broad repository searches. Reuse the findings and inspect the cited current source before editing.
+- Do not rebuild the graph at session startup or for routine queries. If the graph is missing, unavailable, or stale for the code in question, use targeted source searches; rebuild only when the task needs an updated graph.
+- To rebuild, use `npm run graphify`. The script sources the entire ignored `.env.local` in a subshell, extracts `OPENAI_API_KEY`, and explicitly passes that key to Graphify; rebuilding sends source chunks to OpenAI. Never add the key or graph output to Git.
 
 - **Never create a branch named `codex/**`.** Use a descriptive feature, fix, or chore prefix instead.
 - `// ponytail:` comments mark deliberate simplifications and name the upgrade path — read them before "fixing" something that looks too minimal.
