@@ -189,7 +189,7 @@ export function useData(session) {
     const res = await fetch(`${FUNCTIONS_URL}/analyze-food-photo`, {
       method: "POST",
       headers: { "content-type": "application/json", Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ image, mediaType: "image/jpeg", guidance: guidance.trim() }),
+      body: JSON.stringify({ image, mediaType: "image/jpeg", guidance }),
     });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) return { error: body.error || "error", status: res.status };

@@ -381,10 +381,11 @@ export default function App({ session }) {
     if (!photoFile || form.entrySaved) return;
     const lockToken = acquireRequestLock(photoAnalysisLock);
     if (!lockToken) return;
+    const guidance = photoGuidance;
     const request = capturePhotoRequest(photoRequestRevision, photoFile, photoGuidance);
     setPhoto({ state: "loading", note: "", error: null });
     try {
-      const r = await data.analyzePhoto(request.file, request.guidance);
+      const r = await data.analyzePhoto(request.file, guidance);
       if (!request.isCurrent()) return;
       if (r?.estimate) {
         setForm((current) => ({ ...current, name: r.estimate.name || "", protein: String(round(r.estimate.protein_g)), calories: String(round(r.estimate.calories)), grams: "", quantity: "1", unit: "מנה", save: false }));

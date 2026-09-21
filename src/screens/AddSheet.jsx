@@ -132,11 +132,11 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFo
               <input disabled={photoControlsDisabled} ref={galleryRef} type="file" accept="image/*" hidden onChange={pickFile} />
 
               <div style={{ ...formSection, marginBottom: 14 }}>
-                <label style={label}>פרטים נוספים על המנה (אופציונלי)</label>
+                <label style={label}>תיאור למודל על המנה (אופציונלי)</label>
                 <textarea disabled={photoControlsDisabled} value={photoGuidance} onChange={(e) => onPhotoGuidance(e.target.value)} maxLength={1000} rows={3}
                   placeholder="למשל: שווארמה הודו עם פיתה, טחינה וסלט. בערך 150 גרם בשר"
-                  aria-label="פרטים נוספים על המנה" style={{ ...input, resize: "vertical", lineHeight: 1.5 }} />
-                <div style={{ color: "#6f6f78", fontSize: 12, marginTop: 6 }}>המידע יעזור ל-AI לזהות מרכיבים וכמויות בתמונה.</div>
+                  aria-label="תיאור למודל על המנה" style={{ ...input, resize: "vertical", lineHeight: 1.5 }} />
+                <div style={{ color: "#6f6f78", fontSize: 12, marginTop: 6 }}>התיאור נשלח יחד עם התמונה ומשמש לזיהוי מרכיבים, משקל וכמות.</div>
               </div>
 
               {photo.state === "idle" && (
