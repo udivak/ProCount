@@ -25,16 +25,54 @@ test("capturePhotoRequest keeps its starting file and trimmed guidance", () => {
   assert.equal(request.isCurrent(), false);
 });
 
-test("captureFoodEstimateRequest snapshots trimmed fields and becomes stale after an edit", () => {
+test("captures every nutrition-relevant manual field", () => {
+  assert.deepEqual(
+    captureFoodEstimateRequest(7, "חזה עוף", "100 גרם", "2", "200"),
+    {
+      revision: 7,
+      foodName: "חזה עוף",
+      unit: "100 גרם",
+      quantity: 2,
+      totalGrams: 200,
+    },
+  );
+});
+
+test("keeps saved-food estimate callers compatible", () => {
+  assert.deepEqual(
+    captureFoodEstimateRequest(3, "יוגורט", "גביע"),
+    {
+      revision: 3,
+      foodName: "יוגורט",
+      unit: "גביע",
+      quantity: 1,
+      totalGrams: null,
+    },
+  );
+});
+
+test("captureFoodEstimateRequest snapshots all nutrition fields and becomes stale after an edit", () => {
   const revision = { current: 0 };
-  const request = captureFoodEstimateRequest(revision, "  יוגורט חלבון  ", "  יחידה  ");
+  const request = captureFoodEstimateRequest(revision, "  יוגורט חלבון  ", "  יחידה  ", "2", "200");
 
   assert.equal(request.foodName, "יוגורט חלבון");
   assert.equal(request.unit, "יחידה");
+  assert.equal(request.quantity, 2);
+  assert.equal(request.totalGrams, 200);
   assert.equal(request.isCurrent(), true);
 
   captureRequestRevision(revision);
   assert.equal(request.isCurrent(), false);
+});
+
+test("every nutrition-field edit invalidates a captured estimate", () => {
+  for (const changedField of ["foodName", "unit", "quantity", "totalGrams"]) {
+    const revision = { current: 0 };
+    const request = captureFoodEstimateRequest(revision, "יוגורט", "גביע", 1, null);
+
+    captureRequestRevision(revision);
+    assert.equal(request.isCurrent(), false, changedField);
+  }
 });
 
 test("request lock blocks overlap and an old release preserves a new request", () => {

@@ -22,7 +22,7 @@ npm test           # pure-function tests: node --test src/lib/*.test.js
 
 ## Architecture
 
-**The frontend is a thin client over Supabase.** There is no app server: the PWA talks to Postgres directly through `supabase-js` and to one Edge Function for AI photo analysis. `Root.jsx` and `Login.jsx` are the only UI files besides the store that call the Supabase client, and only for session/authentication work; keep application-data queries and mutations in the store.
+**The frontend is a thin client over Supabase.** There is no app server: the PWA talks to Postgres directly through `supabase-js` and to one Edge Function for AI photo and manual nutrition estimates. `Root.jsx` and `Login.jsx` are the only UI files besides the store that call the Supabase client, and only for session/authentication work; keep application-data queries and mutations in the store.
 
 Render path: `main.jsx` → `Root.jsx` (auth gate and standalone-viewport recovery; renders `Login` or `App`) → `App.jsx` (the shell: header, bottom nav, FAB, sheets/overlays/dialogs, selected day, meal type, Trends range, undo state, and a `useMemo` view-model). Screens plus `FoodEditor.jsx`, `ItemDetailModal.jsx`, and `ConfirmDialog.jsx` are presentational: receive data and callbacks, and do not perform data access. `MealPlan.jsx` is intentionally static guidance, not profile- or entry-derived data. Destructive actions route through `ConfirmDialog`; food and water entry deletes also expose a six-second undo.
 
@@ -45,9 +45,9 @@ Render path: `main.jsx` → `Root.jsx` (auth gate and standalone-viewport recove
 - **`profile`** holds `protein_goal_g`, `water_goal_ml`, `name` (used in the header greeting), and the AI-quota fields. There is **no signup trigger** — the row is created lazily by the client's first `upsert` (saving a goal, water goal, or name) or by `consume_ai_call` on first AI use, whichever happens first. Any code that reads the profile must tolerate a missing row.
 - The **AI daily cap is enforced server-side**: `consume_ai_call(limit)` (SECURITY INVOKER RPC, UTC day) atomically reserves one of 6 calls. Counting client-dated entries would be spoofable; this isn't.
 
-## AI photo flow (`supabase/functions/analyze-food-photo/`)
+## AI estimate flow (`supabase/functions/analyze-food-photo/`)
 
-`store.js` `analyzePhoto` compresses a camera or gallery image to ~1024px JPEG base64 → `POST /functions/v1/analyze-food-photo` with the user's JWT. The same function accepts `mode: "text"` for saved-food nutrition estimates. It keeps `ANTHROPIC_API_KEY` server-side, calls `consume_ai_call` (→ 429 `daily_limit` when spent), then makes one non-streaming Claude Messages call (`claude-sonnet-4-6`, structured `output_config` JSON schema). Photo success returns `{ name, calories, protein_g, confidence, note }`, shown in editable fields before saving an `ai` entry; saving that result to the shared catalog is explicit opt-in. Every failure falls back to editable/manual UI—see the response table in `supabase/README.md`. `validate.ts` enforces result shape and non-negativity; `guidance.ts` bounds optional user guidance. Both have colocated Deno tests.
+`store.js` compresses a camera or gallery image to ~1024px JPEG base64 and posts it with an optional raw photo description to `analyze-food-photo` under the user's JWT; the same function accepts `mode: "text"` for explicit manual nutrition completion. The Edge Function keeps `OPENAI_API_KEY` server-side, rejects missing configuration before reserving `consume_ai_call(6)`, and makes one non-streaming OpenAI Responses call to `gpt-6-astra` with low reasoning, `store: false`, and a strict JSON schema. Photo content combines one `input_image` and labeled untrusted food description; manual content includes `foodName`, `unit`, `quantity`, and optional `totalGrams`, then returns nutrition for one unit only. All results remain editable and persist only through the existing explicit add/save flow; failures retain the manual fallback. `validate.ts` independently validates response shape and non-negativity; `guidance.ts` bounds and constructs request content. Both have colocated Deno tests.
 
 ## Conventions
 

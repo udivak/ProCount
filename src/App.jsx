@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useData, RANGE_DAYS } from "./store.js";
 import { headerDate, lastNDates, lastNWeeks, weekdayLabel, weekRangeLabel, shiftDate, dayLabel, greeting } from "./lib/date.js";
 import { CALORIE_GOAL, calorieBalance, dailyTotals, dailyWaterTotal, remainingProtein, pct, dailyPace, streak, proteinByDay, weekSeries, weeklyAverageSeries, avgCaloriesPerActiveDay, average, entriesByMeal, proteinSuggestion } from "./lib/nutrition.js";
-import { acquireRequestLock, capturePhotoRequest, captureRequestRevision, clearRequestLock, releaseRequestLock } from "./lib/request.js";
+import { acquireRequestLock, captureFoodEstimateRequest, capturePhotoRequest, captureRequestRevision, clearRequestLock, releaseRequestLock } from "./lib/request.js";
 import { withSubmissionLock } from "./lib/submission.js";
 import { foodUndoTarget } from "./lib/delete.js";
 import { defaultMealType, isLearnedSnack, learnedSnackFoods, resolveAddedMeal } from "./lib/meal.js";
@@ -40,6 +40,7 @@ export default function App({ session }) {
   const [photo, setPhoto] = useState({ state: "idle", note: "", error: null });
   const [photoFile, setPhotoFile] = useState(null);
   const [photoGuidance, setPhotoGuidance] = useState("");
+  const [manualEstimate, setManualEstimate] = useState(null);
   const [editFood, setEditFood] = useState(null); // null | {} (new) | foodRow (edit)
   const [selectedEntry, setSelectedEntry] = useState(null); // null | a todayEntries vm item (detail modal)
   const [detailBusy, setDetailBusy] = useState(false);
@@ -62,6 +63,8 @@ export default function App({ session }) {
   const addSaveLock = useRef(false);
   const photoRequestRevision = useRef(0);
   const photoAnalysisLock = useRef(null);
+  const manualEstimateRevision = useRef(0);
+  const manualEstimateLock = useRef(null);
   const detailOperationLock = useRef(false);
   const addReturnFocus = useRef(null);
   const appScrollRef = useRef(null);
@@ -208,10 +211,16 @@ export default function App({ session }) {
     clearRequestLock(photoAnalysisLock);
     return captureRequestRevision(photoRequestRevision);
   };
+  const invalidateManualEstimate = (clearLock = false) => {
+    if (clearLock) clearRequestLock(manualEstimateLock);
+    captureRequestRevision(manualEstimateRevision);
+    setManualEstimate(null);
+  };
   const openAdd = () => {
     if (addSaveLock.current) return;
     addReturnFocus.current = document.activeElement;
     invalidatePhotoRequest();
+    invalidateManualEstimate(true);
     setForm(blankForm());
     setAddError("");
     setAddNotice("");
@@ -224,22 +233,26 @@ export default function App({ session }) {
     setIsGeneralFood(false);
     setAddOpen(true);
   };
-  const openGeneralFood = () => { if (!form.entrySaved) { setAddError(""); setAddTab("manual"); setIsGeneralFood(true); } };
-  const backFromGeneralFood = () => { if (!form.entrySaved) { setAddError(""); setAddTab("quick"); setIsGeneralFood(false); } };
+  const openGeneralFood = () => { if (!form.entrySaved) { invalidateManualEstimate(); setAddError(""); setAddTab("manual"); setIsGeneralFood(true); } };
+  const backFromGeneralFood = () => { if (!form.entrySaved) { invalidateManualEstimate(); setAddError(""); setAddTab("quick"); setIsGeneralFood(false); } };
   const onTab = (tab) => {
     if (form.entrySaved || tab === addTab) return;
     invalidatePhotoRequest();
+    invalidateManualEstimate(true);
     setAddError("");
     setAddTab(tab);
     setIsGeneralFood(false);
     setPhoto({ state: "idle", note: "", error: null });
     setPhotoFile(null);
   };
-  const onField = (key, value) => { if (!form.entrySaved) { setAddError(""); setForm((current) => ({ ...current, [key]: value })); } };
-  const onToggleSave = () => { if (!form.entrySaved) { setAddError(""); setForm((current) => ({ ...current, save: !current.save })); } };
+  const onField = (key, value) => { if (!form.entrySaved) { invalidateManualEstimate(); setAddError(""); setForm((current) => ({ ...current, [key]: value })); } };
+  const onToggleSave = () => { if (!form.entrySaved) { invalidateManualEstimate(); setAddError(""); setForm((current) => ({ ...current, save: !current.save })); } };
+  const onDate = (date) => { if (!form.entrySaved) { invalidateManualEstimate(); setAddDate(date); } };
+  const onMealType = (type) => { if (!form.entrySaved) { invalidateManualEstimate(); setMealType(type); } };
 
   const finishAdd = () => {
     invalidatePhotoRequest();
+    invalidateManualEstimate(true);
     setForm(blankForm());
     setAddError("");
     setPhoto({ state: "idle", note: "", error: null });
@@ -267,6 +280,7 @@ export default function App({ session }) {
   });
 
   const submitAdd = () => {
+    if (manualEstimateLock.current) return;
     if (isGeneralFood && (!(form.name || "").trim() || !isNonNegative(form.protein) || !isNonNegative(form.calories))) return;
     return runAddSave(async () => {
       const finalMealType = resolveAddedMeal(mealType, { name: form.name }, learnedSnacks);
@@ -288,6 +302,54 @@ export default function App({ session }) {
       setSelectedDay(addDate); // jump the view to the day we just logged onto
       finishAdd();
     });
+  };
+
+  const analyzeManualFood = async () => {
+    if (form.entrySaved || addSaving) return;
+    const foodName = form.name.trim();
+    const unit = form.unit.trim();
+    const quantity = Number(form.quantity);
+    const totalGrams = form.grams.trim() === "" ? null : Number(form.grams);
+    const valid = foodName.length > 0 &&
+      unit.length > 0 &&
+      Number.isFinite(quantity) && quantity > 0 &&
+      (totalGrams == null || (Number.isFinite(totalGrams) && totalGrams > 0));
+    if (!valid) return;
+
+    const lockToken = acquireRequestLock(manualEstimateLock);
+    if (!lockToken) return;
+    const request = captureFoodEstimateRequest(manualEstimateRevision, foodName, unit, quantity, totalGrams);
+    setManualEstimate({ state: "loading", note: "", error: "", unit: request.unit, confidence: "" });
+    try {
+      const result = await data.estimateFoodNutrition(request.foodName, request.unit, request.quantity, request.totalGrams);
+      if (!request.isCurrent()) return;
+      if (result?.estimate) {
+        setForm((current) => ({
+          ...current,
+          protein: String(round(result.estimate.protein_g)),
+          calories: String(round(result.estimate.calories)),
+        }));
+        setManualEstimate({
+          state: "done",
+          note: result.estimate.note || "",
+          error: "",
+          unit: request.unit,
+          confidence: result.estimate.confidence || "",
+        });
+      } else {
+        setManualEstimate({
+          state: "error",
+          note: "",
+          error: result?.error === "daily_limit" ? "daily_limit" : "error",
+          unit: request.unit,
+          confidence: "",
+        });
+      }
+    } catch {
+      if (request.isCurrent()) setManualEstimate({ state: "error", note: "", error: "error", unit: request.unit, confidence: "" });
+    } finally {
+      releaseRequestLock(manualEstimateLock, lockToken);
+    }
   };
 
   const pickPhoto = (file) => {
@@ -319,10 +381,11 @@ export default function App({ session }) {
     if (!photoFile || form.entrySaved) return;
     const lockToken = acquireRequestLock(photoAnalysisLock);
     if (!lockToken) return;
+    const guidance = photoGuidance;
     const request = capturePhotoRequest(photoRequestRevision, photoFile, photoGuidance);
     setPhoto({ state: "loading", note: "", error: null });
     try {
-      const r = await data.analyzePhoto(request.file, request.guidance);
+      const r = await data.analyzePhoto(request.file, guidance);
       if (!request.isCurrent()) return;
       if (r?.estimate) {
         setForm((current) => ({ ...current, name: r.estimate.name || "", protein: String(round(r.estimate.protein_g)), calories: String(round(r.estimate.calories)), grams: "", quantity: "1", unit: "מנה", save: false }));
@@ -443,7 +506,8 @@ export default function App({ session }) {
         <AddSheet tab={addTab} onTab={onTab} onClose={discardAdd} foods={vm.foodVm} form={form} isGeneralFood={isGeneralFood} onOpenGeneral={openGeneralFood} onBackGeneral={backFromGeneralFood} onBackPhoto={backFromPhotoResult} error={addError} saving={addSaving}
           onField={onField} onToggleSave={onToggleSave} locked={form.entrySaved} onBeginQuick={() => setAddError("")} isLearnedSnack={(food) => isLearnedSnack(food, learnedSnacks)}
           onSubmit={submitAdd} onQuickAdd={quickAdd} photo={{ ...photo, quota: vm.aiQuota }} photoFile={photoFile} onPickPhoto={pickPhoto} onAnalyzePhoto={analyzeSelectedPhoto} photoGuidance={photoGuidance} onPhotoGuidance={changePhotoGuidance}
-          date={addDate} onDate={(date) => { if (!form.entrySaved) setAddDate(date); }} minDate={oldest} maxDate={today} mealType={mealType} onMealType={(type) => { if (!form.entrySaved) setMealType(type); }} />
+          manualEstimate={manualEstimate} manualEstimatePending={!!manualEstimateLock.current} onEstimateManual={analyzeManualFood}
+          date={addDate} onDate={onDate} minDate={oldest} maxDate={today} mealType={mealType} onMealType={onMealType} />
       )}
 
       {settingsOpen && (

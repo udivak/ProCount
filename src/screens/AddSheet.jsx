@@ -12,7 +12,7 @@ const round = (n) => Math.round(Number(n) || 0);
 const MEALS = [["breakfast", "בוקר"], ["lunch", "צהריים"], ["dinner", "ערב"], ["snack", "נשנוש"]];
 const MEASURES = ["יחידה", "כף", "כפית", "כוס", "פרוסה", "סקופ", "קופסה", "מנה", "100 גרם"];
 
-export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFood, onOpenGeneral, onBackGeneral, onBackPhoto, onField, onToggleSave, onSubmit, onQuickAdd, photo, photoFile, onPickPhoto, onAnalyzePhoto, photoGuidance, onPhotoGuidance, date, onDate, minDate, maxDate, mealType, onMealType, error, locked, saving, onBeginQuick, isLearnedSnack }) {
+export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFood, onOpenGeneral, onBackGeneral, onBackPhoto, onField, onToggleSave, onSubmit, onQuickAdd, photo, photoFile, onPickPhoto, onAnalyzePhoto, photoGuidance, onPhotoGuidance, manualEstimate, manualEstimatePending, onEstimateManual, date, onDate, minDate, maxDate, mealType, onMealType, error, locked, saving, onBeginQuick, isLearnedSnack }) {
   const cameraRef = useRef(null);
   const galleryRef = useRef(null);
   const closeRef = useRef(null);
@@ -121,7 +121,8 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFo
           {tab === "manual" && (
             <>
               {isGeneralFood && <button disabled={disabled} onClick={onBackGeneral} style={{ alignSelf: "flex-start", marginBottom: 14, background: "none", border: "none", color: "#8a8a93", fontFamily: "inherit", fontSize: 14, fontWeight: 700, cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? .45 : 1, padding: 0 }}>‹ חזרה לרשימה</button>}
-              <ManualForm form={form} onField={onField} onToggleSave={onToggleSave} onSubmit={onSubmit} cta={saving ? "שומר..." : locked ? "נסה שוב לשמור את המאכל" : "הוסף לרישום"} showSave showMeasure showQuantity requireAll={isGeneralFood} error={error} locked={locked} saving={saving} />
+              <ManualForm form={form} onField={onField} onToggleSave={onToggleSave} onSubmit={onSubmit} cta={saving ? "שומר..." : locked ? "נסה שוב לשמור את המאכל" : "הוסף לרישום"} showSave showMeasure showQuantity requireAll={isGeneralFood} error={error} locked={locked} saving={saving}
+                manualEstimate={manualEstimate} manualEstimatePending={manualEstimatePending} onEstimateManual={onEstimateManual} />
             </>
           )}
 
@@ -131,11 +132,11 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFo
               <input disabled={photoControlsDisabled} ref={galleryRef} type="file" accept="image/*" hidden onChange={pickFile} />
 
               <div style={{ ...formSection, marginBottom: 14 }}>
-                <label style={label}>פרטים נוספים על המנה (אופציונלי)</label>
+                <label style={label}>תיאור למודל על המנה (אופציונלי)</label>
                 <textarea disabled={photoControlsDisabled} value={photoGuidance} onChange={(e) => onPhotoGuidance(e.target.value)} maxLength={1000} rows={3}
                   placeholder="למשל: שווארמה הודו עם פיתה, טחינה וסלט. בערך 150 גרם בשר"
-                  aria-label="פרטים נוספים על המנה" style={{ ...input, resize: "vertical", lineHeight: 1.5 }} />
-                <div style={{ color: "#6f6f78", fontSize: 12, marginTop: 6 }}>המידע יעזור ל-AI לזהות מרכיבים וכמויות בתמונה.</div>
+                  aria-label="תיאור למודל על המנה" style={{ ...input, resize: "vertical", lineHeight: 1.5 }} />
+                <div style={{ color: "#6f6f78", fontSize: 12, marginTop: 6 }}>התיאור נשלח יחד עם התמונה ומשמש לזיהוי מרכיבים, משקל וכמות.</div>
               </div>
 
               {photo.state === "idle" && (
@@ -242,11 +243,13 @@ function QtyPanel({ food, qty, setQty, onBack, onAdd, error, disabled }) {
 }
 
 // Shared name/protein/calories form — manual entry and the editable AI result.
-function ManualForm({ form, onField, onToggleSave, onSubmit, cta, showSave, showMeasure = false, showQuantity = false, requireAll = false, error, locked, saving }) {
+function ManualForm({ form, onField, onToggleSave, onSubmit, cta, showSave, showMeasure = false, showQuantity = false, requireAll = false, error, locked, saving, manualEstimate = null, manualEstimatePending = false, onEstimateManual }) {
   const selectedUnit = MEASURES.includes(form.unit) ? form.unit : "אחר";
   const customMeasureMissing = showMeasure && form.save && selectedUnit === "אחר" && !(form.unit || "").trim();
   const validNumber = (value) => String(value ?? "").trim() !== "" && Number.isFinite(Number(value)) && Number(value) >= 0;
   const validQuantity = String(form.quantity ?? "").trim() !== "" && Number.isFinite(Number(form.quantity)) && Number(form.quantity) > 0;
+  const validGrams = String(form.grams ?? "").trim() === "" || (Number.isFinite(Number(form.grams)) && Number(form.grams) > 0);
+  const validUnit = !!String(form.unit ?? "").trim();
   const quantity = validQuantity ? Number(form.quantity) : 0;
   const previewValue = (value) => Number.isFinite(Number(value)) ? Number(value) * quantity : 0;
   const invalidName = requireAll && !(form.name || "").trim();
@@ -255,7 +258,8 @@ function ManualForm({ form, onField, onToggleSave, onSubmit, cta, showSave, show
   const invalidQuantity = showQuantity && !validQuantity;
   const invalidGeneralFood = invalidName || invalidProtein || invalidCalories || invalidQuantity;
   const controlsDisabled = locked || saving;
-  const submitDisabled = saving || customMeasureMissing || invalidGeneralFood;
+  const canEstimate = !!onEstimateManual && showMeasure && showQuantity && !!String(form.name ?? "").trim() && validUnit && validQuantity && validGrams;
+  const submitDisabled = saving || manualEstimatePending || customMeasureMissing || invalidGeneralFood;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <section style={formSection}>
@@ -311,6 +315,16 @@ function ManualForm({ form, onField, onToggleSave, onSubmit, cta, showSave, show
           <label style={label}>משקל שנאכל (גרם, אופציונלי)</label>
           <input disabled={controlsDisabled} value={form.grams} onChange={(e) => onField("grams", e.target.value)} inputMode="decimal" aria-label="משקל שנאכל בגרמים" placeholder="למשל: 200" style={input} />
           <div style={{ color: "#6f6f78", fontSize: 12, marginTop: 6 }}>אם המידה היא בגרמים ולא הוזן משקל, הוא יחושב לפי הכמות.</div>
+        </section>
+      )}
+      {onEstimateManual && showMeasure && showQuantity && (
+        <section style={{ ...formSection, display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ color: "#8a9994", fontSize: 12, lineHeight: 1.45 }}>ההשלמה ממלאת ערכים ליחידת מידה אחת. הכמות מחושבת בנפרד.</div>
+          <button type="button" disabled={!canEstimate || manualEstimatePending} onClick={onEstimateManual} style={{ minHeight: 48, border: "1px solid #42675b", fontFamily: "inherit", background: "#15231e", color: "#9ef2d2", fontSize: 14, fontWeight: 800, padding: "12px 14px", borderRadius: 14, cursor: canEstimate && !manualEstimatePending ? "pointer" : "not-allowed", opacity: canEstimate && !manualEstimatePending ? 1 : .45 }}>
+            {manualEstimatePending ? "AI מחשב..." : "מלא חלבון וקלוריות עם AI"}
+          </button>
+          {manualEstimate?.state === "done" && <div role="status" style={{ color: "#9ef2d2", fontSize: 13, fontWeight: 700, lineHeight: 1.45 }}>הערכת AI עבור יחידה אחת של <bdi>{manualEstimate.unit}</bdi>: {manualEstimate.note}</div>}
+          {manualEstimate?.state === "error" && <div role="alert" style={{ color: "#fbbf24", fontSize: 13, fontWeight: 700, lineHeight: 1.45 }}>{manualEstimate.error === "daily_limit" ? "נגמרו ההשלמות עם AI להיום — אפשר להמשיך למלא ידנית." : "לא הצלחנו להשלים את הערכים. אפשר להמשיך למלא ידנית."}</div>}
         </section>
       )}
       {showSave && (

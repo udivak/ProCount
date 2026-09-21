@@ -8,12 +8,17 @@ export function capturePhotoRequest(revision, file, guidance) {
   return { isCurrent: captureRequestRevision(revision), file, guidance: guidance.trim() };
 }
 
-export function captureFoodEstimateRequest(revision, foodName, unit) {
-  return {
-    isCurrent: captureRequestRevision(revision),
+export function captureFoodEstimateRequest(revision, foodName, unit, quantity = 1, totalGrams = null) {
+  const request = {
     foodName: String(foodName ?? "").trim(),
     unit: String(unit ?? "").trim(),
+    quantity: Number(quantity),
+    totalGrams: totalGrams === "" || totalGrams == null ? null : Number(totalGrams),
   };
+
+  return revision && typeof revision === "object"
+    ? { isCurrent: captureRequestRevision(revision), ...request }
+    : { revision, ...request };
 }
 
 export function acquireRequestLock(lock) {

@@ -189,18 +189,24 @@ export function useData(session) {
     const res = await fetch(`${FUNCTIONS_URL}/analyze-food-photo`, {
       method: "POST",
       headers: { "content-type": "application/json", Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ image, mediaType: "image/jpeg", guidance: guidance.trim() }),
+      body: JSON.stringify({ image, mediaType: "image/jpeg", guidance }),
     });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) return { error: body.error || "error", status: res.status };
     return { estimate: body };
   }, [session]);
 
-  const estimateFoodNutrition = useCallback(async (foodName, unit) => {
+  const estimateFoodNutrition = useCallback(async (foodName, unit, quantity = 1, totalGrams = null) => {
     const res = await fetch(`${FUNCTIONS_URL}/analyze-food-photo`, {
       method: "POST",
       headers: { "content-type": "application/json", Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ mode: "text", foodName: String(foodName ?? "").trim(), unit: String(unit ?? "").trim() }),
+      body: JSON.stringify({
+        mode: "text",
+        foodName: String(foodName ?? "").trim(),
+        unit: String(unit ?? "").trim(),
+        quantity,
+        totalGrams,
+      }),
     });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) return { error: body.error || "error", status: res.status };
