@@ -51,6 +51,12 @@ Render path: `main.jsx` → `Root.jsx` (auth gate and standalone-viewport recove
 
 ## Conventions
 
+## Local Graphify
+
+- The local, untracked code graph is in `graphify-out/`. For architecture, dependency, or code-path questions, use `graphify query`, `graphify path`, or `graphify affected` before broad searches when the graph exists.
+- Rebuild semantic relations with `npm run graphify`; it reads only `OPENAI_API_KEY` from ignored `.env.local` and sends source chunks to OpenAI. Never add the key or graph output to Git.
+- Graph edges guide investigation, not mutations: inspect the cited current source before editing.
+
 - **Never create a branch named `codex/**`.** Use a descriptive feature, fix, or chore prefix instead.
 - `// ponytail:` comments mark deliberate simplifications and name the upgrade path — read them before "fixing" something that looks too minimal.
 - The PWA registration and Hebrew RTL manifest live in `vite.config.js`; keep the listed icon assets and `registerType: "autoUpdate"` behavior intact unless the release behavior is intentionally changing.
