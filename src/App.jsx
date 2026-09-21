@@ -309,7 +309,7 @@ export default function App({ session }) {
     const foodName = form.name.trim();
     const unit = form.unit.trim();
     const quantity = Number(form.quantity);
-    const totalGrams = form.grams === "" ? null : Number(form.grams);
+    const totalGrams = form.grams.trim() === "" ? null : Number(form.grams);
     const valid = foodName.length > 0 &&
       unit.length > 0 &&
       Number.isFinite(quantity) && quantity > 0 &&
