@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { todayLocal } from "../lib/date.js";
-import { bestAtLoad, progressPoints, progressSince, groupExercisesByMuscle } from "../lib/workout.js";
+import { bestAtLoad, progressPoints, progressSince, groupExercisesByMuscle, targetReps, workoutLoadLabel } from "../lib/workout.js";
 import WorkoutSession from "./WorkoutSession.jsx";
 import WorkoutMuscleGroups from "./WorkoutMuscleGroups.jsx";
 
@@ -9,6 +9,7 @@ const input = { width: "100%", minHeight: 44, border: "1px solid #354039", borde
 const button = { minHeight: 44, border: "1px solid #39e6b2", borderRadius: 12, background: "#39e6b2", color: "#03120d", font: "800 14px Heebo, sans-serif", padding: "8px 13px", cursor: "pointer" };
 const quiet = { ...button, background: "#17231e", color: "#8ff0ce", borderColor: "#315747" };
 const muted = { color: "#8a9994", fontSize: 13 };
+const setCell = { padding: "10px 6px", borderBottom: "1px solid #27302c", textAlign: "center", fontVariantNumeric: "tabular-nums" };
 const blankExercise = () => ({ id: crypto.randomUUID(), name: "", muscle_group: "", equipment: "", load_mode: "external", weight_basis: "total", reps_basis: "total", notes: "" });
 const blankTemplate = (position) => ({ id: crypto.randomUUID(), name: "", position, preferred_day: null, items: [] });
 const defaultTargets = () => [{ load_kg: null, reps_min: 8, reps_max: 12 }];
@@ -130,7 +131,12 @@ export default function Workouts({ data, onConfirm }) {
         <WorkoutMuscleGroups key={selected.id} groups={groupExercisesByMuscle(selectedItems, (item) => data.exercises.find((exercise) => exercise.id === item.exercise_id)?.muscle_group)} renderExercise={(item) => {
           const exercise = data.exercises.find((entry) => entry.id === item.exercise_id);
           const prior = last[item.id];
-          return <div key={item.id} style={card}><strong>{exercise?.name || "תרגיל בארכיון"}</strong><div style={muted}>{exercise?.muscle_group || ""} · {item.target_sets.length} סטים · מנוחה {item.rest_seconds} שניות</div><div style={muted}>יעד: {item.target_sets.map((target) => `${target.load_kg ?? "—"} ק״ג × ${target.reps_min}–${target.reps_max}`).join(" · ")}</div><div style={muted}>פעם קודמת: {prior?.length ? `${prior[0].performed_on} · ${prior.map((set) => `${set.load_kg ?? "משקל גוף"} × ${set.reps}`).join(" · ")}` : "אין תיעוד"}</div>
+          return <div key={item.id} style={card}><strong>{exercise?.name || "תרגיל בארכיון"}</strong><div style={muted}>{item.target_sets.length} סטים · מנוחה {item.rest_seconds} שניות בין הסטים</div>
+            <table aria-label={`סטים מתוכננים: ${exercise?.name || "תרגיל בארכיון"}`} style={{ width: "100%", tableLayout: "fixed", borderCollapse: "collapse", marginBlock: 12 }}>
+              <thead><tr><th scope="col" style={{ ...setCell, ...muted, width: "20%" }}>סט</th><th scope="col" style={{ ...setCell, ...muted }}>ק״ג{exercise?.load_mode === "assisted" ? " סיוע" : ""}{exercise?.weight_basis === "per_hand" ? " לכל יד" : ""}</th><th scope="col" style={{ ...setCell, ...muted }}>חזרות{exercise?.reps_basis === "per_side" ? " לכל צד" : ""}</th></tr></thead>
+              <tbody>{item.target_sets.map((target, index) => <tr key={index}><th scope="row" style={{ ...setCell, color: "#8ff0ce" }}>{index + 1}</th><td style={setCell}><bdi>{workoutLoadLabel(target.load_kg, exercise?.load_mode)}</bdi></td><td style={setCell}><bdi dir="ltr">{targetReps(target)}</bdi></td></tr>)}</tbody>
+            </table>
+            <div style={muted}>פעם קודמת: {prior?.length ? `${prior[0].performed_on} · ${prior.map((set) => `${set.load_kg ?? "משקל גוף"} × ${set.reps}`).join(" · ")}` : "אין תיעוד"}</div>
             {exercise && !exercise.archived_at && <button style={{ ...quiet, marginTop: 10 }} onClick={() => setExerciseEditor({ ...exercise, equipment: exercise.equipment || "", notes: exercise.notes || "", current: exercise })}>ערוך תרגיל: {exercise.name}</button>}
           </div>;
         }} />
