@@ -1,6 +1,20 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseSet, workoutVolume, progressPoints, bestAtLoad, groupExercisesByMuscle, targetSetProgress } from "./workout.js";
+import { parseSet, workoutVolume, progressPoints, bestAtLoad, groupExercisesByMuscle, targetSetProgress, targetReps, workoutLoadLabel } from "./workout.js";
+
+test("set instructions distinguish fixed reps, ranges, bodyweight and missing loads", () => {
+  assert.deepEqual([
+    { load_kg: 87.5, reps_min: 8, reps_max: 8 },
+    { load_kg: 85, reps_min: 9, reps_max: 9 },
+    { load_kg: 80, reps_min: 8, reps_max: 8 },
+  ].map((target) => [workoutLoadLabel(target.load_kg, "external"), targetReps(target)]), [["87.5", "8"], ["85", "9"], ["80", "8"]]);
+  assert.equal(targetReps({ reps_min: 8, reps_max: 12 }), "8–12");
+  assert.equal(targetReps(null), "—");
+  assert.equal(workoutLoadLabel(null, "external"), "לא הוגדר");
+  assert.equal(workoutLoadLabel(null, "assisted"), "לא הוגדר");
+  assert.equal(workoutLoadLabel(null, "bodyweight"), "משקל גוף");
+  assert.equal(workoutLoadLabel(0, "external"), "0");
+});
 
 test("keeps decimal loads and separate set reps; excludes warmups", () => {
   const sets = [

@@ -1,17 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import { todayLocal } from "../lib/date.js";
-import { bestAtLoad, progressPoints, progressSince, groupExercisesByMuscle } from "../lib/workout.js";
+import { bestAtLoad, progressPoints, progressSince, groupExercisesByMuscle, targetReps, workoutLoadLabel } from "../lib/workout.js";
 import WorkoutSession from "./WorkoutSession.jsx";
 import WorkoutMuscleGroups from "./WorkoutMuscleGroups.jsx";
 
 const card = { border: "1px solid #27302c", borderRadius: 18, background: "#111512", padding: 16 };
-const input = { width: "100%", minHeight: 44, border: "1px solid #354039", borderRadius: 11, background: "#171b18", color: "#f4f7f6", font: "700 15px Heebo, sans-serif", padding: "8px 11px" };
+const input = { width: "100%", minWidth: 0, minHeight: 44, border: "1px solid #354039", borderRadius: 11, background: "#171b18", color: "#f4f7f6", font: "700 15px Heebo, sans-serif", padding: "8px 11px" };
 const button = { minHeight: 44, border: "1px solid #39e6b2", borderRadius: 12, background: "#39e6b2", color: "#03120d", font: "800 14px Heebo, sans-serif", padding: "8px 13px", cursor: "pointer" };
 const quiet = { ...button, background: "#17231e", color: "#8ff0ce", borderColor: "#315747" };
 const muted = { color: "#8a9994", fontSize: 13 };
+const setCell = { padding: "10px 6px", borderBottom: "1px solid #27302c", textAlign: "center", fontVariantNumeric: "tabular-nums" };
 const blankExercise = () => ({ id: crypto.randomUUID(), name: "", muscle_group: "", equipment: "", load_mode: "external", weight_basis: "total", reps_basis: "total", notes: "" });
 const blankTemplate = (position) => ({ id: crypto.randomUUID(), name: "", position, preferred_day: null, items: [] });
-const defaultTargets = () => [{ load_kg: null, reps_min: 8, reps_max: 12 }];
+const defaultTargets = () => [{ load_kg: null, reps_min: 8, reps_max: 8 }];
 
 export default function Workouts({ data, onConfirm }) {
   const [view, setView] = useState("plan");
@@ -78,14 +79,15 @@ export default function Workouts({ data, onConfirm }) {
     if (!result?.error) { pendingSessionId.current = null; setView("session"); }
   };
   const openSession = async (id) => { const result = await run(() => data.loadSession(id), ""); if (!result?.error) setView("session"); };
-  const editTemplate = (template) => setTemplateEditor(template ? {
+  const editTemplate = (template, focusIndex = null) => setTemplateEditor(template ? {
     ...template, items: data.items.filter((item) => item.template_id === template.id).sort((a, b) => a.position - b.position)
       .map((item) => ({ exercise_id: item.exercise_id, target_sets: item.target_sets, rest_seconds: item.rest_seconds, notes: item.notes || "" })),
-    current: template,
+    current: template, focusIndex,
   } : blankTemplate(data.templates.length));
   const saveTemplate = async () => {
     if (!templateEditor?.name.trim()) { setMessage("צריך לתת שם לאימון."); return; }
-    const values = { ...templateEditor, items: templateEditor.items.map((item, index) => ({ ...item, position: index })) };
+    const values = { ...templateEditor, items: templateEditor.items.map((item, index) => ({ ...item, position: index,
+      target_sets: item.target_sets.map(({ load_kg, reps_min, reps_max }) => ({ load_kg, reps_min, reps_max })) })) };
     const result = await run(() => data.saveTemplate(values, templateEditor.current), "התכנית נשמרה");
     if (!result?.error) { setTemplateId(values.id); setTemplateEditor(null); }
   };
@@ -130,7 +132,13 @@ export default function Workouts({ data, onConfirm }) {
         <WorkoutMuscleGroups key={selected.id} groups={groupExercisesByMuscle(selectedItems, (item) => data.exercises.find((exercise) => exercise.id === item.exercise_id)?.muscle_group)} renderExercise={(item) => {
           const exercise = data.exercises.find((entry) => entry.id === item.exercise_id);
           const prior = last[item.id];
-          return <div key={item.id} style={card}><strong>{exercise?.name || "תרגיל בארכיון"}</strong><div style={muted}>{exercise?.muscle_group || ""} · {item.target_sets.length} סטים · מנוחה {item.rest_seconds} שניות</div><div style={muted}>יעד: {item.target_sets.map((target) => `${target.load_kg ?? "—"} ק״ג × ${target.reps_min}–${target.reps_max}`).join(" · ")}</div><div style={muted}>פעם קודמת: {prior?.length ? `${prior[0].performed_on} · ${prior.map((set) => `${set.load_kg ?? "משקל גוף"} × ${set.reps}`).join(" · ")}` : "אין תיעוד"}</div>
+          return <div key={item.id} style={card}><strong>{exercise?.name || "תרגיל בארכיון"}</strong><div style={muted}>{item.target_sets.length} סטים · מנוחה {item.rest_seconds} שניות בין הסטים</div>
+            <table aria-label={`סטים מתוכננים: ${exercise?.name || "תרגיל בארכיון"}`} style={{ width: "100%", tableLayout: "fixed", borderCollapse: "collapse", marginBlock: 12 }}>
+              <thead><tr><th scope="col" style={{ ...setCell, ...muted, width: "20%" }}>סט</th><th scope="col" style={{ ...setCell, ...muted }}>ק״ג{exercise?.load_mode === "assisted" ? " סיוע" : ""}{exercise?.weight_basis === "per_hand" ? " לכל יד" : ""}</th><th scope="col" style={{ ...setCell, ...muted }}>חזרות{exercise?.reps_basis === "per_side" ? " לכל צד" : ""}</th></tr></thead>
+              <tbody>{item.target_sets.map((target, index) => <tr key={index}><th scope="row" style={{ ...setCell, color: "#8ff0ce" }}>{index + 1}</th><td style={setCell}><bdi>{workoutLoadLabel(target.load_kg, exercise?.load_mode)}</bdi></td><td style={setCell}><bdi dir="ltr">{targetReps(target)}</bdi></td></tr>)}</tbody>
+            </table>
+            <div style={muted}>פעם קודמת: {prior?.length ? `${prior[0].performed_on} · ${prior.map((set) => `${set.load_kg ?? "משקל גוף"} × ${set.reps}`).join(" · ")}` : "אין תיעוד"}</div>
+            <button style={{ ...quiet, marginTop: 10 }} onClick={() => editTemplate(selected, selectedItems.indexOf(item))}>ערוך סטים</button>
             {exercise && !exercise.archived_at && <button style={{ ...quiet, marginTop: 10 }} onClick={() => setExerciseEditor({ ...exercise, equipment: exercise.equipment || "", notes: exercise.notes || "", current: exercise })}>ערוך תרגיל: {exercise.name}</button>}
           </div>;
         }} />
@@ -190,26 +198,42 @@ export default function Workouts({ data, onConfirm }) {
       {exerciseEditor.current && <button style={{ ...quiet, color: "#fb8b91", marginTop: 16 }} onClick={() => onConfirm({ title: "העברת תרגיל לארכיון", body: "התיעוד הקודם יישאר זמין בהיסטוריה.", confirmLabel: "העבר לארכיון", onConfirm: async () => { const result = await data.archiveExercise(exerciseEditor.current); if (!result.error) setExerciseEditor(null); return result.error ? "הפעולה נכשלה" : ""; } })}>העבר לארכיון</button>}
     </div>}
 
-    {templateEditor && <div role="dialog" aria-modal="true" aria-label="עריכת אימון" style={{ ...card, position: "fixed", inset: "5% max(12px, calc((100vw - 456px)/2)) 5%", zIndex: 50, overflowY: "auto", boxShadow: "0 0 0 100vmax rgba(0,0,0,.7)" }}>
-      <h2 style={{ marginTop: 0 }}>{templateEditor.current ? "עריכת אימון" : "אימון חדש"}</h2>
+    {templateEditor && <div role="dialog" aria-modal="true" aria-label={templateEditor.focusIndex != null ? "עריכת סטים" : "עריכת אימון"} style={{ ...card, position: "fixed", inset: "5% max(12px, calc((100vw - 456px)/2)) 5%", zIndex: 50, overflowY: "auto", boxShadow: "0 0 0 100vmax rgba(0,0,0,.7)" }}>
+      <h2 style={{ marginTop: 0 }}>{templateEditor.focusIndex != null ? "עריכת סטים" : templateEditor.current ? "עריכת אימון" : "אימון חדש"}</h2>
       {message && <div role="status" style={{ color: "#fb8b91" }}>{message}</div>}
+      <div hidden={templateEditor.focusIndex != null}>
       <label style={muted}>שם האימון<input style={input} value={templateEditor.name} onChange={(event) => setTemplateEditor((old) => ({ ...old, name: event.target.value }))} placeholder="למשל A — פלג גוף עליון" /></label>
       <label style={{ ...muted, display: "block", marginTop: 10 }}>יום מועדף<select style={input} value={templateEditor.preferred_day ?? ""} onChange={(event) => setTemplateEditor((old) => ({ ...old, preferred_day: event.target.value === "" ? null : Number(event.target.value) }))}><option value="">ללא יום קבוע</option>{["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"].map((day, index) => <option key={day} value={index}>{day}</option>)}</select></label>
-      {templateEditor.items.map((item, index) => <div key={`${item.exercise_id}-${index}`} style={{ ...card, marginTop: 10, padding: 12 }}>
-        <strong>{data.exercises.find((exercise) => exercise.id === item.exercise_id)?.name || "תרגיל בארכיון"}</strong>
-        <div style={{ display: "flex", gap: 6, marginTop: 6 }}><button style={quiet} disabled={index === 0} onClick={() => setTemplateEditor((old) => { const items = [...old.items]; [items[index - 1], items[index]] = [items[index], items[index - 1]]; return { ...old, items }; })}>↑</button><button style={quiet} disabled={index === templateEditor.items.length - 1} onClick={() => setTemplateEditor((old) => { const items = [...old.items]; [items[index + 1], items[index]] = [items[index], items[index + 1]]; return { ...old, items }; })}>↓</button><button style={quiet} onClick={() => setTemplateEditor((old) => ({ ...old, items: old.items.filter((_, i) => i !== index) }))}>הסר</button></div>
-        {item.target_sets.map((target, targetIndex) => <div key={targetIndex} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: 5, marginTop: 7, alignItems: "end" }}>
-          <label style={muted}>ק״ג<input style={input} type="number" inputMode="decimal" min="0" step="any" value={target.load_kg ?? ""} onChange={(event) => updateTarget(index, targetIndex, { load_kg: event.target.value === "" ? null : Number(event.target.value) })} /></label>
-          <label style={muted}>מ־<input style={input} type="number" inputMode="numeric" min="1" value={target.reps_min ?? ""} onChange={(event) => updateTarget(index, targetIndex, { reps_min: Number(event.target.value) })} /></label>
-          <label style={muted}>עד<input style={input} type="number" inputMode="numeric" min="1" value={target.reps_max ?? ""} onChange={(event) => updateTarget(index, targetIndex, { reps_max: Number(event.target.value) })} /></label>
-          <button style={quiet} aria-label={`הסר יעד סט ${targetIndex + 1}`} onClick={() => updateItem(index, { target_sets: item.target_sets.filter((_, i) => i !== targetIndex) })}>×</button>
-        </div>)}
-        <button style={{ ...quiet, marginTop: 7 }} onClick={() => updateItem(index, { target_sets: [...item.target_sets, { load_kg: null, reps_min: 8, reps_max: 12 }] })}>+ סט יעד</button>
-        <label style={{ ...muted, display: "block", marginTop: 7 }}>מנוחה בשניות<input style={input} type="number" inputMode="numeric" min="0" max="3600" value={item.rest_seconds} onChange={(event) => updateItem(index, { rest_seconds: Number(event.target.value) })} /></label>
-      </div>)}
-      <label style={{ ...muted, display: "block", marginTop: 12 }}>הוסף תרגיל קיים<select style={input} value="" onChange={(event) => { if (event.target.value) setTemplateEditor((old) => ({ ...old, items: [...old.items, { exercise_id: event.target.value, target_sets: defaultTargets(), rest_seconds: 60, notes: "" }] })); }}><option value="">בחר תרגיל</option>{data.exercises.filter((exercise) => !exercise.archived_at).map((exercise) => <option key={exercise.id} value={exercise.id}>{exercise.name}</option>)}</select></label>
-      <div style={{ display: "flex", gap: 8, marginTop: 16 }}><button style={button} disabled={busy} onClick={saveTemplate}>שמור אימון</button><button style={quiet} onClick={() => setTemplateEditor(null)}>סגור</button></div>
-      {templateEditor.current && <button style={{ ...quiet, color: "#fb8b91", marginTop: 16 }} onClick={() => onConfirm({ title: "העברת אימון לארכיון", body: "האימונים שבוצעו יישארו בהיסטוריה.", confirmLabel: "העבר לארכיון", onConfirm: async () => { const result = await data.archiveTemplate(templateEditor.current); if (!result.error) { setTemplateEditor(null); setTemplateId(""); } return result.error ? "הפעולה נכשלה" : ""; } })}>העבר לארכיון</button>}
+      </div>
+      {templateEditor.items.map((item, index) => {
+        if (templateEditor.focusIndex != null && templateEditor.focusIndex !== index) return null;
+        const exercise = data.exercises.find((entry) => entry.id === item.exercise_id);
+        return <div key={`${item.exercise_id}-${index}`} style={{ ...card, marginTop: 10, padding: 12 }}>
+        <strong>{exercise?.name || "תרגיל בארכיון"}</strong>
+        <div style={muted}>{exercise?.load_mode === "bodyweight" ? "משקל גוף · אפשר להשאיר את המשקל ריק" : exercise?.load_mode === "assisted" ? "המשקל מציין את הסיוע בק״ג" : "משקל בק״ג"}{exercise?.weight_basis === "per_hand" ? " · לכל יד" : ""}{exercise?.reps_basis === "per_side" ? " · חזרות לכל צד" : ""}</div>
+        {templateEditor.focusIndex == null && <div style={{ display: "flex", gap: 6, marginTop: 6 }}><button style={quiet} disabled={index === 0} onClick={() => setTemplateEditor((old) => { const items = [...old.items]; [items[index - 1], items[index]] = [items[index], items[index - 1]]; return { ...old, items }; })}>↑</button><button style={quiet} disabled={index === templateEditor.items.length - 1} onClick={() => setTemplateEditor((old) => { const items = [...old.items]; [items[index + 1], items[index]] = [items[index], items[index + 1]]; return { ...old, items }; })}>↓</button><button style={quiet} onClick={() => setTemplateEditor((old) => ({ ...old, items: old.items.filter((_, i) => i !== index) }))}>הסר</button></div>}
+        {item.target_sets.map((target, targetIndex) => {
+          const range = target.reps_range ?? (target.reps_min !== target.reps_max);
+          return <fieldset key={targetIndex} style={{ border: "1px solid #27302c", borderRadius: 12, padding: 10, margin: "12px 0 0", minWidth: 0 }}>
+            <legend style={{ color: "#8ff0ce", fontWeight: 700 }}>סט {targetIndex + 1}</legend>
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 8 }}>
+              <label style={muted}>ק״ג<input dir="ltr" style={input} type="number" inputMode="decimal" min="0" step="any" placeholder={workoutLoadLabel(null, exercise?.load_mode)} value={target.load_kg ?? ""} onChange={(event) => updateTarget(index, targetIndex, { load_kg: event.target.value === "" ? null : Number(event.target.value) })} /></label>
+              <label style={muted}>{range ? "חזרות מ־" : "חזרות"}<input dir="ltr" style={input} type="number" inputMode="numeric" min="1" step="1" value={target.reps_min ?? ""} onChange={(event) => updateTarget(index, targetIndex, { reps_min: Number(event.target.value), ...(!range ? { reps_max: Number(event.target.value) } : {}) })} /></label>
+              {range && <label style={{ ...muted, gridColumn: 2 }}>חזרות עד<input dir="ltr" style={input} type="number" inputMode="numeric" min={target.reps_min || 1} step="1" value={target.reps_max ?? ""} onChange={(event) => updateTarget(index, targetIndex, { reps_max: Number(event.target.value) })} /></label>}
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginTop: 7 }}>
+              <label style={{ ...muted, display: "flex", alignItems: "center", gap: 5, minHeight: 44 }}><input type="checkbox" checked={range} onChange={(event) => updateTarget(index, targetIndex, { reps_range: event.target.checked, ...(!event.target.checked ? { reps_max: target.reps_min } : {}) })} />טווח חזרות</label>
+              <button style={{ ...quiet, paddingInline: 8 }} disabled={item.target_sets.length === 1} aria-label={`הסר סט ${targetIndex + 1}`} onClick={() => updateItem(index, { target_sets: item.target_sets.filter((_, i) => i !== targetIndex) })}>הסר</button>
+            </div>
+          </fieldset>;
+        })}
+        <button style={{ ...quiet, marginTop: 7, width: "100%" }} disabled={item.target_sets.length >= 20} onClick={() => updateItem(index, { target_sets: [...item.target_sets, ...defaultTargets()] })}>+ הוסף סט</button>
+        <label style={{ ...muted, display: "block", marginTop: 7 }}>מנוחה בשניות<input dir="ltr" style={input} type="number" inputMode="numeric" min="0" max="3600" value={item.rest_seconds} onChange={(event) => updateItem(index, { rest_seconds: Number(event.target.value) })} /></label>
+      </div>;
+      })}
+      {templateEditor.focusIndex == null && <label style={{ ...muted, display: "block", marginTop: 12 }}>הוסף תרגיל קיים<select style={input} value="" onChange={(event) => { if (event.target.value) setTemplateEditor((old) => ({ ...old, items: [...old.items, { exercise_id: event.target.value, target_sets: defaultTargets(), rest_seconds: 60, notes: "" }] })); }}><option value="">בחר תרגיל</option>{data.exercises.filter((exercise) => !exercise.archived_at).map((exercise) => <option key={exercise.id} value={exercise.id}>{exercise.name}</option>)}</select></label>}
+      <div style={{ display: "flex", gap: 8, marginTop: 16 }}><button style={button} disabled={busy} onClick={saveTemplate}>{templateEditor.focusIndex != null ? "שמור סטים" : "שמור אימון"}</button><button style={quiet} onClick={() => setTemplateEditor(null)}>סגור</button></div>
+      {templateEditor.current && templateEditor.focusIndex == null && <button style={{ ...quiet, color: "#fb8b91", marginTop: 16 }} onClick={() => onConfirm({ title: "העברת אימון לארכיון", body: "האימונים שבוצעו יישארו בהיסטוריה.", confirmLabel: "העבר לארכיון", onConfirm: async () => { const result = await data.archiveTemplate(templateEditor.current); if (!result.error) { setTemplateEditor(null); setTemplateId(""); } return result.error ? "הפעולה נכשלה" : ""; } })}>העבר לארכיון</button>}
     </div>}
   </div>;
 }

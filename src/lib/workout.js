@@ -1,5 +1,14 @@
 import { shiftDate, todayLocal } from "./date.js";
 
+export function targetReps(target) {
+  if (!target) return "—";
+  return target.reps_min === target.reps_max ? String(target.reps_min) : `${target.reps_min}–${target.reps_max}`;
+}
+
+export function workoutLoadLabel(load, mode) {
+  return load == null ? (mode === "bodyweight" ? "משקל גוף" : "לא הוגדר") : String(load);
+}
+
 export function groupExercisesByMuscle(items, getMuscle = (item) => item.muscle_group) {
   const groups = new Map();
   for (const item of items) {

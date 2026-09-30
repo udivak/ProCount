@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { parseSet, groupExercisesByMuscle, targetSetProgress } from "../lib/workout.js";
+import { parseSet, groupExercisesByMuscle, targetSetProgress, targetReps, workoutLoadLabel } from "../lib/workout.js";
 import { todayLocal } from "../lib/date.js";
 import WorkoutMuscleGroups from "./WorkoutMuscleGroups.jsx";
 
 const card = { border: "1px solid #27302c", borderRadius: 18, background: "#111512", padding: 16 };
-const input = { width: "100%", minHeight: 44, border: "1px solid #354039", borderRadius: 11, background: "#171b18", color: "#f4f7f6", font: "700 15px Heebo, sans-serif", padding: "8px 10px" };
+const input = { width: "100%", minWidth: 0, minHeight: 44, border: "1px solid #354039", borderRadius: 11, background: "#171b18", color: "#f4f7f6", font: "700 15px Heebo, sans-serif", padding: "8px 10px" };
 const button = { minHeight: 44, border: "1px solid #39e6b2", borderRadius: 12, background: "#39e6b2", color: "#03120d", font: "800 14px Heebo, sans-serif", padding: "8px 12px", cursor: "pointer" };
 const quiet = { ...button, background: "#17231e", color: "#8ff0ce", borderColor: "#315747" };
 const muted = { color: "#8a9994", fontSize: 12 };
@@ -46,19 +46,20 @@ function SetRow({ item, position, target, previous, saved, userId, sessionId, hi
     else { localStorage.removeItem(key); setStatus("נשמר"); setError(""); if (!historical) onRest(item.rest_seconds); }
   };
 
-  return <div style={{ borderTop: "1px solid #27302c", paddingTop: 12, marginTop: 12 }}>
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}><strong>סט {position + 1}</strong><span role="status" style={{ ...muted, color: status === "נשמר" ? "#8ff0ce" : status === "לא נשמר" ? "#fb8b91" : "#e6c56f" }}>{status}</span></div>
-    <div style={{ ...muted, marginTop: 5 }}>יעד: {target ? `${target.load_kg == null ? "ללא יעד משקל" : `${target.load_kg} ק״ג`} · ${target.reps_min}–${target.reps_max} חזרות` : "ללא יעד"}</div>
-    <div style={{ ...muted }}>פעם קודמת: {previous ? `${previous.load_kg == null ? "משקל גוף" : `${previous.load_kg} ק״ג`} × ${previous.reps}` : "אין תיעוד"}</div>
-    {previous && <button style={{ ...quiet, minHeight: 34, marginTop: 6, fontSize: 12 }} onClick={copy}>העתק כהצעה</button>}
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 10 }}>
-      <label style={muted}>{historical ? "באימון" : "היום"} · ק״ג{item.load_mode === "bodyweight" ? " (אפשר להשאיר ריק)" : ""}<input type="number" inputMode="decimal" min="0" step="any" value={draft.load} onChange={(event) => change({ load: event.target.value })} style={input} /></label>
-      <label style={muted}>{historical ? "באימון" : "היום"} · חזרות<input type="number" inputMode="numeric" min="1" step="1" value={draft.reps} onChange={(event) => change({ reps: event.target.value })} style={input} /></label>
+  return <fieldset style={{ border: "1px solid #27302c", borderRadius: 12, padding: 10, margin: "12px 0 0", minWidth: 0 }}>
+    <legend style={{ color: "#8ff0ce", fontWeight: 700 }}>סט {position + 1}</legend>
+    <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 8 }}>
+      <label style={muted}>ק״ג{item.load_mode === "assisted" ? " סיוע" : ""}{item.weight_basis === "per_hand" ? " לכל יד" : ""}<input aria-label={`ק״ג שבוצעו בסט ${position + 1}`} dir="ltr" type="number" inputMode="decimal" min="0" step="any" placeholder={target?.load_kg == null ? "" : String(target.load_kg)} value={draft.load} onChange={(event) => change({ load: event.target.value })} style={input} /><span style={{ display: "block", marginTop: 4 }}>מתוכנן: <bdi>{target ? workoutLoadLabel(target.load_kg, item.load_mode) : "—"}</bdi></span></label>
+      <label style={muted}>חזרות{item.reps_basis === "per_side" ? " לכל צד" : ""}<input aria-label={`חזרות שבוצעו בסט ${position + 1}`} dir="ltr" type="number" inputMode="numeric" min="1" step="1" placeholder={targetReps(target)} value={draft.reps} onChange={(event) => change({ reps: event.target.value })} style={input} /><span style={{ display: "block", marginTop: 4 }}>מתוכנן: <bdi dir="ltr">{targetReps(target)}</bdi></span></label>
     </div>
+    {item.load_mode === "bodyweight" && <div style={{ ...muted, marginTop: 6 }}>משקל גוף · אפשר להשאיר את המשקל ריק</div>}
+    <div style={{ ...muted, marginTop: 8 }}>פעם קודמת: {previous ? `${previous.load_kg == null ? "משקל גוף" : `${previous.load_kg} ק״ג`} × ${previous.reps}` : "אין תיעוד"}</div>
+    {previous && <button style={{ ...quiet, marginTop: 6, fontSize: 12 }} onClick={copy}>העתק כהצעה</button>}
     <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "end" }}><label style={{ ...muted, flex: 1 }}>סוג סט<select style={input} value={draft.kind} onChange={(event) => change({ kind: event.target.value })}><option value="work">עבודה</option><option value="warmup">חימום</option></select></label><button style={button} disabled={status === "שומר…"} onClick={save}>{saved ? "עדכן סט" : "בוצע"}</button></div>
+    <span role="status" style={{ ...muted, display: "block", marginTop: 6, color: status === "נשמר" ? "#8ff0ce" : status === "לא נשמר" ? "#fb8b91" : "#e6c56f" }}>{status}</span>
     <label style={{ ...muted, display: "block", marginTop: 8 }}>הערה לסט<input style={input} value={draft.note} onChange={(event) => change({ note: event.target.value })} /></label>
     {error && <div role="alert" style={{ color: "#fb8b91", fontSize: 12, marginTop: 6 }}>{error}</div>}
-  </div>;
+  </fieldset>;
 }
 
 export default function WorkoutSession({ data, busy, run, onBack, onFinish }) {
@@ -123,7 +124,7 @@ export default function WorkoutSession({ data, busy, run, onBack, onFinish }) {
           const prior = previousSets.find((set) => set.set_position === position);
           return <SetRow key={`${item.id}-${position}-${saved?.revision || 0}`} item={item} position={position} target={target} previous={prior} saved={saved} userId={data.userId} sessionId={session.id} historical={session.status === "completed"} onSave={data.saveSet} onRest={startRest} />;
         })}
-        <div style={{ display: "flex", gap: 7, marginTop: 12 }}><button style={quiet} onClick={() => setExtra((old) => ({ ...old, [item.id]: count + 1 }))}>+ סט</button><button style={quiet} onClick={async () => { const result = await run(() => data.setExerciseStatus(item, item.status === "skipped" ? "pending" : "skipped"), "עודכן"); if (result?.error) setError("העדכון נכשל."); }}>{item.status === "skipped" ? "בטל דילוג" : "דלג על התרגיל"}</button></div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 12 }}><button style={quiet} onClick={() => setExtra((old) => ({ ...old, [item.id]: count + 1 }))}>+ הוסף סט</button><button style={quiet} onClick={async () => { const result = await run(() => data.setExerciseStatus(item, item.status === "skipped" ? "pending" : "skipped"), "עודכן"); if (result?.error) setError("העדכון נכשל."); }}>{item.status === "skipped" ? "בטל דילוג" : "דלג על התרגיל"}</button></div>
       </section>;
     }} />
     {session.status === "in_progress" && <div style={card}>
