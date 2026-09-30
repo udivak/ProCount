@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { todayLocal } from "../lib/date.js";
-import { bestAtLoad, progressPoints, progressSince } from "../lib/workout.js";
+import { bestAtLoad, progressPoints, progressSince, groupExercisesByMuscle } from "../lib/workout.js";
 import WorkoutSession from "./WorkoutSession.jsx";
+import WorkoutMuscleGroups from "./WorkoutMuscleGroups.jsx";
 
 const card = { border: "1px solid #27302c", borderRadius: 18, background: "#111512", padding: 16 };
 const input = { width: "100%", minHeight: 44, border: "1px solid #354039", borderRadius: 11, background: "#171b18", color: "#f4f7f6", font: "700 15px Heebo, sans-serif", padding: "8px 11px" };
@@ -126,20 +127,18 @@ export default function Workouts({ data, onConfirm }) {
           <label style={{ ...muted, display: "block", marginTop: 16 }}>תאריך האימון<input type="date" value={date} onChange={(event) => setDate(event.target.value)} max={todayLocal()} style={{ ...input, marginTop: 5 }} /></label>
           <button style={{ ...button, width: "100%", marginTop: 10 }} disabled={busy || !date || !selectedItems.length} onClick={start}>התחל אימון</button>
         </div>
-        {selectedItems.map((item) => {
+        <WorkoutMuscleGroups key={selected.id} groups={groupExercisesByMuscle(selectedItems, (item) => data.exercises.find((exercise) => exercise.id === item.exercise_id)?.muscle_group)} renderExercise={(item) => {
           const exercise = data.exercises.find((entry) => entry.id === item.exercise_id);
           const prior = last[item.id];
-          return <div key={item.id} style={card}><strong>{exercise?.name || "תרגיל בארכיון"}</strong><div style={muted}>{exercise?.muscle_group || ""} · {item.target_sets.length} סטים · מנוחה {item.rest_seconds} שניות</div><div style={muted}>יעד: {item.target_sets.map((target) => `${target.load_kg ?? "—"} ק״ג × ${target.reps_min}–${target.reps_max}`).join(" · ")}</div><div style={muted}>פעם קודמת: {prior?.length ? `${prior[0].performed_on} · ${prior.map((set) => `${set.load_kg ?? "משקל גוף"} × ${set.reps}`).join(" · ")}` : "אין תיעוד"}</div></div>;
-        })}
+          return <div key={item.id} style={card}><strong>{exercise?.name || "תרגיל בארכיון"}</strong><div style={muted}>{exercise?.muscle_group || ""} · {item.target_sets.length} סטים · מנוחה {item.rest_seconds} שניות</div><div style={muted}>יעד: {item.target_sets.map((target) => `${target.load_kg ?? "—"} ק״ג × ${target.reps_min}–${target.reps_max}`).join(" · ")}</div><div style={muted}>פעם קודמת: {prior?.length ? `${prior[0].performed_on} · ${prior.map((set) => `${set.load_kg ?? "משקל גוף"} × ${set.reps}`).join(" · ")}` : "אין תיעוד"}</div>
+            {exercise && !exercise.archived_at && <button style={{ ...quiet, marginTop: 10 }} onClick={() => setExerciseEditor({ ...exercise, equipment: exercise.equipment || "", notes: exercise.notes || "", current: exercise })}>ערוך תרגיל: {exercise.name}</button>}
+          </div>;
+        }} />
       </> : <div style={{ ...card, color: "#8a9994" }}>אין תכנית עדיין. צור אימון ראשון והוסף תרגילים.</div>}
       <button style={quiet} onClick={() => setExerciseEditor(blankExercise())}>+ תרגיל אישי</button>
-      {selectedItems.map((item) => {
-        const exercise = data.exercises.find((entry) => entry.id === item.exercise_id);
-        return exercise && !exercise.archived_at ? <button key={item.id} style={{ ...quiet, textAlign: "right" }} onClick={() => setExerciseEditor({ ...exercise, equipment: exercise.equipment || "", notes: exercise.notes || "", current: exercise })}>ערוך תרגיל: {exercise.name}</button> : null;
-      })}
     </>}
 
-    {view === "session" && data.detail && <WorkoutSession data={data} busy={busy} run={run} onBack={() => setView(data.detail.session.status === "completed" ? "history" : "plan")}
+    {view === "session" && data.detail && <WorkoutSession key={data.detail.session.id} data={data} busy={busy} run={run} onBack={() => setView(data.detail.session.status === "completed" ? "history" : "plan")}
       onFinish={async (partial) => { const result = await run(() => data.finishSession(data.detail.session, partial), "האימון נשמר"); if (!result?.error) { localStorage.removeItem(`workout-timer:${data.userId}:${data.detail.session.id}`); await data.loadHistory(0); setView("history"); } }} />}
 
     {view === "history" && <>

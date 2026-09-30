@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { parseSet } from "../lib/workout.js";
+import { parseSet, groupExercisesByMuscle, targetSetProgress } from "../lib/workout.js";
 import { todayLocal } from "../lib/date.js";
+import WorkoutMuscleGroups from "./WorkoutMuscleGroups.jsx";
 
 const card = { border: "1px solid #27302c", borderRadius: 18, background: "#111512", padding: 16 };
 const input = { width: "100%", minHeight: 44, border: "1px solid #354039", borderRadius: 11, background: "#171b18", color: "#f4f7f6", font: "700 15px Heebo, sans-serif", padding: "8px 10px" };
@@ -89,10 +90,8 @@ export default function WorkoutSession({ data, busy, run, onBack, onFinish }) {
     setNow(Date.now());
   };
   const remaining = Math.max(0, Math.ceil((restUntil - now) / 1000));
-  const needed = exercises.reduce((total, item) => total + Math.max(item.target_sets.length, 1), 0);
-  const complete = exercises.every((item) => item.status !== "skipped" &&
-    Array.from({ length: Math.max(item.target_sets.length, 1) }, (_, position) =>
-      sets.some((set) => set.session_exercise_id === item.id && set.position === position)).every(Boolean));
+  const progress = targetSetProgress(exercises, sets);
+  const complete = progress.saved === progress.total && progress.skipped === 0;
   const saveDate = async () => {
     if (!date || date > todayLocal()) { setError("בחר תאריך תקין שאינו בעתיד."); return; }
     const result = await run(() => data.changeSessionDate(session, date), "התאריך עודכן");
@@ -108,7 +107,10 @@ export default function WorkoutSession({ data, busy, run, onBack, onFinish }) {
       {date !== session.performed_on && <button style={{ ...quiet, marginTop: 8 }} onClick={saveDate}>שמור תאריך</button>}
       {session.status === "in_progress" && remaining > 0 && <div role="timer" style={{ color: "#39e6b2", marginTop: 10 }}>מנוחה: {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, "0")}</div>}
     </div>
-    {exercises.map((item) => {
+    <WorkoutMuscleGroups groups={groupExercisesByMuscle(exercises)} summary={(items) => {
+      const { saved, total, skipped } = targetSetProgress(items, sets);
+      return `${saved}/${total} סטי יעד נשמרו${skipped ? ` · דולגו: ${skipped}` : ""}`;
+    }} renderExercise={(item) => {
       const currentSets = sets.filter((set) => set.session_exercise_id === item.id);
       const count = Math.max(item.target_sets.length, ...currentSets.map((set) => set.position + 1), extra[item.id] || 0, 1);
       const previousSets = previous[item.id] || [];
@@ -123,9 +125,9 @@ export default function WorkoutSession({ data, busy, run, onBack, onFinish }) {
         })}
         <div style={{ display: "flex", gap: 7, marginTop: 12 }}><button style={quiet} onClick={() => setExtra((old) => ({ ...old, [item.id]: count + 1 }))}>+ סט</button><button style={quiet} onClick={async () => { const result = await run(() => data.setExerciseStatus(item, item.status === "skipped" ? "pending" : "skipped"), "עודכן"); if (result?.error) setError("העדכון נכשל."); }}>{item.status === "skipped" ? "בטל דילוג" : "דלג על התרגיל"}</button></div>
       </section>;
-    })}
+    }} />
     {session.status === "in_progress" && <div style={card}>
-      <div style={muted}>{sets.length} סטים נשמרו מתוך {needed} סטי יעד. סטים ריקים לא ייספרו.</div>
+      <div style={muted}>{progress.saved} סטי יעד נשמרו מתוך {progress.total}. סטים ריקים לא ייספרו.</div>
       <button style={{ ...button, width: "100%", marginTop: 10 }} disabled={busy} onClick={() => onFinish(!complete)}>{complete ? "סיים אימון" : "סיים אימון חלקי"}</button>
     </div>}
     {error && <div role="alert" style={{ color: "#fb8b91" }}>{error}</div>}
