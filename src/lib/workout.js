@@ -1,5 +1,28 @@
 import { shiftDate, todayLocal } from "./date.js";
 
+export function groupExercisesByMuscle(items, getMuscle = (item) => item.muscle_group) {
+  const groups = new Map();
+  for (const item of items) {
+    const name = getMuscle(item)?.trim() || "ללא קבוצת שרירים";
+    if (!groups.has(name)) groups.set(name, { name, items: [] });
+    groups.get(name).items.push(item);
+  }
+  return [...groups.values()];
+}
+
+export function targetSetProgress(exercises, sets) {
+  let saved = 0, total = 0, skipped = 0;
+  for (const item of exercises) {
+    const count = Math.max(item.target_sets.length, 1);
+    total += count;
+    if (item.status === "skipped") { skipped++; continue; }
+    for (let position = 0; position < count; position++) {
+      if (sets.some((set) => set.session_exercise_id === item.id && set.position === position)) saved++;
+    }
+  }
+  return { saved, total, skipped };
+}
+
 export function parseSet(load, reps, mode) {
   const count = Number(reps);
   const weight = String(load ?? "").trim() === "" ? null : Number(load);
