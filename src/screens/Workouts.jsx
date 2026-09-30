@@ -133,7 +133,10 @@ export default function Workouts({ data, onConfirm }) {
         })}
       </> : <div style={{ ...card, color: "#8a9994" }}>אין תכנית עדיין. צור אימון ראשון והוסף תרגילים.</div>}
       <button style={quiet} onClick={() => setExerciseEditor(blankExercise())}>+ תרגיל אישי</button>
-      {data.exercises.filter((exercise) => !exercise.archived_at).map((exercise) => <button key={exercise.id} style={{ ...quiet, textAlign: "right" }} onClick={() => setExerciseEditor({ ...exercise, equipment: exercise.equipment || "", notes: exercise.notes || "", current: exercise })}>ערוך תרגיל: {exercise.name}</button>)}
+      {selectedItems.map((item) => {
+        const exercise = data.exercises.find((entry) => entry.id === item.exercise_id);
+        return exercise && !exercise.archived_at ? <button key={item.id} style={{ ...quiet, textAlign: "right" }} onClick={() => setExerciseEditor({ ...exercise, equipment: exercise.equipment || "", notes: exercise.notes || "", current: exercise })}>ערוך תרגיל: {exercise.name}</button> : null;
+      })}
     </>}
 
     {view === "session" && data.detail && <WorkoutSession data={data} busy={busy} run={run} onBack={() => setView(data.detail.session.status === "completed" ? "history" : "plan")}
