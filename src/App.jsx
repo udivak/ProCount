@@ -1,18 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useData, RANGE_DAYS } from "./store.js";
+import { useData, useWorkouts, RANGE_DAYS } from "./store.js";
 import { headerDate, lastNDates, lastNWeeks, weekdayLabel, weekRangeLabel, shiftDate, dayLabel, greeting } from "./lib/date.js";
 import { CALORIE_GOAL, calorieBalance, dailyTotals, dailyWaterTotal, remainingProtein, pct, dailyPace, streak, proteinByDay, weekSeries, weeklyAverageSeries, avgCaloriesPerActiveDay, average, entriesByMeal, proteinSuggestion } from "./lib/nutrition.js";
 import { acquireRequestLock, captureFoodEstimateRequest, capturePhotoRequest, captureRequestRevision, clearRequestLock, releaseRequestLock } from "./lib/request.js";
 import { withSubmissionLock } from "./lib/submission.js";
 import { foodUndoTarget } from "./lib/delete.js";
 import { defaultMealType, isLearnedSnack, learnedSnackFoods, resolveAddedMeal } from "./lib/meal.js";
-import { Gear, Home, Chart, ListIcon, Plus, Utensils } from "./lib/icons.jsx";
+import { Gear, Home, Chart, ListIcon, Plus, Utensils, Dumbbell } from "./lib/icons.jsx";
 import Today from "./screens/Today.jsx";
 import Trends from "./screens/Trends.jsx";
 import MyFoods from "./screens/MyFoods.jsx";
 import AddSheet from "./screens/AddSheet.jsx";
 import Settings from "./screens/Settings.jsx";
 import MealPlan from "./screens/MealPlan.jsx";
+import Workouts from "./screens/Workouts.jsx";
 import FoodEditor from "./FoodEditor.jsx";
 import ItemDetailModal from "./ItemDetailModal.jsx";
 import ConfirmDialog from "./ConfirmDialog.jsx";
@@ -32,6 +33,7 @@ export default function App({ session }) {
   const { entries, foods, goal, waterGoal, today } = data;
 
   const [screen, setScreen] = useState("today");
+  const workouts = useWorkouts(session, screen === "workouts");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [addTab, setAddTab] = useState("quick");
@@ -151,7 +153,7 @@ export default function App({ session }) {
     };
   }, [entries, foods, goal, today, selectedDay, chartRange]);
 
-  const header = { today: { sub: headerDate(), title: "ProCount", greet: greeting(data.name || data.email.split("@")[0]) }, trends: { sub: "מעקב לאורך זמן", title: "מגמות" }, foods: { sub: "התבניות שלי", title: "מאכלים שלי" }, mealPlan: { sub: "התזונה שלך", title: "תפריט" } }[screen];
+  const header = { today: { sub: headerDate(), title: "ProCount", greet: greeting(data.name || data.email.split("@")[0]) }, trends: { sub: "מעקב לאורך זמן", title: "מגמות" }, foods: { sub: "התבניות שלי", title: "מאכלים שלי" }, mealPlan: { sub: "התזונה שלך", title: "תפריט" }, workouts: { sub: "תכנית ומעקב", title: "אימונים" } }[screen];
 
   const clearFoodUndo = () => {
     clearTimeout(foodUndoTimer.current);
@@ -487,9 +489,10 @@ export default function App({ session }) {
         {screen === "trends" && <Trends goal={goal} streak={vm.streak} avg={vm.avg} bars={vm.bars} goalY={vm.goalY} calAvg={vm.calAvg} heading={vm.heading} range={chartRange} onRange={setChartRange} />}
         {screen === "foods" && <MyFoods foods={vm.foodVm} onNew={() => setEditFood({})} onEdit={(f) => setEditFood(f.raw)} />}
         {screen === "mealPlan" && <MealPlan />}
+        {screen === "workouts" && <Workouts data={workouts} onConfirm={setConfirm} />}
       </div>
 
-      {!addOpen && !settingsOpen && !editFood && !selectedEntry && !confirm && screen !== "mealPlan" && screen !== "today" && (
+      {!addOpen && !settingsOpen && !editFood && !selectedEntry && !confirm && screen !== "mealPlan" && screen !== "today" && screen !== "workouts" && (
         <button disabled={addSaving} className="h-fab" onClick={openAdd} aria-label="הוסף מזון" style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", zIndex: 30, minWidth: 136, height: 48, padding: "0 22px", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, border: "1px solid #74f0c8", fontFamily: "inherit", fontSize: 15, fontWeight: 900, background: "#39e6b2", color: "#03120d", borderRadius: 24, cursor: addSaving ? "not-allowed" : "pointer", opacity: addSaving ? .45 : 1, boxShadow: "0 8px 28px rgba(57,230,178,.28)" }}>
           <Plus size={20} sw={3} /> הוסף
         </button>
@@ -500,6 +503,7 @@ export default function App({ session }) {
         <NavBtn color={screen === "mealPlan" ? "#39e6b2" : "#6f6f78"} label="תפריט" onClick={() => goTo("mealPlan")}><Utensils size={24} /></NavBtn>
         <NavBtn color={screen === "trends" ? "#39e6b2" : "#6f6f78"} label="מגמות" onClick={() => goTo("trends")}><Chart size={24} /></NavBtn>
         <NavBtn color={screen === "foods" ? "#39e6b2" : "#6f6f78"} label="מאכלים" onClick={() => goTo("foods")}><ListIcon size={24} /></NavBtn>
+        <NavBtn color={screen === "workouts" ? "#39e6b2" : "#6f6f78"} label="אימונים" onClick={() => goTo("workouts")}><Dumbbell size={24} /></NavBtn>
       </div>
 
       {addOpen && (

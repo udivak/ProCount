@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase, FUNCTIONS_URL } from "./lib/supabase.js";
-import { todayLocal, lastNDates } from "./lib/date.js";
+import { todayLocal, lastNDates, shiftDate } from "./lib/date.js";
 import { gramsPerServing } from "./lib/nutrition.js";
 import { findExactFood, insertOrFind, nonNegativeNumber, saveLoggedFood } from "./lib/write.js";
 import { reconcileDeletedRow } from "./lib/delete.js";
@@ -213,12 +213,206 @@ export function useData(session) {
     return { estimate: body };
   }, [session]);
 
-  const signOut = useCallback(() => supabase.auth.signOut(), []);
+  const signOut = useCallback(() => {
+    for (const key of Object.keys(localStorage)) if (key.startsWith(`workout-draft:${session.user.id}:`)) localStorage.removeItem(key);
+    return supabase.auth.signOut();
+  }, [session.user.id]);
 
   return {
     loading, entries, foods, goal, waterGoal, name, today, email: session.user.email,
     addQuick, addWater, addManual, addAi, deleteEntry, updateEntryMeal, saveFood, deleteFood, setGoal, setWaterGoal, setName, analyzePhoto, estimateFoodNutrition, signOut,
   };
+}
+
+// Workout data is loaded only after the workout tab opens. History and progress are separate queries.
+export function useWorkouts(session, enabled) {
+  const [catalog, setCatalog] = useState({ exercises: [], templates: [], items: [], open: null, weeklyGoal: 3 });
+  const [detail, setDetail] = useState(null);
+  const [history, setHistory] = useState([]);
+  const [hasMore, setHasMore] = useState(false);
+  const [progress, setProgress] = useState([]);
+  const [consistency, setConsistency] = useState({ total: 0, partial: 0 });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const progressRequest = useRef(0);
+
+  const loadCatalog = useCallback(async () => {
+    setLoading(true);
+    const [exercises, templates, items, open, profile] = await Promise.all([
+      supabase.from("training_exercises").select("*").order("name"),
+      supabase.from("workout_templates").select("*").is("archived_at", null).order("position"),
+      supabase.from("workout_template_exercises").select("*").order("position"),
+      supabase.from("workout_sessions").select("*").eq("status", "in_progress").order("created_at", { ascending: false }).limit(1),
+      supabase.from("profile").select("workout_goal_weekly").maybeSingle(),
+    ]);
+    const failure = [exercises, templates, items, open, profile].find((result) => result.error)?.error;
+    if (failure) setError(failure.message);
+    else {
+      setError("");
+      setCatalog({ exercises: exercises.data || [], templates: templates.data || [], items: items.data || [], open: open.data?.[0] || null, weeklyGoal: profile.data?.workout_goal_weekly || 3 });
+    }
+    setLoading(false);
+    return { error: failure || null };
+  }, []);
+
+  useEffect(() => { if (enabled) loadCatalog(); }, [enabled, loadCatalog]);
+
+  const saveExercise = async (values, current = null) => {
+    const row = {
+      name: values.name.trim(), muscle_group: values.muscle_group.trim(), equipment: values.equipment.trim() || null,
+      load_mode: values.load_mode, weight_basis: values.weight_basis, reps_basis: values.reps_basis,
+      notes: values.notes.trim() || null,
+    };
+    const query = current
+      ? supabase.from("training_exercises").update({ ...row, revision: current.revision + 1 }).eq("id", current.id).eq("revision", current.revision)
+      : supabase.from("training_exercises").insert({ id: values.id, ...row });
+    const result = await query.select().maybeSingle();
+    if (result.data) await loadCatalog();
+    return { data: result.data, error: result.error || (!result.data ? new Error("stale") : null) };
+  };
+
+  const archiveExercise = async (exercise) => {
+    const result = await supabase.from("training_exercises")
+      .update({ archived_at: new Date().toISOString(), revision: exercise.revision + 1 })
+      .eq("id", exercise.id).eq("revision", exercise.revision).select().maybeSingle();
+    if (result.data) await loadCatalog();
+    return { data: result.data, error: result.error || (!result.data ? new Error("stale") : null) };
+  };
+
+  const saveTemplate = async (values, current = null) => {
+    const result = await supabase.rpc("save_workout_template", {
+      p_id: values.id, p_name: values.name.trim(), p_position: values.position,
+      p_preferred_day: values.preferred_day, p_items: values.items,
+      p_expected_revision: current?.revision || 0,
+    });
+    if (result.data) await loadCatalog();
+    return result;
+  };
+
+  const archiveTemplate = async (template) => {
+    const result = await supabase.from("workout_templates")
+      .update({ archived_at: new Date().toISOString(), revision: template.revision + 1 })
+      .eq("id", template.id).eq("revision", template.revision).select().maybeSingle();
+    if (result.data) await loadCatalog();
+    return { data: result.data, error: result.error || (!result.data ? new Error("stale") : null) };
+  };
+
+  const loadSession = async (id) => {
+    const [sessionResult, exercisesResult] = await Promise.all([
+      supabase.from("workout_sessions").select("*").eq("id", id).maybeSingle(),
+      supabase.from("workout_session_exercises").select("*").eq("session_id", id).order("position"),
+    ]);
+    const failure = sessionResult.error || exercisesResult.error;
+    if (failure || !sessionResult.data) return { error: failure || new Error("missing_session") };
+    const exercises = exercisesResult.data || [];
+    const setsResult = exercises.length
+      ? await supabase.from("workout_sets").select("*").in("session_exercise_id", exercises.map((item) => item.id)).order("position")
+      : { data: [], error: null };
+    if (setsResult.error) return { error: setsResult.error };
+    const next = { session: sessionResult.data, exercises, sets: setsResult.data || [] };
+    setDetail(next);
+    return { data: next, error: null };
+  };
+
+  const startSession = async (templateId, id, date, retroactive) => {
+    const result = await supabase.rpc("start_workout", {
+      p_template_id: templateId, p_session_id: id, p_performed_on: date, p_retroactive: retroactive,
+    });
+    if (result.data) {
+      setCatalog((current) => ({ ...current, open: result.data }));
+      const detailResult = await loadSession(result.data.id);
+      if (detailResult.error) return detailResult;
+    }
+    return result;
+  };
+
+  const saveSet = async (values, current = null) => {
+    const result = await supabase.rpc("save_workout_set", {
+      p_id: values.id, p_session_exercise_id: values.session_exercise_id,
+      p_position: values.position, p_kind: values.kind, p_load_kg: values.load_kg,
+      p_reps: values.reps, p_note: values.note || null, p_expected_revision: current?.revision || 0,
+    });
+    if (result.data) setDetail((old) => old && ({ ...old, sets: [...old.sets.filter((set) => set.id !== result.data.id), result.data].sort((a, b) => a.position - b.position) }));
+    return result;
+  };
+
+  const setExerciseStatus = async (item, status) => {
+    const result = await supabase.from("workout_session_exercises")
+      .update({ status, revision: item.revision + 1 }).eq("id", item.id).eq("revision", item.revision).select().maybeSingle();
+    if (result.data) setDetail((old) => old && ({ ...old, exercises: old.exercises.map((value) => value.id === item.id ? result.data : value) }));
+    return { data: result.data, error: result.error || (!result.data ? new Error("stale") : null) };
+  };
+
+  const finishSession = async (sessionRow, partial) => {
+    const result = await supabase.from("workout_sessions")
+      .update({ status: "completed", partial, completed_at: sessionRow.started_at ? new Date().toISOString() : null,
+        revision: sessionRow.revision + 1 })
+      .eq("id", sessionRow.id).eq("revision", sessionRow.revision).eq("status", "in_progress").select().maybeSingle();
+    if (result.data) {
+      setDetail((old) => old && ({ ...old, session: result.data }));
+      setCatalog((old) => ({ ...old, open: old.open?.id === result.data.id ? null : old.open }));
+    }
+    return { data: result.data, error: result.error || (!result.data ? new Error("stale") : null) };
+  };
+
+  const loadHistory = async (page = 0) => {
+    const result = await supabase.from("workout_sessions").select("*").eq("status", "completed")
+      .order("performed_on", { ascending: false }).order("created_at", { ascending: false }).range(page * 20, page * 20 + 20);
+    if (!result.error) {
+      setHistory((old) => page ? [...old, ...(result.data || []).slice(0, 20)] : (result.data || []).slice(0, 20));
+      setHasMore((result.data || []).length > 20);
+    }
+    return result;
+  };
+
+  const loadProgress = async (exerciseId, since, until, templateId = null) => {
+    const revision = ++progressRequest.current;
+    const rows = [];
+    for (let page = 0; ; page++) {
+      const result = await supabase.rpc("workout_progress", {
+        p_exercise_id: exerciseId, p_since: since, p_until: until, p_template_id: templateId,
+      }).range(page * 1000, page * 1000 + 999);
+      if (result.error) return result;
+      if (revision !== progressRequest.current) return { data: null, error: null };
+      rows.push(...(result.data || []));
+      if ((result.data || []).length < 1000) break;
+    }
+    if (revision === progressRequest.current) setProgress(rows);
+    return { data: rows, error: null };
+  };
+
+  const loadPrevious = (exerciseId, date, excludeSessionId = null) => supabase.rpc("workout_previous", {
+    p_exercise_id: exerciseId, p_before: date, p_exclude_session_id: excludeSessionId,
+  });
+
+  const loadConsistency = async () => {
+    const today = todayLocal();
+    const start = shiftDate(today, -new Date(`${today}T00:00:00`).getDay());
+    const base = () => supabase.from("workout_sessions").select("id", { count: "exact", head: true })
+      .eq("status", "completed").gte("performed_on", start).lte("performed_on", today);
+    const [all, partial] = await Promise.all([base(), base().eq("partial", true)]);
+    if (!all.error && !partial.error) setConsistency({ total: all.count || 0, partial: partial.count || 0 });
+    return { error: all.error || partial.error };
+  };
+
+  const setWeeklyGoal = async (goal) => {
+    const result = await supabase.from("profile").upsert({ workout_goal_weekly: goal }, { onConflict: "user_id" })
+      .select("workout_goal_weekly").single();
+    if (result.data) setCatalog((old) => ({ ...old, weeklyGoal: result.data.workout_goal_weekly }));
+    return result;
+  };
+
+  const changeSessionDate = async (sessionRow, date) => {
+    const result = await supabase.from("workout_sessions")
+      .update({ performed_on: date, revision: sessionRow.revision + 1 })
+      .eq("id", sessionRow.id).eq("revision", sessionRow.revision).select().maybeSingle();
+    if (result.data) setDetail((old) => old && ({ ...old, session: result.data }));
+    return { data: result.data, error: result.error || (!result.data ? new Error("stale") : null) };
+  };
+
+  return { ...catalog, detail, history, hasMore, progress, consistency, loading, error, userId: session.user.id,
+    loadCatalog, saveExercise, archiveExercise, saveTemplate, archiveTemplate,
+    loadSession, startSession, saveSet, setExerciseStatus, finishSession, loadHistory, loadProgress, loadPrevious, changeSessionDate, loadConsistency, setWeeklyGoal };
 }
 
 function compressToBase64(file, max = 1024, quality = 0.8) {
