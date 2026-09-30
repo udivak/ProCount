@@ -68,6 +68,12 @@ export const Utensils = (p) => (
   </Svg>
 );
 
+export const Dumbbell = (p) => (
+  <Svg {...p}>
+    <path d="M2 9v6m3-9v12m3-9v6m8-6v6m3-9v12m3-9v6M8 12h8" />
+  </Svg>
+);
+
 export const Camera = (p) => (
   <Svg {...p}>
     <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
