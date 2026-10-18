@@ -5,7 +5,7 @@ const MEAL_LABELS = { breakfast: "בוקר", lunch: "צהריים", dinner: "ע�
 const PACE_LABELS = { excellent: "בקצב מצוין", good: "בקצב טוב", behind: "קצת מאחור" };
 const format = (value) => Number(value || 0).toLocaleString("he-IL");
 
-export default function Today({ totals, goal, progress, remaining, pace, calorieProgress, calorieIntake, calorieGoal, calorieBalance, waterMl, waterGoal, onAddWater, waterUndo, onUndoWater, waterError, mealGroups, suggestion, onAdd, onDelete, onSelect, dayLabel, isToday, onToday, onPrev, onNext, canPrev, canNext }) {
+export default function Today({ totals, goal, progress, remaining, pace, calorieProgress, calorieIntake, calorieGoal, calorieBalance, waterMl, waterEntries, waterLogKey, waterGoal, onAddWater, waterUndo, onUndoWater, waterError, mealGroups, suggestion, onAdd, onDelete, onSelect, dayLabel, isToday, onToday, onPrev, onNext, canPrev, canNext }) {
   return <div className="today-neon">
     <div className="today-daybar">
       <DayArrow chevron="›" label="יום קודם" disabled={!canPrev} onClick={onPrev} />
@@ -45,7 +45,27 @@ export default function Today({ totals, goal, progress, remaining, pace, calorie
       {mealGroups.length === 0 ? <div className="empty-neon">עדיין לא הוספת ארוחות היום</div> : <div className="meal-list">{mealGroups.map((group) => <section key={group.type} className="meal-group"><div className="meal-group-head"><strong>{MEAL_LABELS[group.type]}</strong><span>{Math.round(group.protein)} גרם חלבון</span></div>{group.entries.map((entry) => <div key={entry.id} className="meal-row" onClick={() => onSelect(entry)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onSelect(entry); } }} role="button" tabIndex={0} aria-label={`פרטי ${entry.name}`}><div className="meal-copy"><strong>{entry.name}</strong><span>{entry.sub}</span></div><div className="meal-macros"><b><em>{entry.protein}</em> גרם חלבון</b><small><em>{entry.calories}</em> קל׳</small></div><button className="h-del meal-delete" aria-label={`מחק ${entry.name}`} onClick={(event) => { event.stopPropagation(); onDelete(entry.id); }}><Trash size={17} /></button></div>)}</section>)}</div>}
       <button className="entries-add" onClick={onAdd}><Plus size={20} sw={2.5} />הוסף מזון</button>
     </section>
+
+    <WaterLog key={waterLogKey} entries={waterEntries} onDelete={onDelete} />
   </div>;
+}
+
+function WaterLog({ entries, onDelete }) {
+  return <details className="entries-card">
+    <summary style={{ cursor: "pointer", minHeight: 44, alignContent: "center", fontSize: 17, fontWeight: 700 }}>
+      רישומי מים <span style={{ color: "var(--pc-muted)", fontSize: 12, fontWeight: 700 }}>· {entries.length} רישומים</span>
+    </summary>
+    {entries.length === 0 ? <div className="empty-neon">אין רישומי מים ביום הזה</div> : <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+      {entries.map((entry) => <li key={entry.id} style={{ display: "flex", alignItems: "center", gap: 9, minHeight: 62, borderTop: "1px solid #26302d" }}>
+        <span style={{ color: "var(--pc-water)", display: "flex" }}><Droplet size={18} /></span>
+        <div className="meal-copy">
+          <strong>{format(entry.water_ml)} מ״ל</strong>
+          {entry.created_at && <span>{new Date(entry.created_at).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}</span>}
+        </div>
+        <button className="h-del meal-delete" aria-label={`מחק רישום מים של ${format(entry.water_ml)} מיליליטר`} onClick={() => onDelete(entry.id)}><Trash size={17} /></button>
+      </li>)}
+    </ul>}
+  </details>;
 }
 
 function WaterCard({ total, goal, onAdd, undo, onUndo, error }) {
