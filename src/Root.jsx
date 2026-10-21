@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "./lib/supabase.js";
 import Login from "./Login.jsx";
 import App from "./App.jsx";
+import OAuthConsent from "./OAuthConsent.jsx";
 import { installStandaloneViewport } from "./lib/viewport.js";
 
 // Auth gate: the session persists on the device, so this is rarely seen.
@@ -18,5 +19,6 @@ export default function Root() {
 
   if (session === undefined) return <div className="app" />;
   if (!session) return <Login />;
+  if (location.pathname === "/oauth/consent") return <OAuthConsent />;
   return <App session={session} />;
 }

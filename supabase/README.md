@@ -13,6 +13,10 @@ supabase/
     index.ts                          authed OpenAI Responses proxy, soft daily cap
     validate.ts                       parse/validate the AI estimate
     validate.test.ts                  self-check (design §9)
+  functions/mcp/
+    index.ts                          read-only MCP server (OAuth via Supabase Auth)
+    shape.js                          pure output shaping, imports src/lib
+    shape.test.js                     node --test self-check
 ```
 
 ## Deploy
@@ -32,6 +36,24 @@ supabase functions deploy analyze-food-photo
 ```
 
 `SUPABASE_URL` and `SUPABASE_ANON_KEY` are injected into the function automatically.
+
+## MCP connector (read-only)
+
+Endpoint: `https://<ref>.supabase.co/functions/v1/mcp`. Add it in Claude
+(Customize → Connectors → Add custom connector) or ChatGPT (chatgpt.com/plugins →
+Add custom MCP server) with OAuth; the browser signs in and shows the PWA consent
+page at `/oauth/consent`.
+
+```sh
+supabase functions deploy mcp --use-api --no-verify-jwt
+```
+
+`--use-api` is required: it bundles `src/lib/*.js`, which live outside
+`supabase/functions`. Project auth settings (set via Management API, not
+`supabase config push`): OAuth server on, dynamic registration on, authorization
+path `/oauth/consent`, site URL = the PWA origin, sign-ups disabled, asymmetric
+(ES256) JWT signing key. Revoke a connector under Authentication → OAuth Apps.
+Writes are impossible for connector tokens: see migration `oauth_clients_read_only`.
 
 ## Test
 
