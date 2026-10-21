@@ -12,7 +12,7 @@ ProCount — a personal, **single-user** PWA for daily protein, calorie, and wat
 npm run dev        # Vite dev server → :5173
 npm run build      # production build → dist/
 npm run preview    # serve the built app → :4173
-npm test           # pure-function tests: node --test src/lib/*.test.js
+npm test           # pure-function tests: src/lib/*.test.js + supabase/functions/mcp/*.test.js
 ```
 
 - Eight colocated test files currently cover the pure helpers in `src/lib/`; one at a time: `node --test src/lib/meal.test.js`
@@ -22,7 +22,7 @@ npm test           # pure-function tests: node --test src/lib/*.test.js
 
 ## Architecture
 
-**The frontend is a thin client over Supabase.** There is no app server: the PWA talks to Postgres directly through `supabase-js` and to one Edge Function for AI photo and manual nutrition estimates. `Root.jsx` and `Login.jsx` are the only UI files besides the store that call the Supabase client, and only for session/authentication work; keep application-data queries and mutations in the store.
+**The frontend is a thin client over Supabase.** There is no app server: the PWA talks to Postgres directly through `supabase-js` and to one Edge Function for AI photo and manual nutrition estimates. A second Edge Function, `mcp`, serves a read-only MCP connector for Claude/ChatGPT. `Root.jsx`, `Login.jsx`, and `OAuthConsent.jsx` are the only UI files besides the store that call the Supabase client, and only for session/authentication work; keep application-data queries and mutations in the store.
 
 Render path: `main.jsx` → `Root.jsx` (auth gate and standalone-viewport recovery; renders `Login` or `App`) → `App.jsx` (the shell: header, bottom nav, FAB, sheets/overlays/dialogs, selected day, meal type, Trends range, undo state, and a `useMemo` view-model). Screens plus `FoodEditor.jsx`, `ItemDetailModal.jsx`, and `ConfirmDialog.jsx` are presentational: receive data and callbacks, and do not perform data access. `MealPlan.jsx` is intentionally static guidance, not profile- or entry-derived data. Destructive actions route through `ConfirmDialog`; food and water entry deletes also expose a six-second undo.
 
@@ -44,6 +44,10 @@ Render path: `main.jsx` → `Root.jsx` (auth gate and standalone-viewport recove
 - **`entries.grams` is nullable on purpose** (migration `0004`): it records how much was eaten so `ItemDetailModal` can show amount + protein-per-100g. Legacy and non-gram entries stay null and the UI renders `—`. Migration `0005` backfilled past quick-add rows by reconstructing servings from the protein ratio — read its header comment before trusting old `grams` values.
 - **`profile`** holds `protein_goal_g`, `water_goal_ml`, `name` (used in the header greeting), and the AI-quota fields. There is **no signup trigger** — the row is created lazily by the client's first `upsert` (saving a goal, water goal, or name) or by `consume_ai_call` on first AI use, whichever happens first. Any code that reads the profile must tolerate a missing row.
 - The **AI daily cap is enforced server-side**: `consume_ai_call(limit)` (SECURITY INVOKER RPC, UTC day) atomically reserves one of 6 calls. Counting client-dated entries would be spoofable; this isn't.
+
+## Read-only MCP server (`supabase/functions/mcp/`)
+
+Remote Streamable HTTP MCP server (`@modelcontextprotocol/server` v2 + `@supabase/server`) for Claude and ChatGPT custom connectors, at `https://ghttttnwebaozbadlonp.supabase.co/functions/v1/mcp`. Auth is Supabase Auth's OAuth 2.1 server (beta) with dynamic client registration; its consent screen is `src/OAuthConsent.jsx`, routed by `Root.jsx` at `/oauth/consent` (`vercel.json` rewrites the deep link). `verify_jwt = false` because `withSupabase({ auth: "user" })` verifies tokens itself. Read-only is enforced in four layers — keep all of them: tools only call `.select()` / `.rpc(..., { get: true })` (PostgREST GET = READ ONLY transaction); RLS via the user's JWT; migration `oauth_clients_read_only` denies insert/update/delete to any JWT with a `client_id` claim (OAuth-issued tokens); `readOnlyHint` on every tool. Any new table needs the same three restrictive policies. `shape.js` holds the pure output shaping and imports `src/lib` directly (deploy with `--use-api`, which bundles files outside `supabase/functions`); "today" is `Asia/Jerusalem` because the Edge runtime is UTC. Do not add write tools. Do not use `supabase config push`: `config.toml` has no `[auth]` section and would reset `site_url`, `disable_signup`, and the OAuth server; change auth settings through the Management API or dashboard.
 
 ## AI estimate flow (`supabase/functions/analyze-food-photo/`)
 
