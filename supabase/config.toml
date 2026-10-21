@@ -4,3 +4,8 @@ project_id = "procount"
 # logged-in user can spend AI credit. This is the default; pinned here for clarity.
 [functions.analyze-food-photo]
 verify_jwt = true
+
+# Read-only MCP server. The function verifies OAuth tokens itself (withSupabase); the
+# gateway must let the unauthenticated OAuth discovery request through.
+[functions.mcp]
+verify_jwt = false
