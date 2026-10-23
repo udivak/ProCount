@@ -7,9 +7,12 @@
 // only if this grows tools/streaming.
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { buildAnalysisRequest } from "./guidance.ts";
-import { parseOpenAIResponse, type ParseResult } from "./validate.ts";
+import { parseOpenAIResponse } from "./validate.ts";
 
-const DAILY_AI_LIMIT = 6;
+import { buildChatRequest, buildChatContent, parseChatResponse, chatSchema, CHAT_SYSTEM_PROMPT, readBoundedBody } from "./chat.ts";
+import { CHAT_ENTRY_FIELDS } from "../../../src/lib/chat.js";
+
+const DAILY_AI_LIMIT = 30;
 
 const PHOTO_SYSTEM_PROMPT = `אתה מעריך תזונתי למנה מצולמת. אמוד את סך הקלוריות והחלבון בכל המנה שנאכלת, על בסיס התמונה ותיאור המשתמש יחד.
 
@@ -48,7 +51,7 @@ const json = (body: unknown, status = 200) =>
     headers: { ...cors, "content-type": "application/json" },
   });
 
-Deno.serve(async (req) => {
+export async function handleRequest(req: Request, deps = { createClient, fetch, env: (key: string) => Deno.env.get(key), now: () => new Date() }) {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
@@ -56,24 +59,36 @@ Deno.serve(async (req) => {
   if (!authHeader) return json({ error: "unauthorized" }, 401);
 
   // RLS-scoped client: every query below runs as the calling user.
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_ANON_KEY")!,
+  const supabase = deps.createClient(
+    deps.env("SUPABASE_URL")!,
+    deps.env("SUPABASE_ANON_KEY")!,
     { global: { headers: { Authorization: authHeader } } },
   );
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return json({ error: "unauthorized" }, 401);
 
   let payload: unknown;
-  try {
-    payload = await req.json();
-  } catch {
-    return json({ error: "bad_request" }, 400);
-  }
-  const analysis = buildAnalysisRequest(payload);
-  if (!analysis) return json({ error: "bad_request" }, 400);
+  try { payload = await readBoundedBody(req); }
+  catch (e) { return json({ error: e instanceof Error && e.message === "body_too_large" ? "body_too_large" : "bad_request" }, e instanceof Error && e.message === "body_too_large" ? 413 : 400); }
+  const isChat = (payload as {mode?: string})?.mode === "chat";
+  const chat = isChat ? buildChatRequest(payload, deps.now()) : null;
+  const analysis = isChat ? null : buildAnalysisRequest(payload);
+  if (!chat && !analysis) return json({ error: isChat ? "invalid_chat_context" : "bad_request" }, 400);
 
-  const openAiApiKey = Deno.env.get("OPENAI_API_KEY");
+  let contextRows: Record<string, unknown>[] = [], contextFoods: Record<string, unknown>[] = [];
+  if (chat) {
+    try {
+      const [entries, foods] = await Promise.all([
+        supabase.from("entries").select(CHAT_ENTRY_FIELDS).gte("eaten_on", chat.contextFrom).lte("eaten_on", chat.contextTo).limit(1001),
+        supabase.from("foods").select("name,unit,protein_g,calories").limit(1001),
+      ]);
+      if (entries.error || foods.error || !entries.data || !foods.data) return json({error:"context_unavailable"}, 503);
+      if (entries.data.length > 1000 || foods.data.length > 1000) return json({error:"context_too_large"}, 413);
+      contextRows = entries.data; contextFoods = foods.data;
+    } catch { return json({error:"context_unavailable"}, 503); }
+  }
+
+  const openAiApiKey = deps.env("OPENAI_API_KEY");
   if (!openAiApiKey) return json({ error: "server_error" }, 500);
 
   // Daily cost brake — atomically reserve one of the user's N calls server-side
@@ -86,7 +101,7 @@ Deno.serve(async (req) => {
 
   let openAiRes: Response;
   try {
-    openAiRes = await fetch("https://api.openai.com/v1/responses", {
+    openAiRes = await deps.fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${openAiApiKey}`,
@@ -96,15 +111,15 @@ Deno.serve(async (req) => {
         model: "gpt-6.1-sol",
         reasoning: { effort: "medium" },
         store: false,
-        max_output_tokens: 4096,
-        instructions: analysis.mode === "text" ? TEXT_SYSTEM_PROMPT : PHOTO_SYSTEM_PROMPT,
-        input: [{ role: "user", content: analysis.content }],
+        max_output_tokens: chat ? 12000 : 4096,
+        instructions: chat ? CHAT_SYSTEM_PROMPT : analysis!.mode === "text" ? TEXT_SYSTEM_PROMPT : PHOTO_SYSTEM_PROMPT,
+        input: chat ? buildChatContent(chat, {entries: contextRows.map(({id: _id, food_id: _foodId, ...row}) => row), foods: contextFoods}) : [{ role: "user", content: analysis!.content }],
         text: {
           format: {
             type: "json_schema",
-            name: "nutrition_estimate",
+            name: chat ? "nutrition_chat" : "nutrition_estimate",
             strict: true,
-            schema: nutritionSchema,
+            schema: chat ? chatSchema : nutritionSchema,
           },
         },
       }),
@@ -119,9 +134,15 @@ Deno.serve(async (req) => {
     return json({ error: "ai_unavailable" }, 502);
   }
 
-  let parsed: ParseResult;
+  let parsed;
   try {
-    parsed = parseOpenAIResponse(await openAiRes.json());
+    const response = await openAiRes.json();
+    if (chat) {
+      const result = parseChatResponse(response, {oldest: chat.contextFrom, today: chat.contextTo});
+      if (result.type === "chat") return json({...result.result, contextRows, contextFrom:chat.contextFrom, contextTo:chat.contextTo});
+      return json({error: result.type === "refusal" ? "ai_refused" : "ai_unparseable"}, result.type === "refusal" ? 422 : 502);
+    }
+    parsed = parseOpenAIResponse(response);
   } catch {
     console.error("openai_parse_error", "invalid_json");
     return json({ error: "ai_unparseable" }, 502);
@@ -131,4 +152,6 @@ Deno.serve(async (req) => {
   if (parsed.type === "refusal") return json({ error: "ai_refused" }, 422);
   console.error("openai_parse_error", parsed.type);
   return json({ error: "ai_unparseable" }, 502);
-});
+}
+
+if (import.meta.main) Deno.serve((req) => handleRequest(req));
