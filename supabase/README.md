@@ -152,3 +152,15 @@ Responses:
 
 Client-side trend math (`dailyTotals`, `remainingProtein`, `streak`) lives with the
 frontend, not the backend — it reads `entries` + the goal and aggregates by `eaten_on`.
+
+## Concurrent write check
+
+With an explicitly approved connector grant already enabled, run:
+
+```sh
+python3 scripts/check-mcp-concurrency.py --project-ref <project> --user-id <user-uuid> --client-id <oauth-client-uuid>
+```
+
+Requires an authenticated Supabase CLI. Two independent sessions synchronize before
+writing the same request ID. The script asserts overlapping execution and one saved
+entry, then removes only its own 1 ml test entry and audit request in `finally`.
