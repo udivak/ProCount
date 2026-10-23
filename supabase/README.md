@@ -112,8 +112,8 @@ fields; it does not persist a food or entry until the user explicitly saves.
 ## OpenAI Responses configuration
 
 The function uses one raw request to `https://api.openai.com/v1/responses` with
-`gpt-6-astra`, `reasoning: { effort: "low" }`, `store: false`,
-`max_output_tokens: 1024`, and strict `nutrition_estimate` JSON-schema output.
+`gpt-6.1-sol`, `reasoning: { effort: "medium" }`, `store: false`,
+`max_output_tokens: 4096`, and strict `nutrition_estimate` JSON-schema output.
 The schema requires `name`, non-negative `calories` and `protein_g`, `confidence`
 (`low`, `medium`, or `high`), and `note`, with no additional properties.
 

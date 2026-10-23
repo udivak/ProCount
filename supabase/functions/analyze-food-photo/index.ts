@@ -93,10 +93,10 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-6-astra",
-        reasoning: { effort: "low" },
+        model: "gpt-6.1-sol",
+        reasoning: { effort: "medium" },
         store: false,
-        max_output_tokens: 1024,
+        max_output_tokens: 4096,
         instructions: analysis.mode === "text" ? TEXT_SYSTEM_PROMPT : PHOTO_SYSTEM_PROMPT,
         input: [{ role: "user", content: analysis.content }],
         text: {
