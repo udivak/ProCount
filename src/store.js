@@ -1,3 +1,4 @@
+import { CHAT_ENTRY_FIELDS, sameChatContext, saveChatRows } from "./lib/chat.js";
 import { createRefreshGuard } from "./lib/refresh.js";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase, FUNCTIONS_URL } from "./lib/supabase.js";
@@ -241,6 +242,44 @@ export function useData(session) {
     return { estimate: body };
   }, [session]);
 
+  const readChatDays = useCallback(async (dates) => {
+    try {
+      const result = await supabase.from("entries").select(CHAT_ENTRY_FIELDS, {count:"exact"}).in("eaten_on", dates).limit(1001);
+      if (result.error || !result.data || !Number.isInteger(result.count) || result.count > 1000 || result.data.length !== result.count) return {error: "context_unavailable"};
+      return {data:result.data};
+    } catch { return {error:"context_unavailable"}; }
+  }, []);
+
+  const applyChatRow = useCallback((row) => {
+    setEntries(current => [row, ...current.filter(entry => entry.id !== row.id)]);
+  }, []);
+
+  const addChatEntries = useCallback(async (rows, contextRows, allRows = rows) => {
+    const dates = [...new Set(allRows.map(r => r.eaten_on))];
+    const fresh = await readChatDays(dates);
+    if (fresh.error) return {error:fresh.error};
+    if (!sameChatContext(contextRows.filter(r => dates.includes(r.eaten_on)), fresh.data, allRows.map(r => r.id))) {
+      return {error:"context_changed", contextRows:fresh.data};
+    }
+    return saveChatRows(rows, addEntry, id => supabase.from("entries").select(CHAT_ENTRY_FIELDS).eq("id", id).maybeSingle(), applyChatRow);
+  }, [addEntry, readChatDays, applyChatRow]);
+
+  const inspectChatRows = useCallback((rows) => {
+    const find = id => supabase.from("entries").select(CHAT_ENTRY_FIELDS).eq("id", id).maybeSingle();
+    return saveChatRows(rows, row => find(row.id), find, applyChatRow);
+  }, [applyChatRow]);
+
+  const sendNutritionChat = useCallback(async (request, signal) => {
+    const body = JSON.stringify({mode:"chat", ...request});
+    if (new TextEncoder().encode(body).byteLength > 4 * 1024 * 1024) return {error:"body_too_large"};
+    const res = await fetch(`${FUNCTIONS_URL}/analyze-food-photo`, {
+      method:"POST", signal,
+      headers:{"content-type":"application/json", Authorization:`Bearer ${session.access_token}`}, body,
+    });
+    const result = await res.json().catch(() => ({}));
+    return res.ok ? {data:result} : {error:result.error || "ai_unavailable"};
+  }, [session]);
+
   const signOut = useCallback(() => {
     for (const key of Object.keys(localStorage)) if (key.startsWith(`workout-draft:${session.user.id}:`)) localStorage.removeItem(key);
     return supabase.auth.signOut();
@@ -248,9 +287,9 @@ export function useData(session) {
 
   return {
     connectorPermissions, loadConnectorPermissions, saveConnectorPermission, loading, entries, foods, goal, waterGoal, name, today, email: session.user.email,
-    ...Object.fromEntries(Object.entries({ addQuick, addWater, addManual, addAi, deleteEntry, updateEntryMeal }).map(([key, operation]) =>
+    ...Object.fromEntries(Object.entries({ addQuick, addWater, addManual, addAi, addChatEntries, inspectChatRows, deleteEntry, updateEntryMeal }).map(([key, operation]) =>
       [key, (...args) => refreshGuard.current.mutate(() => operation(...args))])),
-    saveFood, deleteFood, setGoal, setWaterGoal, setName, analyzePhoto, estimateFoodNutrition, signOut,
+    readChatDays, sendNutritionChat, compressChatImage: compressToBase64, saveFood, deleteFood, setGoal, setWaterGoal, setName, analyzePhoto, estimateFoodNutrition, signOut,
   };
 }
 

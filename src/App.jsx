@@ -10,6 +10,9 @@ import { Gear, Home, Chart, ListIcon, Plus, Utensils, Dumbbell } from "./lib/ico
 import Today from "./screens/Today.jsx";
 import Trends from "./screens/Trends.jsx";
 import MyFoods from "./screens/MyFoods.jsx";
+import NutritionChat from "./screens/NutritionChat.jsx";
+import { todayLocal } from "./lib/date.js";
+import { prepareChatRows, validateChatItems, isChatRequestCurrent } from "./lib/chat.js";
 import AddSheet from "./screens/AddSheet.jsx";
 import Settings from "./screens/Settings.jsx";
 import MealPlan from "./screens/MealPlan.jsx";
@@ -22,11 +25,17 @@ const SCALE = 200, CHART_H = 210;
 const SOURCE = {
   saved: { tag: "מהיר", iconBg: "rgba(52,211,153,.12)", iconColor: "#39e6b2", sub: "מהיר" },
   manual: { tag: "ידני", iconBg: "rgba(96,165,250,.12)", iconColor: "#60a5fa", sub: "הזנה ידנית" },
-  ai: { tag: "AI", iconBg: "rgba(167,139,250,.14)", iconColor: "#a78bfa", sub: "מצילום · AI" },
+  ai: { tag: "AI", iconBg: "rgba(167,139,250,.14)", iconColor: "#a78bfa", sub: "הערכת AI" },
 };
 const round = (n) => Math.round(Number(n) || 0);
 const blankForm = () => ({ name: "", protein: "", calories: "", grams: "", quantity: "1", unit: "מנה", save: false, entryId: crypto.randomUUID(), foodId: crypto.randomUUID(), entrySaved: false });
 const isNonNegative = (value) => String(value ?? "").trim() !== "" && Number.isFinite(Number(value)) && Number(value) >= 0;
+
+const newChatState = (selectedDate) => {
+  const today=todayLocal();
+  return {today,oldest:shiftDate(today,-34),timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,selectedDate,messages:[],items:[],images:[],compose:'',status:'idle',needsClarification:true,contextRows:[],contextFrom:shiftDate(today,-34),contextTo:today,dirtyKeys:[],attempt:null,error:'',errorText:'',notice:'',contextReview:null};
+};
+const chatError = code => ({daily_limit:'הגעת למכסה של 30 בקשות AI ליום. אפשר להוסיף ידנית.',context_changed:'הרישומים ביום הזה השתנו — בדוק את ההצעה שוב. לפני ניסיון נוסף בדוק את המצב העדכני למעלה.',context_unavailable:'לא ניתן לקרוא את הרישומים. השמירה נעצרה; נסה שוב לאחר חידוש החיבור.',context_too_large:'חלון ההקשר גדול מדי. בחר טווח תאריכים מצומצם ושלח שוב.',body_too_large:'הבקשה גדולה מדי. הסר תמונה או פתח שיחה חדשה לאחר טיפול בטיוטה.',invalid_chat_context:'הקשר השיחה אינו תקין. בדוק תאריכים, רענן את הקשר התאריך ושלח שוב.',ai_refused:'לא התקבלה הערכה. נסה תיאור אחר או הוסף ידנית.',ai_unparseable:'התשובה לא הושלמה או אינה תקינה. הטיוטה נשמרה; אפשר לשלוח שוב.'}[code] || 'הפעולה לא הושלמה. בדוק את החיבור ונסה שוב. הטיוטה נשמרה.');
 
 export default function App({ session }) {
   const data = useData(session);
@@ -59,6 +68,8 @@ export default function App({ session }) {
   const waterUndoTimer = useRef(null);
   const waterUndoRevision = useRef(0);
   const waterUndoLock = useRef(false);
+  const waterAddLock = useRef(false);
+  const [waterAdding, setWaterAdding] = useState(null);
   const foodUndoTimer = useRef(null);
   const foodUndoRef = useRef(null);
   const foodUndoPendingTimer = useRef(false);
@@ -71,6 +82,116 @@ export default function App({ session }) {
   const addReturnFocus = useRef(null);
   const appScrollRef = useRef(null);
   const [addSaving, setAddSaving] = useState(false);
+
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chat, setChat] = useState(() => newChatState(selectedDay));
+  const chatRef = useRef(chat); chatRef.current = chat;
+  const chatReturnFocus = useRef(null);
+  useEffect(() => { if (!chatOpen && chatReturnFocus.current) { chatReturnFocus.current.focus?.(); chatReturnFocus.current=null; } }, [chatOpen]);
+  const chatRevision = useRef(0), chatAbort = useRef(null), chatSaveLock = useRef(false), chatImageLock = useRef(false);
+  useEffect(() => () => { chatRevision.current++; chatAbort.current?.abort(); }, []);
+  const invalidateChat = () => { chatRevision.current++; chatAbort.current?.abort(); chatAbort.current=null; };
+  const changeChat = (patch) => {
+    if (chatSaveLock.current || chatRef.current.attempt) return;
+    invalidateChat();
+    setChat(c => ({...c, status:c.needsClarification?'clarifying':'draft', error:'', ...patch}));
+  };
+  const closeChatRef = useRef(null);
+  closeChatRef.current = () => {
+    invalidateChat(); setChatOpen(false);
+    setChat(c => c.status==='analyzing' || c.status==='preparing' ? {...c,status:c.needsClarification?'clarifying':'draft'} : c);
+  };
+  const closeChat = useMemo(() => () => closeChatRef.current(), []);
+  const openChat = () => {
+    chatReturnFocus.current=addReturnFocus.current;
+    addReturnFocus.current=null;
+    discardAdd();
+    if (!chat.messages.length && !chat.items.length && !chat.compose && !chat.images.length && !chat.attempt) setChat(newChatState(addDate));
+    setChatOpen(true);
+  };
+  const newChat = () => {
+    if (chatSaveLock.current || chatRef.current.attempt) return;
+    const reset = () => { invalidateChat(); setChat(newChatState(selectedDay)); };
+    if (chatRef.current.items.length || chatRef.current.compose || chatRef.current.images.length) setConfirm({title:'השלכת הטיוטה?',body:'ההצעות שטרם נשמרו והשיחה יימחקו.',confirmLabel:'שיחה חדשה',onConfirm:reset});
+    else reset();
+  };
+  const pickChatImage = async file => {
+    if (chatSaveLock.current || chatRef.current.attempt || chatImageLock.current) return;
+    const c=chatRef.current;
+    if (c.images.length + c.messages.reduce((n,m)=>n+(m.images?.length||0),0)>=4) {setChat(s=>({...s,error:'images',errorText:'אפשר לצרף עד ארבע תמונות בשיחה. לאחר טיפול בטיוטה פתח שיחה חדשה.'}));return;}
+    invalidateChat(); const current=captureRequestRevision(chatRevision);
+    chatImageLock.current=true; setChat(s=>({...s,status:'preparing',error:''}));
+    try {
+      const image=await data.compressChatImage(file);
+      if(current())setChat(s=>({...s,images:[...s.images,image],status:s.needsClarification?'clarifying':'draft'}));
+    }catch{if(current())setChat(s=>({...s,error:'image',errorText:'לא ניתן לקרוא את התמונה.',status:'draft'}));}
+    finally{chatImageLock.current=false;}
+  };
+  const sendChat = async () => {
+    const c=chatRef.current;
+    if(chatSaveLock.current || chatAbort.current || c.attempt || ['analyzing','preparing'].includes(c.status) || (!c.compose.trim()&&!c.images.length))return;
+    if(c.today!==todayLocal()){setChat(s=>({...s,error:'date',errorText:'היום התחלף. רענן את הקשר התאריך ובדוק את התאריכים לפני שליחה.',needsClarification:true}));return;}
+    const messages=[...c.messages,{role:'user',text:c.compose,images:c.images}];
+    if(messages.length>20 || messages.reduce((n,m)=>n+m.text.length,0)>20000){setChat(s=>({...s,error:'full',errorText:'השיחה מלאה. טפל בטיוטה ופתח שיחה חדשה.'}));return;}
+    const current=captureRequestRevision(chatRevision); const controller=new AbortController();chatAbort.current=controller;
+    setChat(s=>({...s,status:'analyzing',error:'',notice:''}));
+    try {
+      const result=await data.sendNutritionChat({today:c.today,timezone:c.timezone,selectedDate:c.selectedDate,messages,items:c.items,contextFrom:c.contextFrom,contextTo:c.contextTo},controller.signal);
+      if(!isChatRequestCurrent(current,c.today,todayLocal())){
+        if(current())setChat(s=>({...s,status:'clarifying',needsClarification:true,error:'date',errorText:'היום התחלף במהלך הניתוח. רענן את הקשר התאריך ושלח שוב.'}));
+        return;
+      }
+      if(result.error)throw Error(result.error);
+      const r=result.data;
+      if(!validateChatItems(r.items,{oldest:c.oldest,today:c.today}) || typeof r.needsClarification!=='boolean' || typeof r.message!=='string' || !Array.isArray(r.contextRows))throw Error('ai_unparseable');
+      setChat(s=>({...s,messages:[...messages,{role:'assistant',text:r.message}],items:r.items,needsClarification:r.needsClarification,contextRows:r.contextRows,contextFrom:r.contextFrom,contextTo:r.contextTo,status:r.needsClarification?'clarifying':'draft',compose:'',images:[],dirtyKeys:[],contextReview:null}));
+    }catch(error){if(current())setChat(s=>({...s,status:s.needsClarification?'clarifying':'draft',error:error.message,errorText:chatError(error.message)}));}
+    finally{if(chatAbort.current===controller)chatAbort.current=null;}
+  };
+  const editChatItem = (key,field,value) => {
+    const c=chatRef.current;
+    changeChat({items:c.items.map(i=>i.draftKey===key?{...i,[field]:value}:i),dirtyKeys:['name','quantityText','grams'].includes(field)?[...new Set([...c.dirtyKeys,key])]:c.dirtyKeys});
+  };
+  const finishChatSave = (c,attempt,result,editing=false) => {
+    const savedIds=new Set([...attempt.savedIds,...result.saved.map(r=>r.id)]);
+    const savedKeys=attempt.rows.flatMap((r,i)=>savedIds.has(r.id)?[attempt.keys[i]]:[]);
+    const pending=attempt.rows.filter(r=>!savedIds.has(r.id));
+    const complete=!pending.length;
+    const notice=`נשמרו ${savedIds.size} מתוך ${attempt.rows.length}`;
+    const remaining=c.items.filter(i=>!savedKeys.includes(i.draftKey));
+    const canEdit=editing && !result.uncertain.length;
+    const saveReport={role:'assistant',text:`תוצאת שמירה מאומתת מהאפליקציה: ${notice}. נשמרו: ${attempt.rows.filter(r=>savedIds.has(r.id)).map(r=>r.eaten_on+' '+r.name).join('; ')}. השורות שנשמרו אינן חלק מהטיוטה. לפני הצעה נוספת יש להשתמש ברישומים העדכניים מהשרת.`};
+    setChat(s=>({...s,items:remaining,attempt:complete || canEdit?null:{...attempt,savedIds:[...savedIds],savedKeys},status:complete?'saved':canEdit?'draft':'partial',notice,error:result.uncertain.length?'uncertain':'',errorText:result.uncertain.length?'תוצאת חלק מהרישומים אינה ידועה. בדיקה או ניסיון חוזר ישתמשו באותם מזהים.':'',needsClarification:complete?true:c.needsClarification,messages:complete || canEdit?[...c.messages,saveReport]:c.messages,dirtyKeys:[],contextReview:null}));
+  };
+  const approveChat = (retry=false) => withSubmissionLock(chatSaveLock, async () => {
+    const c=chatRef.current;
+    if(!retry && (c.needsClarification || c.attempt || !c.items.length || ['analyzing','preparing'].includes(c.status)))return;
+    if(c.today!==todayLocal()){setChat(s=>({...s,error:'date',errorText:'היום התחלף. בדוק מה נשמר ביומן, רענן את הקשר התאריך ובדוק את התאריכים.',needsClarification:true}));return;}
+    let attempt=c.attempt;
+    if(!attempt){
+      try {attempt={rows:prepareChatRows(c.items,{oldest:c.oldest,today:c.today},()=>crypto.randomUUID()),keys:c.items.map(i=>i.draftKey),savedIds:[],savedKeys:[]};}
+      catch{setChat(s=>({...s,error:'draft',errorText:'בדוק תאריכים וערכים: שם חובה, תזונה לא שלילית ומים/משקל חיוביים.'}));return;}
+    }
+    invalidateChat();setChat(s=>({...s,status:'saving',attempt,error:'',notice:''}));
+    try{
+      const dates=[...new Set(attempt.rows.map(r=>r.eaten_on))];
+      if(!retry && dates.some(d=>d<c.contextFrom || d>c.contextTo)){
+        const fresh=await data.readChatDays(dates);if(fresh.error)throw Error(fresh.error);
+        setChat(s=>({...s,attempt:null,status:'draft',contextRows:[...c.contextRows.filter(r=>!dates.includes(r.eaten_on)),...fresh.data],contextFrom:dates.reduce((a,b)=>a<b?a:b,c.contextFrom),contextTo:dates.reduce((a,b)=>a>b?a:b,c.contextTo),contextReview:fresh.data,error:'review',errorText:'נטענו הרישומים לתאריך שנערך. בדוק אותם ואשר שוב.'}));return;
+      }
+      const result=await data.addChatEntries(attempt.rows.filter(r=>!attempt.savedIds.includes(r.id)),c.contextRows,attempt.rows);
+      if(result.error){
+        setChat(s=>({...s,status:'partial',attempt,contextRows:result.contextRows?[...c.contextRows.filter(r=>!dates.includes(r.eaten_on)),...result.contextRows]:c.contextRows,contextReview:result.contextRows||null,error:result.error,errorText:chatError(result.error)}));return;
+      }
+      finishChatSave(c,attempt,result);
+    }catch(error){setChat(s=>({...s,status:'partial',attempt,error:'uncertain',errorText:chatError(error.message)}));}
+  });
+  const resolveChat = () => withSubmissionLock(chatSaveLock,async()=>{
+    const c=chatRef.current;if(!c.attempt)return;
+    setChat(s=>({...s,status:'saving',error:''}));
+    try{const pending=c.attempt.rows.filter(r=>!c.attempt.savedIds.includes(r.id));const result=await data.inspectChatRows(pending);finishChatSave(c,c.attempt,result,true);}
+    catch{setChat(s=>({...s,status:'partial',error:'uncertain',errorText:chatError('context_unavailable')}));}
+  });
 
   useEffect(() => () => {
     clearTimeout(waterUndoTimer.current);
@@ -150,7 +271,7 @@ export default function App({ session }) {
       calAvg: avgCaloriesPerActiveDay(entries, dates).toLocaleString(),
       foodVm,
       // Local estimate only; the server enforces the UTC daily analysis limit.
-      aiQuota: Math.max(0, 6 - entries.filter((e) => e.eaten_on === today && e.source === "ai").length),
+      aiQuota: 30,
     };
   }, [entries, foods, goal, today, selectedDay, chartRange]);
 
@@ -405,16 +526,19 @@ export default function App({ session }) {
     }
   };
 
-  const addWater = async (amount) => {
-    const result = await data.addWater(amount, selectedDay);
-    if (!result.data) {
+  const addWater = (amount) => withSubmissionLock(waterAddLock, async () => {
+    setWaterAdding(amount);
+    try {
+      const result = await data.addWater(amount, selectedDay);
+      if (!result.data) throw new Error("water_save_failed");
+      setWaterError("");
+      rememberWaterUndo({ id: result.data.id, amount: result.data.water_ml, date: selectedDay });
+    } catch {
       setWaterError("לא ניתן לשמור את המים כרגע. נסה שוב.");
-      return;
+    } finally {
+      setWaterAdding(null);
     }
-    setWaterError("");
-    const undo = { id: result.data.id, amount: result.data.water_ml, date: selectedDay };
-    rememberWaterUndo(undo);
-  };
+  });
 
   const undoWater = () => {
     const undo = waterUndo;
@@ -491,7 +615,7 @@ export default function App({ session }) {
       </header>
 
       <div ref={appScrollRef} className="pc-scroll app-scroll" style={{ flex: 1, overflowY: "auto" }}>
-        {screen === "today" && <Today totals={vm.totals} goal={goal} progress={vm.proteinProgress} remaining={vm.remaining} pace={vm.pace} calorieProgress={vm.calorieProgress} calorieIntake={vm.calorieIntake} calorieGoal={CALORIE_GOAL} calorieBalance={vm.calorieBalance} waterMl={vm.waterMl} waterEntries={vm.waterEntries} waterLogKey={selectedDay} waterGoal={waterGoal} onAddWater={addWater} waterUndo={waterUndo?.date === selectedDay ? waterUndo : null} onUndoWater={undoWater} waterError={waterError} mealGroups={vm.mealGroups} suggestion={vm.suggestion} onAdd={openAdd} onDelete={requestEntryDelete} onSelect={openEntryDetail} dayLabel={dayLabel(selectedDay, today)} isToday={selectedDay === today} onToday={() => setSelectedDay(today)} onPrev={prevDay} onNext={nextDay} canPrev={canPrev} canNext={canNext} />}
+        {screen === "today" && <Today totals={vm.totals} goal={goal} progress={vm.proteinProgress} remaining={vm.remaining} pace={vm.pace} calorieProgress={vm.calorieProgress} calorieIntake={vm.calorieIntake} calorieGoal={CALORIE_GOAL} calorieBalance={vm.calorieBalance} waterMl={vm.waterMl} waterEntries={vm.waterEntries} waterLogKey={selectedDay} waterGoal={waterGoal} onAddWater={addWater} waterAdding={waterAdding} waterUndo={waterUndo?.date === selectedDay ? waterUndo : null} onUndoWater={undoWater} waterError={waterError} mealGroups={vm.mealGroups} suggestion={vm.suggestion} onAdd={openAdd} onDelete={requestEntryDelete} onSelect={openEntryDetail} dayLabel={dayLabel(selectedDay, today)} isToday={selectedDay === today} onToday={() => setSelectedDay(today)} onPrev={prevDay} onNext={nextDay} canPrev={canPrev} canNext={canNext} />}
         {screen === "trends" && <Trends goal={goal} streak={vm.streak} avg={vm.avg} bars={vm.bars} goalY={vm.goalY} calAvg={vm.calAvg} heading={vm.heading} range={chartRange} onRange={setChartRange} />}
         {screen === "foods" && <MyFoods foods={vm.foodVm} onNew={() => setEditFood({})} onEdit={(f) => setEditFood(f.raw)} />}
         {screen === "mealPlan" && <MealPlan />}
@@ -513,12 +637,18 @@ export default function App({ session }) {
       </div>
 
       {addOpen && (
-        <AddSheet tab={addTab} onTab={onTab} onClose={discardAdd} foods={vm.foodVm} form={form} isGeneralFood={isGeneralFood} onOpenGeneral={openGeneralFood} onBackGeneral={backFromGeneralFood} onBackPhoto={backFromPhotoResult} error={addError} saving={addSaving}
+        <AddSheet onOpenChat={openChat} tab={addTab} onTab={onTab} onClose={discardAdd} foods={vm.foodVm} form={form} isGeneralFood={isGeneralFood} onOpenGeneral={openGeneralFood} onBackGeneral={backFromGeneralFood} onBackPhoto={backFromPhotoResult} error={addError} saving={addSaving}
           onField={onField} onToggleSave={onToggleSave} locked={form.entrySaved} onBeginQuick={() => setAddError("")} isLearnedSnack={(food) => isLearnedSnack(food, learnedSnacks)}
           onSubmit={submitAdd} onQuickAdd={quickAdd} photo={{ ...photo, quota: vm.aiQuota }} photoFile={photoFile} onPickPhoto={pickPhoto} onAnalyzePhoto={analyzeSelectedPhoto} photoGuidance={photoGuidance} onPhotoGuidance={changePhotoGuidance}
           manualEstimate={manualEstimate} manualEstimatePending={!!manualEstimateLock.current} onEstimateManual={analyzeManualFood}
           date={addDate} onDate={onDate} minDate={oldest} maxDate={today} mealType={mealType} onMealType={onMealType} />
       )}
+
+      {chatOpen && <NutritionChat chat={chat} onClose={closeChat} onNewChat={newChat} onSend={sendChat} onEditItem={editChatItem}
+        onRemoveItem={key=>changeChat({items:chat.items.filter(i=>i.draftKey!==key)})} onApprove={()=>approveChat()} onRetry={()=>approveChat(true)} onResolve={resolveChat}
+        onCompose={compose=>changeChat({compose})} onPickImage={pickChatImage} onRemoveImage={index=>changeChat({images:chat.images.filter((_,i)=>i!==index)})}
+        onDate={selectedDate=>changeChat({selectedDate})} onContextRange={(key,value)=>changeChat({[key]:value,error:"context_too_large",errorText:chatError("context_too_large")})}
+        onRefreshContext={()=>{const fresh=todayLocal();changeChat({today:fresh,oldest:shiftDate(fresh,-34),timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,contextFrom:shiftDate(fresh,-34),contextTo:fresh,needsClarification:true,notice:'הקשר התאריך רוענן. בדוק את תאריכי הטיוטה ושלח הודעה לעדכון ההצעה.'});}} />}
 
       {settingsOpen && (
         <Settings connectorPermissions={data.connectorPermissions} onConnectorPermission={data.saveConnectorPermission} goal={goal} waterGoal={waterGoal} name={data.name} email={data.email} onName={data.setName} onBack={() => setSettingsOpen(false)}

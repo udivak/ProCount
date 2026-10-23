@@ -12,7 +12,7 @@ const round = (n) => Math.round(Number(n) || 0);
 const MEALS = [["breakfast", "בוקר"], ["lunch", "צהריים"], ["dinner", "ערב"], ["snack", "נשנוש"]];
 const MEASURES = ["יחידה", "כף", "כפית", "כוס", "פרוסה", "סקופ", "קופסה", "מנה", "100 גרם"];
 
-export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFood, onOpenGeneral, onBackGeneral, onBackPhoto, onField, onToggleSave, onSubmit, onQuickAdd, photo, photoFile, onPickPhoto, onAnalyzePhoto, photoGuidance, onPhotoGuidance, manualEstimate, manualEstimatePending, onEstimateManual, date, onDate, minDate, maxDate, mealType, onMealType, error, locked, saving, onBeginQuick, isLearnedSnack }) {
+export default function AddSheet({ onOpenChat, tab, onTab, onClose, foods, form, isGeneralFood, onOpenGeneral, onBackGeneral, onBackPhoto, onField, onToggleSave, onSubmit, onQuickAdd, photo, photoFile, onPickPhoto, onAnalyzePhoto, photoGuidance, onPhotoGuidance, manualEstimate, manualEstimatePending, onEstimateManual, date, onDate, minDate, maxDate, mealType, onMealType, error, locked, saving, onBeginQuick, isLearnedSnack }) {
   const cameraRef = useRef(null);
   const galleryRef = useRef(null);
   const closeRef = useRef(null);
@@ -72,6 +72,7 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFo
               <X size={18} />
             </button>
           </div>
+          <button disabled={disabled} onClick={onOpenChat} style={{ ...input, marginBottom: 10, background: "#1c392b", color: "#82e6b4", fontWeight: 800, cursor: "pointer" }}>הוספה בשיחה</button>
           <div role="group" aria-label="שיטת הוספה" style={{ display: "flex", gap: 4, background: "#171b18", border: "1px solid #2b342f", padding: 4, borderRadius: 16 }}>
             {tabBtn("quick", "מהיר")}
             {tabBtn("manual", "ידני")}
@@ -163,7 +164,7 @@ export default function AddSheet({ tab, onTab, onClose, foods, form, isGeneralFo
                     <div role="alert" style={{ marginTop: 14, textAlign: "center", fontSize: 13, fontWeight: 700, color: "#fb7185" }}>{photo.error}</div>
                   ) : (
                     <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 8, justifyContent: "center", fontSize: 12, color: "#5f5f68" }}>
-                      <Info size={14} /> הערכת יתרה מקומית: {photo.quota} ניתוחים היום
+                      <Info size={14} /> מכסה משותפת: {photo.quota} בקשות AI ביום
                     </div>
                   )}
                 </div>

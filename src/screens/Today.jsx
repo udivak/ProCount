@@ -5,7 +5,7 @@ const MEAL_LABELS = { breakfast: "בוקר", lunch: "צהריים", dinner: "ע�
 const PACE_LABELS = { excellent: "בקצב מצוין", good: "בקצב טוב", behind: "קצת מאחור" };
 const format = (value) => Number(value || 0).toLocaleString("he-IL");
 
-export default function Today({ totals, goal, progress, remaining, pace, calorieProgress, calorieIntake, calorieGoal, calorieBalance, waterMl, waterEntries, waterLogKey, waterGoal, onAddWater, waterUndo, onUndoWater, waterError, mealGroups, suggestion, onAdd, onDelete, onSelect, dayLabel, isToday, onToday, onPrev, onNext, canPrev, canNext }) {
+export default function Today({ totals, goal, progress, remaining, pace, calorieProgress, calorieIntake, calorieGoal, calorieBalance, waterMl, waterEntries, waterLogKey, waterGoal, onAddWater, waterAdding, waterUndo, onUndoWater, waterError, mealGroups, suggestion, onAdd, onDelete, onSelect, dayLabel, isToday, onToday, onPrev, onNext, canPrev, canNext }) {
   return <div className="today-neon">
     <div className="today-daybar">
       <DayArrow chevron="›" label="יום קודם" disabled={!canPrev} onClick={onPrev} />
@@ -32,7 +32,7 @@ export default function Today({ totals, goal, progress, remaining, pace, calorie
         <div className="mini-sub">{calorieBalance >= 0 ? `נותרו ${format(calorieBalance)} קל׳` : `חריגה של ${format(Math.abs(calorieBalance))} קל׳`}</div>
         <div className="metric-bar"><i style={{ width: `${calorieProgress * 100}%`, background: "#fb923c" }} /></div>
       </section>
-      <WaterCard total={waterMl} goal={waterGoal} onAdd={onAddWater} undo={waterUndo} onUndo={onUndoWater} error={waterError} />
+      <WaterCard total={waterMl} goal={waterGoal} onAdd={onAddWater} adding={waterAdding} undo={waterUndo} onUndo={onUndoWater} error={waterError} />
     </div>
 
     {suggestion && <section className="suggestion-card">
@@ -68,9 +68,11 @@ function WaterLog({ entries, onDelete }) {
   </details>;
 }
 
-function WaterCard({ total, goal, onAdd, undo, onUndo, error }) {
+function WaterCard({ total, goal, onAdd, adding, undo, onUndo, error }) {
   const [custom, setCustom] = useState("");
   const [showMore, setShowMore] = useState(false);
+  const pending = adding != null;
+  const pendingStyle = pending ? { opacity: .45, cursor: "wait" } : undefined;
   const progress = Math.min(100, Math.round((Number(total) / Math.max(1, Number(goal))) * 100));
   const addCustom = async () => {
     const amount = Math.round(Number(custom));
@@ -78,19 +80,20 @@ function WaterCard({ total, goal, onAdd, undo, onUndo, error }) {
     await onAdd(amount);
     setCustom("");
   };
-  return <section className="water-card">
+  return <section className="water-card" aria-busy={pending}>
     <div className="mini-card-head"><strong>מים</strong><span className="mini-icon water"><Droplet size={18} /></span></div>
     <div className="mini-value"><b>{format(total / 1000)}</b><span> / {format(goal / 1000)} ל׳</span></div>
     <div className="water-track" aria-label={`שתית ${total} מתוך ${goal} מיליליטר`}><i style={{ width: `${progress}%` }} /></div>
     <div className="water-actions">
-      {[275, 700].map((amount) => <button key={amount} onClick={() => onAdd(amount)}>+{amount}</button>)}
-      <button aria-expanded={showMore} onClick={() => setShowMore((value) => !value)}>אחר</button>
+      {[275, 700].map((amount) => <button key={amount} disabled={pending} style={pendingStyle} onClick={() => onAdd(amount)}>{adding === amount ? "מוסיף…" : `+${amount}`}</button>)}
+      <button disabled={pending} style={pendingStyle} aria-expanded={showMore} onClick={() => setShowMore((value) => !value)}>אחר</button>
     </div>
     {showMore && <div className="water-more">
-      <button onClick={() => onAdd(500)}>+500 מ״ל</button>
-      <div className="water-custom"><input value={custom} onChange={(event) => setCustom(event.target.value.replace(/[^\d]/g, ""))} inputMode="numeric" dir="ltr" placeholder="מ״ל" aria-label="כמות מים אחרת במיליליטר" /><button onClick={addCustom} disabled={!(Number(custom) > 0)}>הוסף</button></div>
+      <button disabled={pending} style={pendingStyle} onClick={() => onAdd(500)}>{adding === 500 ? "מוסיף…" : "+500 מ״ל"}</button>
+      <div className="water-custom"><input disabled={pending} value={custom} onChange={(event) => setCustom(event.target.value.replace(/[^\d]/g, ""))} inputMode="numeric" dir="ltr" placeholder="מ״ל" aria-label="כמות מים אחרת במיליליטר" /><button onClick={addCustom} style={pendingStyle} disabled={pending || !(Number(custom) > 0)}>{pending && adding === Number(custom) ? "מוסיף…" : "הוסף"}</button></div>
     </div>}
-    {undo && <button className="water-undo" onClick={onUndo}>בטל +{undo.amount} מ״ל</button>}
+    {pending && <div role="status" style={{ fontSize: 12, marginTop: 6 }}>מוסיף מים…</div>}
+    {undo && <button disabled={pending} style={pendingStyle} className="water-undo" onClick={onUndo}>בטל +{undo.amount} מ״ל</button>}
     {error && <div className="water-error" role="alert">{error}</div>}
   </section>;
 }

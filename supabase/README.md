@@ -32,7 +32,7 @@ supabase db push
 supabase secrets set OPENAI_API_KEY=...
 
 # edge function
-supabase functions deploy analyze-food-photo
+supabase functions deploy analyze-food-photo --use-api
 ```
 
 `SUPABASE_URL` and `SUPABASE_ANON_KEY` are injected into the function automatically.
@@ -104,7 +104,7 @@ present, must be a positive number. Manual estimates always describe one selecte
 unit. The client multiplies the returned nutrition by `quantity` only when it
 constructs the entry.
 Compress photo input to ~1024px JPEG before sending (fewer tokens, smaller upload).
-Both modes share the server-side 6/day UTC cap (`consume_ai_call`) — it is not
+All three modes share the server-side 30/day UTC cap (`consume_ai_call`) — it is not
 client-spoofable. Photo `guidance` is optional, is sent with the image as labeled
 untrusted food data, and is never stored. A text estimate only fills editable
 fields; it does not persist a food or entry until the user explicitly saves.
@@ -112,8 +112,8 @@ fields; it does not persist a food or entry until the user explicitly saves.
 ## OpenAI Responses configuration
 
 The function uses one raw request to `https://api.openai.com/v1/responses` with
-`gpt-6-astra`, `reasoning: { effort: "low" }`, `store: false`,
-`max_output_tokens: 1024`, and strict `nutrition_estimate` JSON-schema output.
+`gpt-6.1-sol`, `reasoning: { effort: "medium" }`, `store: false`,
+`max_output_tokens: 4096` (12,000 for chat), and strict `nutrition_estimate` JSON-schema output.
 The schema requires `name`, non-negative `calories` and `protein_g`, `confidence`
 (`low`, `medium`, or `high`), and `note`, with no additional properties.
 
@@ -142,7 +142,7 @@ Responses:
 | Status | Body | Meaning |
 |---|---|---|
 | 200 | `{ name, calories, protein_g, confidence, note }` | estimate — show in **editable** fields; persistence is an explicit client save |
-| 429 | `{ error: "daily_limit", limit: 6 }` | over the soft cap — fall back to manual entry |
+| 429 | `{ error: "daily_limit", limit: 30 }` | over the soft cap — fall back to manual entry |
 | 401 | `{ error: "unauthorized" }` | no / invalid session |
 | 422 | `{ error: "ai_refused" }` | model declined — fall back to manual |
 | 502 | `{ error: "ai_unavailable" \| "ai_unparseable" }` | upstream/parse failure — fall back to manual |
@@ -164,3 +164,45 @@ python3 scripts/check-mcp-concurrency.py --project-ref <project> --user-id <user
 Requires an authenticated Supabase CLI. Two independent sessions synchronize before
 writing the same request ID. The script asserts overlapping execution and one saved
 entry, then removes only its own 1 ml test entry and audit request in `finally`.
+
+## Nutrition chat
+
+`mode: "chat"` adds `today`, `timezone` (IANA), `selectedDate`, `messages`
+(`role: "user" | "assistant"`, `text`, optional base64 JPEG `images`), and the
+current edited `items` draft. Optional `contextFrom`/`contextTo` explicitly narrow
+the last 35 device-local dates. Today is checked against server time in that
+zone; yesterday always means actual today minus one, not selectedDate minus one.
+The server reads entries and the shared foods catalog using the user's JWT/RLS;
+no client summaries or model IDs are trusted. Context failures stop inference
+before quota reservation. Reads request an exact count to detect more than 1,000 entries or
+foods even when PostgREST caps the returned rows. Missing or truncated results fail closed. Limits: 20 messages, 4,000 characters/message, 20,000 text characters,
+4 images, 30 draft items, and 4 MiB checked while streaming before JSON parsing.
+
+The strict response is `{message, needsClarification, items}`. Each item has
+`draftKey, kind, date, mealType, name, quantityText, protein_g, calories, grams,
+water_ml, confidence, assumptions`. Food macros are totals per item, unlike
+manual text mode's per-unit estimates. Unknown grams stays null. Water has
+positive integer ml, zero macros, and null grams. The HTTP envelope also includes
+trusted `contextRows` and date bounds. No database writes occur in this endpoint,
+even if the conversation asks to save or change permissions. Refusal/incomplete
+responses preserve the client's previous draft. All modes share 30 calls/day UTC;
+client editing/approval is free. No automatic inference retries.
+
+The PWA holds text/images/draft/attempt IDs only in App memory, until refresh or
+sign-out. Closing the sheet preserves them. Only clicking approval freezes client
+UUIDs and inserts the shown rows; food source is ai, water source is manual. Names
+retain quantity and the main assumption. A fresh date read must match the context
+snapshot (ignoring this attempt's own UUIDs). Changed context is shown for renewed
+review/approval. Each returned row is compared to the immutable payload. Ambiguous
+writes are read back by UUID; partial successes are removed and retries keep the
+same UUID/payload. Inspect-only recovery must settle uncertain rows before editing.
+This does not make the semantic preflight/inserts atomic across other devices.
+After a full refresh during saving, inspect the journal before proposing again.
+
+Checks: `npm test`, `deno test --node-modules-dir=none supabase/functions/analyze-food-photo/`,
+`deno check --node-modules-dir=none supabase/functions/analyze-food-photo/index.ts`,
+`npm run build`, `git diff --check`. Deno's node-modules-dir flag uses its cache
+without changing Vite dependencies. Deploy backend first with `--use-api` (shared
+JS imports), then frontend, only after release approval; never `supabase config push`.
+No migration or auth change. Rollback frontend first; existing confirmed rows
+remain ordinary entries. The model migration has its own rollback commit.
