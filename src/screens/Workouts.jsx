@@ -42,6 +42,21 @@ export default function Workouts({ data, onConfirm }) {
   }, [view, progressExercise, progressTemplate, range]);
   useEffect(() => { if (view === "progress") data.loadConsistency(); }, [view]);
 
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === "hidden" || lock.current) return;
+      data.loadCatalog();
+      if (view === "history") { setPage(0); data.loadHistory(0); }
+      if (view === "progress") {
+        data.loadConsistency();
+        if (progressExercise) data.loadProgress(progressExercise, progressSince(range), todayLocal(), progressTemplate || null);
+      }
+    };
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => { window.removeEventListener("focus", refresh); document.removeEventListener("visibilitychange", refresh); };
+  }, [view, progressExercise, progressTemplate, range]);
+
   const run = async (operation, success = "נשמר") => {
     if (lock.current) return;
     lock.current = true;

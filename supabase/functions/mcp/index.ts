@@ -1,10 +1,4 @@
-// mcp: read-only MCP server for Claude/ChatGPT connectors (Streamable HTTP, stateless).
-// OAuth 2.1 via Supabase Auth; every tool runs as the signed-in user, so RLS scopes
-// all data. Read-only is enforced in four layers:
-//   1. tools only issue .select() / .rpc(..., { get: true }) → PostgREST GET → READ ONLY transaction
-//   2. RLS "own rows" policies (user JWT from withSupabase)
-//   3. migration oauth_clients_read_only: restrictive policies deny writes to OAuth-issued tokens
-//   4. readOnlyHint annotations on every tool
+// OAuth reads use RLS; writes use bounded transactional RPCs with per-client grants.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createMcpHandler, McpServer } from "npm:@modelcontextprotocol/server@2.3.1";
 import { pipeline } from "npm:@supabase/middleware@1.0.0";
@@ -40,9 +34,9 @@ const loadProfile = async (supabase: any) => shapeProfile(
 );
 
 function buildServer(supabase: any) {
-  const server = new McpServer({ name: "procount", version: "1.0.0" });
-  const tool = (name: string, description: string, inputSchema: any, run: (args: any) => Promise<unknown>) =>
-    server.registerTool(name, { description, inputSchema, annotations: READ_ONLY }, async (args: any) => {
+  const server = new McpServer({ name: "procount", version: "1.1.0" });
+  const tool = (name: string, description: string, inputSchema: any, run: (args: any) => Promise<unknown>, annotations = READ_ONLY) =>
+    server.registerTool(name, { description, inputSchema, annotations }, async (args: any) => {
       try {
         return { content: [{ type: "text", text: JSON.stringify(await run(args)) }] };
       } catch (e) {
@@ -66,7 +60,7 @@ function buildServer(supabase: any) {
       const [profile, entries] = await Promise.all([
         loadProfile(supabase),
         readAll(() => supabase.from("entries")
-          .select("eaten_on, name, protein_g, calories, grams, source, meal_type, entry_kind, water_ml, created_at")
+          .select("id, eaten_on, name, protein_g, calories, grams, source, meal_type, entry_kind, water_ml, created_at")
           .gte("eaten_on", from).lte("eaten_on", to).order("eaten_on").order("created_at")),
       ]);
       return shapeNutrition(entries, profile, dates, include_entries);
@@ -97,7 +91,7 @@ function buildServer(supabase: any) {
     "The active workout plan: each workout (e.g. A/B/C) with its preferred weekday (0=Sunday), exercises in order, target sets (reps_min/reps_max/load_kg), and rest seconds.",
     z.object({}),
     async () => shapePlan(await one(supabase.from("workout_templates")
-      .select("id, name, position, preferred_day, workout_template_exercises(exercise_id, position, target_sets, rest_seconds, notes, training_exercises(name, muscle_group, load_mode, notes))")
+      .select("id, name, position, preferred_day, workout_template_exercises(exercise_id, position, target_sets, rest_seconds, notes, training_exercises(name, muscle_group, load_mode, weight_basis, reps_basis, notes))")
       .is("archived_at", null).order("position"))));
 
   tool("list_workout_sessions",
@@ -130,6 +124,23 @@ function buildServer(supabase: any) {
       const rows = await readAll(() => supabase.rpc("workout_progress", args, { get: true }));
       return shapeProgress(rows);
     });
+
+  const writeHints = { ...READ_ONLY, readOnlyHint: false };
+  const common = { request_id: z.string().uuid().describe("Generate once per user action; reuse on every retry. Never retry with a new ID."), date };
+  const write = (action: string, args: any) => {
+    const { request_id, ...payload } = args;
+    dateRange(payload.date, payload.date, 1);
+    return one(supabase.rpc("connector_write", { p_request_id: request_id, p_action: action, p_payload: payload }));
+  };
+  tool("log_water", "Record water the user explicitly reports drinking. Resolve date with get_profile. Amount is milliliters, not liters. Requires water write permission in ProCount Settings.",
+    z.object({ ...common, water_ml: z.number().int().positive().max(10000) }), args => write("water", args), writeHints);
+  const grams = z.number().positive().max(100000).optional();
+  const savedFood = z.object({ food_id: z.string().uuid(), quantity: z.number().positive().max(100) });
+  const manualFood = z.object({ name: z.string().trim().min(1).max(200), protein_g: z.number().min(0).max(10000), calories: z.number().min(0).max(100000), grams, source: z.enum(["manual", "ai"]).default("manual") });
+  tool("log_meal", "Record foods actually eaten, atomically. Use list_foods IDs and serving quantities where possible. Manual protein/calories/grams are TOTAL per item, not per serving. Never invent missing values or copy estimates without the user's approval; mark approved estimates source=ai. Specify meal_type explicitly. Requires meals write permission.",
+    z.object({ ...common, meal_type: z.enum(["breakfast", "lunch", "dinner", "snack"]), items: z.array(z.union([savedFood, manualFood])).min(1).max(50) }), args => write("meals", args), writeHints);
+  tool("log_workout", "Record a completed workout from an existing template, atomically. Fetch get_workout_plan first. Include ONLY performed exercises and actual sets; never assume planned sets were performed. Unreported exercises are skipped and workout is partial. Preserve per-hand/per-side and load_mode meanings; bodyweight may omit load_kg. Requires workouts write permission. Does not edit existing sessions or templates.",
+    z.object({ ...common, template_id: z.string().uuid(), notes: z.string().max(1000).optional(), exercises: z.array(z.object({ exercise_id: z.string().uuid(), sets: z.array(z.object({ reps: z.number().int().min(1).max(10000), load_kg: z.number().min(0).max(10000).optional(), kind: z.enum(["work", "warmup"]).default("work"), note: z.string().max(1000).optional() })).min(1).max(50) })).min(1).max(50) }), args => write("workouts", args), writeHints);
 
   return server;
 }

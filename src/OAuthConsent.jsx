@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "./lib/supabase.js";
 import { withSubmissionLock } from "./lib/submission.js";
 
-// Consent screen for the Supabase OAuth 2.1 server (the read-only MCP connector in
+// Consent screen for the Supabase OAuth 2.1 server (the MCP connector in
 // Claude/ChatGPT). Root renders it at /oauth/consent once the user is signed in;
 // approve/deny redirect the browser back to the AI client.
 export default function OAuthConsent() {
@@ -10,6 +10,7 @@ export default function OAuthConsent() {
   const [details, setDetails] = useState(null);
   const [error, setError] = useState(id ? "" : "בקשת ההרשאה חסרה או פגה");
   const [busy, setBusy] = useState(false);
+  const [permissions, setPermissions] = useState({ water: false, meals: false, workouts: false });
   const lock = useRef(false);
 
   useEffect(() => {
@@ -23,6 +24,10 @@ export default function OAuthConsent() {
 
   const decide = (approve) => withSubmissionLock(lock, async () => {
     setBusy(true);
+    if (approve) {
+      const { error } = await supabase.from("connector_permissions").upsert({ client_id: details.client.id, ...permissions }, { onConflict: "user_id,client_id" });
+      if (error) { setBusy(false); setError("שמירת ההרשאות נכשלה. נסה שוב."); return; }
+    }
     const { error } = approve
       ? await supabase.auth.oauth.approveAuthorization(id)
       : await supabase.auth.oauth.denyAuthorization(id);
@@ -52,8 +57,11 @@ export default function OAuthConsent() {
             </div>
             {host && <div dir="ltr" style={{ textAlign: "right", color: "#8a9994", fontSize: 13 }}>{host}</div>}
             <div style={{ color: "#c8d1ce", fontSize: 15, lineHeight: 1.5 }}>
-              גישת <b>קריאה בלבד</b> לנתוני התזונה, המים, היעדים והאימונים שלך. האפליקציה לא תוכל להוסיף, לערוך או למחוק דבר.
+              גישה לקריאת נתוני התזונה, המים, היעדים והאימונים שלך. אפשר לאשר בנפרד הוספת רישומים; ניתן לבטל בהגדרות בכל עת.
             </div>
+            {[["water", "הוספת מים"], ["meals", "הוספת ארוחות"], ["workouts", "הוספת אימונים שבוצעו"]].map(([key, label]) => <label key={key} style={{ display: "flex", alignItems: "center", minHeight: 44, gap: 10 }}>
+              <input type="checkbox" disabled={busy} checked={permissions[key]} onChange={(event) => setPermissions({ ...permissions, [key]: event.target.checked })} />{label}
+            </label>)}
             <div dir="ltr" style={{ textAlign: "right", color: "#66716d", fontSize: 12 }}>{details.user.email}</div>
             <button type="button" disabled={busy} onClick={() => decide(true)}
               style={{ ...button, marginTop: 4, background: "linear-gradient(180deg,#39e6b2,#23bd91)", color: "#03120d" }}>

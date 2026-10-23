@@ -485,7 +485,7 @@ export default function App({ session }) {
           {/* ponytail: greeting recomputes on render via new Date(); no live ticking — refreshes on next re-render, good enough. */}
           {header.greet && <div style={{ fontSize: 13, fontWeight: 700, color: "#8a9994" }}>{header.greet}</div>}
         </div>
-        <button className="h-gear" aria-label="הגדרות" onClick={() => setSettingsOpen(true)} style={{ width: 44, height: 44, border: "1px solid #27302c", borderRadius: 14, background: "#111512", color: "#a8b2ae", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+        <button className="h-gear" aria-label="הגדרות" onClick={() => { data.loadConnectorPermissions(); setSettingsOpen(true); }} style={{ width: 44, height: 44, border: "1px solid #27302c", borderRadius: 14, background: "#111512", color: "#a8b2ae", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
           <Gear size={20} />
         </button>
       </header>
@@ -521,7 +521,7 @@ export default function App({ session }) {
       )}
 
       {settingsOpen && (
-        <Settings goal={goal} waterGoal={waterGoal} name={data.name} email={data.email} onName={data.setName} onBack={() => setSettingsOpen(false)}
+        <Settings connectorPermissions={data.connectorPermissions} onConnectorPermission={data.saveConnectorPermission} goal={goal} waterGoal={waterGoal} name={data.name} email={data.email} onName={data.setName} onBack={() => setSettingsOpen(false)}
           onDec={() => data.setGoal(Math.max(80, goal - 5))} onInc={() => data.setGoal(Math.min(260, goal + 5))}
           onWaterDec={() => data.setWaterGoal(Math.max(250, waterGoal - 250))} onWaterInc={() => data.setWaterGoal(Math.min(10000, waterGoal + 250))} onSignOut={data.signOut} />
       )}

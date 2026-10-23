@@ -14,7 +14,7 @@ supabase/
     validate.ts                       parse/validate the AI estimate
     validate.test.ts                  self-check (design §9)
   functions/mcp/
-    index.ts                          read-only MCP server (OAuth via Supabase Auth)
+    index.ts                          MCP server with opt-in logging (OAuth via Supabase Auth)
     shape.js                          pure output shaping, imports src/lib
     shape.test.js                     node --test self-check
 ```
@@ -37,7 +37,7 @@ supabase functions deploy analyze-food-photo
 
 `SUPABASE_URL` and `SUPABASE_ANON_KEY` are injected into the function automatically.
 
-## MCP connector (read-only)
+## MCP connector
 
 Endpoint: `https://<ref>.supabase.co/functions/v1/mcp`. Add it in Claude
 (Customize → Connectors → Add custom connector) or ChatGPT (chatgpt.com/plugins →
@@ -53,7 +53,23 @@ supabase functions deploy mcp --use-api --no-verify-jwt
 `supabase config push`): OAuth server on, dynamic registration on, authorization
 path `/oauth/consent`, site URL = the PWA origin, sign-ups disabled, asymmetric
 (ES256) JWT signing key. Revoke a connector under Authentication → OAuth Apps.
-Writes are impossible for connector tokens: see migration `oauth_clients_read_only`.
+Direct table writes remain denied for connector tokens. The three logging tools
+(`log_water`, `log_meal`, `log_workout`) call a bounded transactional RPC. The
+private SECURITY DEFINER function validates the JWT user/client, checks the
+current `connector_permissions` grant, and validates every owned resource.
+Permissions default to false; grant or revoke each category through the consent
+screen or Settings. Existing authorized connectors appear in Settings through the first-party-only
+`connector_clients` RPC, including connections with no permission row yet. Connector tokens cannot change
+permissions. Retry with the SAME request_id and payload; changed payloads conflict.
+A meal/workout is all-or-nothing. Free-text nutrition is total per item; saved foods
+use catalog values times quantity. Workout logging uses an existing template;
+unreported exercises are skipped. No plan/catalog/profile edits or delete tools.
+
+`private.connector_requests` is a private, default-deny audit/deduplication table.
+Its RLS-with-no-policy advisor notice is intentional: only the bounded private
+definer accesses it. No service-role key is used by the Edge Function.
+Run `supabase/tests/connector_write.sql` through a privileged SQL connection for
+integration checks; all test entries, workouts, and grants are rolled back.
 
 ## Test
 
