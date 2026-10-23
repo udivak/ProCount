@@ -244,10 +244,14 @@ export function useData(session) {
 
   const readChatDays = useCallback(async (dates) => {
     try {
-      const result = await supabase.from("entries").select(CHAT_ENTRY_FIELDS).in("eaten_on", dates).limit(1001);
-      if (result.error || !result.data || result.data.length > 1000) return {error: "context_unavailable"};
+      const result = await supabase.from("entries").select(CHAT_ENTRY_FIELDS, {count:"exact"}).in("eaten_on", dates).limit(1001);
+      if (result.error || !result.data || !Number.isInteger(result.count) || result.count > 1000 || result.data.length !== result.count) return {error: "context_unavailable"};
       return {data:result.data};
     } catch { return {error:"context_unavailable"}; }
+  }, []);
+
+  const applyChatRow = useCallback((row) => {
+    setEntries(current => [row, ...current.filter(entry => entry.id !== row.id)]);
   }, []);
 
   const addChatEntries = useCallback(async (rows, contextRows, allRows = rows) => {
@@ -257,13 +261,13 @@ export function useData(session) {
     if (!sameChatContext(contextRows.filter(r => dates.includes(r.eaten_on)), fresh.data, allRows.map(r => r.id))) {
       return {error:"context_changed", contextRows:fresh.data};
     }
-    return saveChatRows(rows, addEntry, id => supabase.from("entries").select(CHAT_ENTRY_FIELDS).eq("id", id).maybeSingle());
-  }, [addEntry, readChatDays]);
+    return saveChatRows(rows, addEntry, id => supabase.from("entries").select(CHAT_ENTRY_FIELDS).eq("id", id).maybeSingle(), applyChatRow);
+  }, [addEntry, readChatDays, applyChatRow]);
 
   const inspectChatRows = useCallback((rows) => {
     const find = id => supabase.from("entries").select(CHAT_ENTRY_FIELDS).eq("id", id).maybeSingle();
-    return saveChatRows(rows, row => find(row.id), find);
-  }, []);
+    return saveChatRows(rows, row => find(row.id), find, applyChatRow);
+  }, [applyChatRow]);
 
   const sendNutritionChat = useCallback(async (request, signal) => {
     const body = JSON.stringify({mode:"chat", ...request});
@@ -283,9 +287,9 @@ export function useData(session) {
 
   return {
     connectorPermissions, loadConnectorPermissions, saveConnectorPermission, loading, entries, foods, goal, waterGoal, name, today, email: session.user.email,
-    ...Object.fromEntries(Object.entries({ addQuick, addWater, addManual, addAi, addChatEntries, deleteEntry, updateEntryMeal }).map(([key, operation]) =>
+    ...Object.fromEntries(Object.entries({ addQuick, addWater, addManual, addAi, addChatEntries, inspectChatRows, deleteEntry, updateEntryMeal }).map(([key, operation]) =>
       [key, (...args) => refreshGuard.current.mutate(() => operation(...args))])),
-    readChatDays, inspectChatRows, sendNutritionChat, compressChatImage: compressToBase64, saveFood, deleteFood, setGoal, setWaterGoal, setName, analyzePhoto, estimateFoodNutrition, signOut,
+    readChatDays, sendNutritionChat, compressChatImage: compressToBase64, saveFood, deleteFood, setGoal, setWaterGoal, setName, analyzePhoto, estimateFoodNutrition, signOut,
   };
 }
 

@@ -89,7 +89,12 @@ export function sameChatContext(before, after, ignoreIds = []) {
   const a = clean(before), b = clean(after);
   return a.length === b.length && a.every((row, i) => sameChatRow(row, b[i]));
 }
-export async function saveChatRows(rows, addEntry, findById) {
+export async function saveChatRows(
+  rows,
+  addEntry,
+  findById,
+  onSaved = () => {},
+) {
   const result = { saved: [], failed: [], uncertain: [] };
   for (const row of rows) {
     let outcome;
@@ -97,6 +102,7 @@ export async function saveChatRows(rows, addEntry, findById) {
       outcome = await addEntry(row, row.eaten_on);
     } catch { /* Resolve ambiguous inserts using the original UUID. */ }
     if (outcome?.data && sameChatRow(row, outcome.data)) {
+      onSaved(outcome.data);
       result.saved.push(row);
       continue;
     }
@@ -109,8 +115,10 @@ export async function saveChatRows(rows, addEntry, findById) {
     if (
       lookup?.error || !lookup || lookup.data && !sameChatRow(row, lookup.data)
     ) result.uncertain.push(row);
-    else if (lookup.data) result.saved.push(row);
-    else result.failed.push(row);
+    else if (lookup.data) {
+      onSaved(lookup.data);
+      result.saved.push(row);
+    } else result.failed.push(row);
   }
   return result;
 }

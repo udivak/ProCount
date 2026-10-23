@@ -19,7 +19,8 @@ function harness(
     lte: () => query,
     limit: () =>
       Promise.resolve({
-        data: overflow ? Array(1001).fill({}) : [],
+        data: overflow ? Array(1000).fill({}) : [],
+        count: overflow ? 1001 : 0,
         error: contextError ? { message: "offline" } : null,
       }),
   };

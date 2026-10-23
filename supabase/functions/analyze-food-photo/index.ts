@@ -109,20 +109,29 @@ export async function handleRequest(
   if (chat) {
     try {
       const [entries, foods] = await Promise.all([
-        supabase.from("entries").select(CHAT_ENTRY_FIELDS).gte(
-          "eaten_on",
-          chat.contextFrom,
-        ).lte("eaten_on", chat.contextTo).limit(1001),
-        supabase.from("foods").select("name,unit,protein_g,calories").limit(
+        supabase.from("entries").select(CHAT_ENTRY_FIELDS, { count: "exact" })
+          .gte(
+            "eaten_on",
+            chat.contextFrom,
+          ).lte("eaten_on", chat.contextTo).limit(1001),
+        supabase.from("foods").select("name,unit,protein_g,calories", {
+          count: "exact",
+        }).limit(
           1001,
         ),
       ]);
       if (entries.error || foods.error || !entries.data || !foods.data) {
         return json({ error: "context_unavailable" }, 503);
       }
-      if (entries.data.length > 1000 || foods.data.length > 1000) {
+      if (
+        (entries.count ?? Infinity) > 1000 || (foods.count ?? Infinity) > 1000
+      ) {
         return json({ error: "context_too_large" }, 413);
       }
+      if (
+        entries.data.length !== entries.count ||
+        foods.data.length !== foods.count
+      ) return json({ error: "context_unavailable" }, 503);
       contextRows = entries.data;
       contextFoods = foods.data;
     } catch {

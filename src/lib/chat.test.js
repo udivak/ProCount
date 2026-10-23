@@ -160,3 +160,22 @@ test("late responses cannot cross an edit, close, new request or midnight", () =
   assert.ok(!isChatRequestCurrent(valid, "2026-10-23", "2026-10-23"));
   assert.ok(!isChatRequestCurrent(() => true, "2026-10-23", "2026-10-24"));
 });
+
+test("recovery applies the verified server row to journal state, including inspect-only recovery", async () => {
+  const rows = prepareChatRows([food], bounds, () => crypto.randomUUID());
+  const stored = { ...rows[0], created_at: "2026-10-23T12:00:00Z" };
+  for (const inspectOnly of [false, true]) {
+    let journal = [];
+    const result = await saveChatRows(
+      rows,
+      async () => inspectOnly ? { data: stored } : { error: Error("timeout") },
+      async () => ({ data: stored }),
+      (row) => {
+        journal = [...journal.filter((r) => r.id !== row.id), row];
+      },
+    );
+    assert.equal(result.saved.length, 1);
+    assert.equal(journal.length, 1);
+    assert.equal(journal[0].created_at, stored.created_at);
+  }
+});

@@ -174,8 +174,8 @@ the last 35 device-local dates. Today is checked against server time in that
 zone; yesterday always means actual today minus one, not selectedDate minus one.
 The server reads entries and the shared foods catalog using the user's JWT/RLS;
 no client summaries or model IDs are trusted. Context failures stop inference
-before quota reservation. Reads use limit+1 to detect more than 1,000 entries or
-foods. Limits: 20 messages, 4,000 characters/message, 20,000 text characters,
+before quota reservation. Reads request an exact count to detect more than 1,000 entries or
+foods even when PostgREST caps the returned rows. Missing or truncated results fail closed. Limits: 20 messages, 4,000 characters/message, 20,000 text characters,
 4 images, 30 draft items, and 4 MiB checked while streaming before JSON parsing.
 
 The strict response is `{message, needsClarification, items}`. Each item has

@@ -84,6 +84,8 @@ export default function App({ session }) {
   const [chatOpen, setChatOpen] = useState(false);
   const [chat, setChat] = useState(() => newChatState(selectedDay));
   const chatRef = useRef(chat); chatRef.current = chat;
+  const chatReturnFocus = useRef(null);
+  useEffect(() => { if (!chatOpen && chatReturnFocus.current) { chatReturnFocus.current.focus?.(); chatReturnFocus.current=null; } }, [chatOpen]);
   const chatRevision = useRef(0), chatAbort = useRef(null), chatSaveLock = useRef(false), chatImageLock = useRef(false);
   useEffect(() => () => { chatRevision.current++; chatAbort.current?.abort(); }, []);
   const invalidateChat = () => { chatRevision.current++; chatAbort.current?.abort(); chatAbort.current=null; };
@@ -98,7 +100,13 @@ export default function App({ session }) {
     setChat(c => c.status==='analyzing' || c.status==='preparing' ? {...c,status:c.needsClarification?'clarifying':'draft'} : c);
   };
   const closeChat = useMemo(() => () => closeChatRef.current(), []);
-  const openChat = () => { discardAdd(); setChatOpen(true); };
+  const openChat = () => {
+    chatReturnFocus.current=addReturnFocus.current;
+    addReturnFocus.current=null;
+    discardAdd();
+    if (!chat.messages.length && !chat.items.length && !chat.compose && !chat.images.length && !chat.attempt) setChat(newChatState(addDate));
+    setChatOpen(true);
+  };
   const newChat = () => {
     if (chatSaveLock.current || chatRef.current.attempt) return;
     const reset = () => { invalidateChat(); setChat(newChatState(selectedDay)); };
