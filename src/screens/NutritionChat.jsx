@@ -56,6 +56,7 @@ export default function NutritionChat(
     scroll = useRef(null);
   const locked = chat.status === "saving" || !!chat.attempt;
   const busy = ["analyzing", "preparing", "saving"].includes(chat.status);
+  const sendDisabled = busy || !chat.compose.trim() && !chat.images.length;
   useEffect(() => {
     const previous = document.activeElement;
     close.current?.focus();
@@ -517,11 +518,12 @@ export default function NutritionChat(
                   מצלמה
                 </button>
                 <button
-                  disabled={busy || !chat.compose.trim() && !chat.images.length}
-                  style={{ ...button, flex: 1 }}
+                  disabled={sendDisabled}
+                  aria-busy={chat.status === "analyzing"}
+                  style={{ ...button, flex: 1, opacity: sendDisabled ? .45 : 1, cursor: sendDisabled ? "not-allowed" : "pointer" }}
                   onClick={onSend}
                 >
-                  שלח
+                  {chat.status === "analyzing" ? "שולח…" : "שלח"}
                 </button>
               </div>
               <button

@@ -68,6 +68,8 @@ export default function App({ session }) {
   const waterUndoTimer = useRef(null);
   const waterUndoRevision = useRef(0);
   const waterUndoLock = useRef(false);
+  const waterAddLock = useRef(false);
+  const [waterAdding, setWaterAdding] = useState(null);
   const foodUndoTimer = useRef(null);
   const foodUndoRef = useRef(null);
   const foodUndoPendingTimer = useRef(false);
@@ -524,16 +526,19 @@ export default function App({ session }) {
     }
   };
 
-  const addWater = async (amount) => {
-    const result = await data.addWater(amount, selectedDay);
-    if (!result.data) {
+  const addWater = (amount) => withSubmissionLock(waterAddLock, async () => {
+    setWaterAdding(amount);
+    try {
+      const result = await data.addWater(amount, selectedDay);
+      if (!result.data) throw new Error("water_save_failed");
+      setWaterError("");
+      rememberWaterUndo({ id: result.data.id, amount: result.data.water_ml, date: selectedDay });
+    } catch {
       setWaterError("לא ניתן לשמור את המים כרגע. נסה שוב.");
-      return;
+    } finally {
+      setWaterAdding(null);
     }
-    setWaterError("");
-    const undo = { id: result.data.id, amount: result.data.water_ml, date: selectedDay };
-    rememberWaterUndo(undo);
-  };
+  });
 
   const undoWater = () => {
     const undo = waterUndo;
@@ -610,7 +615,7 @@ export default function App({ session }) {
       </header>
 
       <div ref={appScrollRef} className="pc-scroll app-scroll" style={{ flex: 1, overflowY: "auto" }}>
-        {screen === "today" && <Today totals={vm.totals} goal={goal} progress={vm.proteinProgress} remaining={vm.remaining} pace={vm.pace} calorieProgress={vm.calorieProgress} calorieIntake={vm.calorieIntake} calorieGoal={CALORIE_GOAL} calorieBalance={vm.calorieBalance} waterMl={vm.waterMl} waterEntries={vm.waterEntries} waterLogKey={selectedDay} waterGoal={waterGoal} onAddWater={addWater} waterUndo={waterUndo?.date === selectedDay ? waterUndo : null} onUndoWater={undoWater} waterError={waterError} mealGroups={vm.mealGroups} suggestion={vm.suggestion} onAdd={openAdd} onDelete={requestEntryDelete} onSelect={openEntryDetail} dayLabel={dayLabel(selectedDay, today)} isToday={selectedDay === today} onToday={() => setSelectedDay(today)} onPrev={prevDay} onNext={nextDay} canPrev={canPrev} canNext={canNext} />}
+        {screen === "today" && <Today totals={vm.totals} goal={goal} progress={vm.proteinProgress} remaining={vm.remaining} pace={vm.pace} calorieProgress={vm.calorieProgress} calorieIntake={vm.calorieIntake} calorieGoal={CALORIE_GOAL} calorieBalance={vm.calorieBalance} waterMl={vm.waterMl} waterEntries={vm.waterEntries} waterLogKey={selectedDay} waterGoal={waterGoal} onAddWater={addWater} waterAdding={waterAdding} waterUndo={waterUndo?.date === selectedDay ? waterUndo : null} onUndoWater={undoWater} waterError={waterError} mealGroups={vm.mealGroups} suggestion={vm.suggestion} onAdd={openAdd} onDelete={requestEntryDelete} onSelect={openEntryDetail} dayLabel={dayLabel(selectedDay, today)} isToday={selectedDay === today} onToday={() => setSelectedDay(today)} onPrev={prevDay} onNext={nextDay} canPrev={canPrev} canNext={canNext} />}
         {screen === "trends" && <Trends goal={goal} streak={vm.streak} avg={vm.avg} bars={vm.bars} goalY={vm.goalY} calAvg={vm.calAvg} heading={vm.heading} range={chartRange} onRange={setChartRange} />}
         {screen === "foods" && <MyFoods foods={vm.foodVm} onNew={() => setEditFood({})} onEdit={(f) => setEditFood(f.raw)} />}
         {screen === "mealPlan" && <MealPlan />}
