@@ -43,6 +43,7 @@ export function shapeProfile(row, today) {
 }
 
 const shapeEntry = (e) => ({
+  id: e.id,
   name: e.name, protein_g: round(e.protein_g), calories: Math.round(Number(e.calories) || 0),
   grams: e.grams == null ? null : round(e.grams), source: e.source,
 });
@@ -60,6 +61,7 @@ export function shapeNutrition(entries, profile, dates, includeEntries) {
       protein_goal_met: totals.protein >= goal,
     };
     if (includeEntries) {
+      day.water_entries = entries.filter((e) => e.eaten_on === date && e.entry_kind === "water").map((e) => ({ id: e.id, water_ml: Number(e.water_ml) }));
       day.meals = entriesByMeal(entries.filter((e) => e.eaten_on === date))
         .map((m) => ({ meal: m.type, protein_g: round(m.protein), entries: m.entries.map(shapeEntry) }));
     }
@@ -104,6 +106,8 @@ export function shapePlan(templates) {
       name: te.training_exercises?.name,
       muscle_group: te.training_exercises?.muscle_group,
       load_mode: te.training_exercises?.load_mode,
+      weight_basis: te.training_exercises?.weight_basis,
+      reps_basis: te.training_exercises?.reps_basis,
       target_sets: te.target_sets,
       rest_seconds: te.rest_seconds,
       notes: te.notes || te.training_exercises?.notes || undefined,

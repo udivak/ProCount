@@ -1,3 +1,4 @@
+import { createRefreshGuard } from "./lib/refresh.js";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase, FUNCTIONS_URL } from "./lib/supabase.js";
 import { todayLocal, lastNDates, shiftDate } from "./lib/date.js";
@@ -17,6 +18,33 @@ export function useData(session) {
   const [waterGoal, setWaterGoalState] = useState(3000);
   const [name, setNameState] = useState("");
   const [loading, setLoading] = useState(true);
+  const [connectorPermissions, setConnectorPermissions] = useState([]);
+  const loadConnectorPermissions = useCallback(async () => {
+    const result = await supabase.rpc("connector_clients");
+    if (!result.error) setConnectorPermissions(result.data || []);
+    return result;
+  }, []);
+  const saveConnectorPermission = async (clientId, values) => {
+    const result = await supabase.from("connector_permissions").upsert({ client_id: clientId, ...values }, { onConflict: "user_id,client_id" });
+    if (!result.error) await loadConnectorPermissions();
+    return result;
+  };
+  useEffect(() => { loadConnectorPermissions(); }, [loadConnectorPermissions]);
+  const refreshGuard = useRef(createRefreshGuard());
+  useEffect(() => {
+    let alive = true;
+    const refresh = async () => {
+      if (document.visibilityState === "hidden") return;
+      const current = refreshGuard.current.capture();
+      try {
+        const { data, error } = await supabase.from("entries").select("*").gte("eaten_on", lastNDates(RANGE_DAYS)[0]).order("created_at", { ascending: false });
+        if (alive && current() && !error) setEntries(data || []);
+      } catch { /* Keep the current rows when background refresh fails. */ }
+    };
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => { alive = false; window.removeEventListener("focus", refresh); document.removeEventListener("visibilitychange", refresh); };
+  }, []);
   const today = todayLocal();
 
   useEffect(() => {
@@ -219,8 +247,10 @@ export function useData(session) {
   }, [session.user.id]);
 
   return {
-    loading, entries, foods, goal, waterGoal, name, today, email: session.user.email,
-    addQuick, addWater, addManual, addAi, deleteEntry, updateEntryMeal, saveFood, deleteFood, setGoal, setWaterGoal, setName, analyzePhoto, estimateFoodNutrition, signOut,
+    connectorPermissions, loadConnectorPermissions, saveConnectorPermission, loading, entries, foods, goal, waterGoal, name, today, email: session.user.email,
+    ...Object.fromEntries(Object.entries({ addQuick, addWater, addManual, addAi, deleteEntry, updateEntryMeal }).map(([key, operation]) =>
+      [key, (...args) => refreshGuard.current.mutate(() => operation(...args))])),
+    saveFood, deleteFood, setGoal, setWaterGoal, setName, analyzePhoto, estimateFoodNutrition, signOut,
   };
 }
 

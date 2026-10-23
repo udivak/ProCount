@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronLeft } from "../lib/icons.jsx";
 
-export default function Settings({ goal, waterGoal, name, email, onBack, onName, onDec, onInc, onWaterDec, onWaterInc, onSignOut }) {
+export default function Settings({ goal, waterGoal, name, email, onBack, onName, onDec, onInc, onWaterDec, onWaterInc, onSignOut, connectorPermissions, onConnectorPermission }) {
   const [nameInput, setNameInput] = useState(name || "");
+  const [connectorError, setConnectorError] = useState("");
+  const [connectorBusy, setConnectorBusy] = useState(false);
   const backRef = useRef(null);
 
   useEffect(() => { backRef.current?.focus(); }, []);
@@ -31,6 +33,27 @@ export default function Settings({ goal, waterGoal, name, email, onBack, onName,
         <section style={groupStyle}>
           <label style={rowStyle}><span style={rowLabel}>שם</span><input value={nameInput} onChange={(event) => setNameInput(event.target.value)} onBlur={() => onName(nameInput.trim())} placeholder="השם שלך" maxLength={24} aria-label="שם" style={{ minWidth: 0, width: "60%", minHeight: 44, background: "none", border: "none", textAlign: "left", color: "#f4f7f6", fontSize: 15, fontFamily: "inherit", outline: "none" }} /></label>
           <div style={rowStyle}><span style={rowLabel}>חשבון</span><span style={{ minWidth: 0, overflow: "hidden", color: "#8a9994", fontSize: 14, textOverflow: "ellipsis", whiteSpace: "nowrap" }} dir="ltr">{email}</span></div>
+        </section>
+
+        <SectionTitle>הרשאות כתיבה לסוכני AI</SectionTitle>
+        <section style={groupStyle}>
+          <p style={{ padding: "0 18px", color: "#c8d1ce" }}>הרשאה מאפשרת הוספת רישומים בלבד. ביטול נכנס לתוקף בפעולה הבאה.</p>
+          {!connectorPermissions.length && <p style={{ padding: "0 18px", color: "#8a9994" }}>אין חיבורים פעילים. חבר את ה־connector לחשבון כדי לנהל הרשאות.</p>}
+          {connectorPermissions.map((grant) => <div key={grant.client_id} style={{ padding: 18 }}>
+            <div style={{ color: "#f4f7f6", fontWeight: 700 }}>{grant.client_name || "סוכן AI"}</div>
+            <div dir="ltr" style={{ overflowWrap: "anywhere", color: "#8a9994", fontSize: 12 }}>{grant.client_id}</div>
+            {[["water", "מים"], ["meals", "ארוחות"], ["workouts", "אימונים"]].map(([key, label]) => <label key={key} style={{ display: "inline-flex", alignItems: "center", minHeight: 44, marginInlineEnd: 16, color: "#f4f7f6" }}>
+              <input type="checkbox" disabled={connectorBusy} checked={grant[key]} onChange={async (event) => {
+                setConnectorBusy(true); setConnectorError("");
+                try {
+                  const result = await onConnectorPermission(grant.client_id, { water: grant.water, meals: grant.meals, workouts: grant.workouts, [key]: event.target.checked });
+                  if (result.error) setConnectorError("עדכון ההרשאה נכשל. נסה שוב.");
+                } catch { setConnectorError("עדכון ההרשאה נכשל. נסה שוב."); }
+                finally { setConnectorBusy(false); }
+              }} />{label}
+            </label>)}
+          </div>)}
+          {connectorError && <p role="alert" style={{ color: "#fb7185", padding: 18 }}>{connectorError}</p>}
         </section>
 
         <SectionTitle>חשבון</SectionTitle>
