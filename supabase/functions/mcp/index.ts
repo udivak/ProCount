@@ -8,6 +8,8 @@ import {
   dateRange, shapeFood, shapeNutrition, shapePlan, shapeProfile, shapeProgress, shapeSessions, todayIn,
 } from "./shape.js";
 
+import { registerManagementTools, workoutImport } from "./management.ts";
+
 const READ_ONLY = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
 const date = z.string().describe("Local date YYYY-MM-DD (Israel time)");
 
@@ -34,13 +36,13 @@ const loadProfile = async (supabase: any) => shapeProfile(
 );
 
 function buildServer(supabase: any) {
-  const server = new McpServer({ name: "procount", version: "1.1.0" });
+  const server = new McpServer({ name: "procount", version: "1.2.0" });
   const tool = (name: string, description: string, inputSchema: any, run: (args: any) => Promise<unknown>, annotations = READ_ONLY) =>
     server.registerTool(name, { description, inputSchema, annotations }, async (args: any) => {
       try {
-        return { content: [{ type: "text", text: JSON.stringify(await run(args)) }] };
+        return { content: [{ type: "text" as const, text: JSON.stringify(await run(args)) }] };
       } catch (e) {
-        return { isError: true, content: [{ type: "text", text: e instanceof Error ? e.message : String(e) }] };
+        return { isError: true, content: [{ type: "text" as const, text: e instanceof Error ? e.message : String(e) }] };
       }
     });
 
@@ -83,7 +85,7 @@ function buildServer(supabase: any) {
     z.object({ include_archived: z.boolean().default(false) }),
     async ({ include_archived }) => readAll(() => {
       const q = supabase.from("training_exercises")
-        .select("id, name, muscle_group, equipment, load_mode, weight_basis, reps_basis, notes, archived_at").order("name");
+        .select("id, revision, name, muscle_group, equipment, load_mode, weight_basis, reps_basis, notes, archived_at").order("name");
       return include_archived ? q : q.is("archived_at", null);
     }));
 
@@ -91,7 +93,7 @@ function buildServer(supabase: any) {
     "The active workout plan: each workout (e.g. A/B/C) with its preferred weekday (0=Sunday), exercises in order, target sets (reps_min/reps_max/load_kg), and rest seconds.",
     z.object({}),
     async () => shapePlan(await one(supabase.from("workout_templates")
-      .select("id, name, position, preferred_day, workout_template_exercises(exercise_id, position, target_sets, rest_seconds, notes, training_exercises(name, muscle_group, load_mode, weight_basis, reps_basis, notes))")
+      .select("id, revision, name, position, preferred_day, workout_template_exercises(exercise_id, position, target_sets, rest_seconds, notes, training_exercises(name, muscle_group, load_mode, weight_basis, reps_basis, notes))")
       .is("archived_at", null).order("position"))));
 
   tool("list_workout_sessions",
@@ -104,7 +106,7 @@ function buildServer(supabase: any) {
       dateRange(from, to, 92);
       const sessions = await readAll(() => {
         const q = supabase.from("workout_sessions")
-          .select("id, performed_on, template_name, status, partial, notes, created_at, workout_session_exercises(exercise_id, position, exercise_name, muscle_group, load_mode, weight_basis, reps_basis, status, target_sets, workout_sets(position, kind, load_kg, reps, note))")
+          .select("id, revision, template_id, performed_on, template_name, status, partial, notes, created_at, workout_session_exercises(id, revision, exercise_id, position, exercise_name, muscle_group, load_mode, weight_basis, reps_basis, status, target_sets, workout_sets(id, revision, position, kind, load_kg, reps, note))")
           .gte("performed_on", from).lte("performed_on", to).order("performed_on").order("created_at");
         return status === "all" ? q : q.eq("status", status);
       });
@@ -140,7 +142,9 @@ function buildServer(supabase: any) {
   tool("log_meal", "Record foods actually eaten, atomically. Use list_foods IDs and serving quantities where possible. Manual protein/calories/grams are TOTAL per item, not per serving. Never invent missing values or copy estimates without the user's approval; mark approved estimates source=ai. Specify meal_type explicitly. Requires meals write permission.",
     z.object({ ...common, meal_type: z.enum(["breakfast", "lunch", "dinner", "snack"]), items: z.array(z.union([savedFood, manualFood])).min(1).max(50) }), args => write("meals", args), writeHints);
   tool("log_workout", "Record a completed workout from an existing template, atomically. Fetch get_workout_plan first. Include ONLY performed exercises and actual sets; never assume planned sets were performed. Unreported exercises are skipped and workout is partial. Preserve per-hand/per-side and load_mode meanings; bodyweight may omit load_kg. Requires workouts write permission. Does not edit existing sessions or templates.",
-    z.object({ ...common, template_id: z.string().uuid(), notes: z.string().max(1000).optional(), exercises: z.array(z.object({ exercise_id: z.string().uuid(), sets: z.array(z.object({ reps: z.number().int().min(1).max(10000), load_kg: z.number().min(0).max(10000).optional(), kind: z.enum(["work", "warmup"]).default("work"), note: z.string().max(1000).optional() })).min(1).max(50) })).min(1).max(50) }), args => write("workouts", args), writeHints);
+    z.object({ ...common, ...workoutImport, template_id: z.string().uuid(), notes: z.string().max(1000).optional(), exercises: z.array(z.object({ exercise_id: z.string().uuid(), sets: z.array(z.object({ reps: z.number().int().min(1).max(10000), load_kg: z.number().min(0).max(10000).optional(), kind: z.enum(["work", "warmup"]).default("work"), note: z.string().max(1000).optional() })).min(1).max(50) })).min(1).max(50) }), args => write("workouts", args), writeHints);
+
+  registerManagementTools(tool, supabase, one, writeHints);
 
   return server;
 }

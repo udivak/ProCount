@@ -54,3 +54,14 @@ test("shapeSessions orders exercises and sets by position", () => {
   assert.deepEqual(s.exercises[0].sets.map((x) => x.reps), [10, 8]);
   assert.equal(s.exercises[0].volume_kg, 360);
 });
+
+test("workout readback preserves IDs, revisions and nullable loads for safe correction", () => {
+  const [s] = shapeSessions([{ id: "session", revision: 4, template_id: "template", performed_on: "2026-10-24",
+    workout_session_exercises: [{ id: "occurrence", exercise_id: "exercise", revision: 3, position: 0,
+      load_mode: "bodyweight", workout_sets: [{ id: "set", revision: 2, position: 0, reps: 8, load_kg: null, kind: "work" }] }] }]);
+  assert.equal(s.revision, 4);
+  assert.equal(s.template_id, "template");
+  assert.equal(s.exercises[0].id, "occurrence");
+  assert.equal(s.exercises[0].revision, 3);
+  assert.deepEqual(s.exercises[0].sets[0], { id: "set", revision: 2, position: 0, reps: 8, load_kg: null, kind: "work", note: undefined });
+});

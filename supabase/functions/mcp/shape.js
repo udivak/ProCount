@@ -96,11 +96,11 @@ export function shapeFood(f) {
 
 const byPosition = (a, b) => a.position - b.position;
 
-const shapeSet = (s) => ({ kind: s.kind, load_kg: s.load_kg == null ? null : Number(s.load_kg), reps: s.reps, note: s.note || undefined });
+const shapeSet = (s) => ({ id: s.id, revision: s.revision, position: s.position, kind: s.kind, load_kg: s.load_kg == null ? null : Number(s.load_kg), reps: s.reps, note: s.note || undefined });
 
 export function shapePlan(templates) {
   return templates.map((t) => ({
-    id: t.id, name: t.name, preferred_day: t.preferred_day,
+    id: t.id, revision: t.revision, name: t.name, preferred_day: t.preferred_day,
     exercises: [...t.workout_template_exercises].sort(byPosition).map((te) => ({
       exercise_id: te.exercise_id,
       name: te.training_exercises?.name,
@@ -117,12 +117,12 @@ export function shapePlan(templates) {
 
 export function shapeSessions(sessions) {
   return sessions.map((s) => ({
-    id: s.id, performed_on: s.performed_on, workout: s.template_name, status: s.status,
+    id: s.id, revision: s.revision, template_id: s.template_id, performed_on: s.performed_on, workout: s.template_name, status: s.status,
     partial: s.partial, notes: s.notes || undefined,
     exercises: [...s.workout_session_exercises].sort(byPosition).map((se) => {
       const sets = [...se.workout_sets].sort(byPosition);
       return {
-        exercise_id: se.exercise_id, name: se.exercise_name, muscle_group: se.muscle_group,
+        id: se.id, revision: se.revision, position: se.position, exercise_id: se.exercise_id, name: se.exercise_name, muscle_group: se.muscle_group,
         load_mode: se.load_mode, weight_basis: se.weight_basis, reps_basis: se.reps_basis,
         status: se.status, target_sets: se.target_sets,
         volume_kg: workoutVolume(sets, se.load_mode),
