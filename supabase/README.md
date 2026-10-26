@@ -53,8 +53,7 @@ supabase functions deploy mcp --use-api --no-verify-jwt
 `supabase config push`): OAuth server on, dynamic registration on, authorization
 path `/oauth/consent`, site URL = the PWA origin, sign-ups disabled, asymmetric
 (ES256) JWT signing key. Revoke a connector under Authentication → OAuth Apps.
-Direct table writes remain denied for connector tokens. The three logging tools
-(`log_water`, `log_meal`, `log_workout`) call a bounded transactional RPC. The
+Direct table writes remain denied for connector tokens. Logging and workout-management tools call a bounded transactional RPC. The
 private SECURITY DEFINER function validates the JWT user/client, checks the
 current `connector_permissions` grant, and validates every owned resource.
 Permissions default to false; grant or revoke each category through the consent
@@ -63,13 +62,70 @@ screen or Settings. Existing authorized connectors appear in Settings through th
 permissions. Retry with the SAME request_id and payload; changed payloads conflict.
 A meal/workout is all-or-nothing. Free-text nutrition is total per item; saved foods
 use catalog values times quantity. Workout logging uses an existing template;
-unreported exercises are skipped. No plan/catalog/profile edits or delete tools.
+unreported exercises are skipped. Workout plan/catalog edits require a separate `workout_catalog` grant; corrections and reversible cancellation require `workout_edit`. Food catalog/profile edits and permanent deletion remain unavailable.
 
 `private.connector_requests` is a private, default-deny audit/deduplication table.
 Its RLS-with-no-policy advisor notice is intentional: only the bounded private
 definer accesses it. No service-role key is used by the Edge Function.
 Run `supabase/tests/connector_write.sql` through a privileged SQL connection for
 integration checks; all test entries, workouts, and grants are rolled back.
+
+## Workout management MCP (v1.2.0)
+
+Seven added tools: `get_connector_capabilities`, `get_workout_session`,
+`get_write_result`, `save_exercise`, `save_workout_template`,
+`update_workout_session`, `set_workout_session_status`. There are 17 tools total.
+New management grants default false, even for an existing logging connection.
+Only the first-party consent/Settings UI can enable them; MCP cannot self-grant.
+
+Use `get_connector_capabilities` first to inspect the current client's grants.
+Exercise/template creation requires a stable `id`, `request_id`, and
+`expected_revision: 0`; updates require the current revision from the read tools.
+Template saves explicitly supply their complete items and planned sets. Session
+patches preserve omitted fields and require session and affected row revisions.
+Use occurrence IDs from `get_workout_session` (not catalog IDs) when correcting
+sets. Existing sets require their own revision; inserts require a stable ID,
+position, kind and reps. Loads must follow the snapshot's unit semantics.
+Removed sets are included in the correction's `before` snapshot and can be
+reinstated explicitly; private tombstones keep restored revisions monotonic.
+The shared `save_workout_set` and `set_workout_exercise_status` RPCs lock their
+session first, so PWA edits serialize with cancellation/correction.
+
+`log_workout` remains compatible and accepts optional `expected_template_revision`
+and paired `source_system`/`source_workout_id`. Supply only a source ID observed
+in the source app. Identical imports return the existing session even from a
+different OAuth client; changed payloads conflict. Without a source ID, inspect
+same-day sessions first. Creating a distinct second session on the same day and
+template requires `allow_same_day_session: true`. The database trigger applies
+the same check to first-party creation/date moves/restoration; ordinary edits
+of existing same-day sessions remain allowed. Cancelled imports retain source
+identity and cannot silently turn into a second imported session.
+
+After a timeout, `get_write_result` retrieves this client's request result if its
+permission remains enabled. If not found, retry the original ID and payload.
+Read back with `get_workout_session` and compare every reported set. Do not infer
+performed sets from targets or treat unreported history as performed today.
+
+Release order: apply the new migration, deploy MCP with `--use-api
+--no-verify-jwt`, then deploy the permission UI. Do not run `supabase config push`.
+The prior frontend ignores new disabled-by-default grants; the prior Edge code
+still supports legacy logging against the extended dispatcher. Frontend-only
+rollback is safe. Do not reverse the migration or remove audit/import/tombstone
+records as an ordinary rollback.
+
+Refresh the ProCount connection's tool definitions after deployment. Server
+registration is not proof of client availability: acceptance requires all 17
+tools listed by the server, relevant tools exposed to the actual client, an
+explicitly authorized OAuth write and an exact readback through that client.
+The current chat exposed only seven read tools before this change; no server
+code can force a cached client schema to refresh.
+
+Database integration test (privileged connection, fixtures roll back):
+`psql "$PROCOUNT_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/connector_workout_management.sql`.
+It creates disposable user/client fixtures and must run against an isolated
+Supabase-compatible test database. It is not a production diary-write test.
+Schema tests: `deno test --node-modules-dir=none supabase/functions/mcp/management.test.ts`.
+Type check: `deno check --node-modules-dir=none supabase/functions/mcp/index.ts`.
 
 ## Test
 

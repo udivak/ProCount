@@ -10,7 +10,7 @@ export default function OAuthConsent() {
   const [details, setDetails] = useState(null);
   const [error, setError] = useState(id ? "" : "בקשת ההרשאה חסרה או פגה");
   const [busy, setBusy] = useState(false);
-  const [permissions, setPermissions] = useState({ water: false, meals: false, workouts: false });
+  const [permissions, setPermissions] = useState({ water: false, meals: false, workouts: false, workout_catalog: false, workout_edit: false });
   const lock = useRef(false);
 
   useEffect(() => {
@@ -57,9 +57,9 @@ export default function OAuthConsent() {
             </div>
             {host && <div dir="ltr" style={{ textAlign: "right", color: "#8a9994", fontSize: 13 }}>{host}</div>}
             <div style={{ color: "#c8d1ce", fontSize: 15, lineHeight: 1.5 }}>
-              גישה לקריאת נתוני התזונה, המים, היעדים והאימונים שלך. אפשר לאשר בנפרד הוספת רישומים; ניתן לבטל בהגדרות בכל עת.
+              גישה לקריאת נתוני התזונה, המים, היעדים והאימונים שלך. אפשר לאשר בנפרד הוספת רישומים, ניהול תוכנית אימונים ותיקון אימונים; ניתן לבטל בהגדרות בכל עת.
             </div>
-            {[["water", "הוספת מים"], ["meals", "הוספת ארוחות"], ["workouts", "הוספת אימונים שבוצעו"]].map(([key, label]) => <label key={key} style={{ display: "flex", alignItems: "center", minHeight: 44, gap: 10 }}>
+            {[["water", "הוספת מים"], ["meals", "הוספת ארוחות"], ["workouts", "הוספת אימונים שבוצעו"], ["workout_catalog", "ניהול תרגילים ותבניות אימון"], ["workout_edit", "תיקון, ביטול ושחזור אימונים"]].map(([key, label]) => <label key={key} style={{ display: "flex", alignItems: "center", minHeight: 44, gap: 10 }}>
               <input type="checkbox" disabled={busy} checked={permissions[key]} onChange={(event) => setPermissions({ ...permissions, [key]: event.target.checked })} />{label}
             </label>)}
             <div dir="ltr" style={{ textAlign: "right", color: "#66716d", fontSize: 12 }}>{details.user.email}</div>

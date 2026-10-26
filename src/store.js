@@ -406,8 +406,9 @@ export function useWorkouts(session, enabled) {
   };
 
   const setExerciseStatus = async (item, status) => {
-    const result = await supabase.from("workout_session_exercises")
-      .update({ status, revision: item.revision + 1 }).eq("id", item.id).eq("revision", item.revision).select().maybeSingle();
+    const result = await supabase.rpc("set_workout_exercise_status", {
+      p_id: item.id, p_status: status, p_expected_revision: item.revision,
+    });
     if (result.data) setDetail((old) => old && ({ ...old, exercises: old.exercises.map((value) => value.id === item.id ? result.data : value) }));
     return { data: result.data, error: result.error || (!result.data ? new Error("stale") : null) };
   };
