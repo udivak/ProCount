@@ -2,6 +2,16 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { dateRange, shapeNutrition, shapeProfile, shapeSessions, todayIn } from "./shape.js";
 
+test("swimming reads expose swim metrics and preserve unknown distance without strength volume", () => {
+  const [session] = shapeSessions([{ id: "swim", kind: "swimming", workout_swim_details: { duration_seconds: 2100, distance_m: 1250, stroke: "freestyle", pool_length_m: 25, length_count: 50 }, workout_session_exercises: [] }]);
+  assert.equal(session.kind, "swimming");
+  assert.equal(session.swim.distance_m, 1250);
+  assert.equal(session.swim.pace_per_100m, "2:48");
+  assert.deepEqual(session.exercises, []);
+  const [unknown] = shapeSessions([{ kind: "swimming", workout_swim_details: { duration_seconds: 900, distance_m: null }, workout_session_exercises: [] }]);
+  assert.equal(unknown.swim.pace_per_100m, null);
+});
+
 test("dateRange is inclusive and rejects bad input", () => {
   assert.deepEqual(dateRange("2026-02-27", "2026-03-01", 31), ["2026-02-27", "2026-02-28", "2026-03-01"]);
   assert.throws(() => dateRange("2026-03-02", "2026-03-01", 31), /on or before/);

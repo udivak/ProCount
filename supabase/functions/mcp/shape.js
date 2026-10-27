@@ -7,6 +7,7 @@ import {
 } from "../../../src/lib/nutrition.js";
 import { shiftDate } from "../../../src/lib/date.js";
 import { progressPoints, workoutVolume } from "../../../src/lib/workout.js";
+import { swimPace } from "../../../src/lib/swimming.js";
 
 // ponytail: single user in Israel. The Edge runtime is UTC, so "today" is derived
 // from this zone; move it to profile if the user ever logs from elsewhere.
@@ -100,7 +101,7 @@ const shapeSet = (s) => ({ id: s.id, revision: s.revision, position: s.position,
 
 export function shapePlan(templates) {
   return templates.map((t) => ({
-    id: t.id, revision: t.revision, name: t.name, preferred_day: t.preferred_day,
+    id: t.id, revision: t.revision, name: t.name, preferred_day: t.preferred_day, kind: t.kind || "strength",
     exercises: [...t.workout_template_exercises].sort(byPosition).map((te) => ({
       exercise_id: te.exercise_id,
       name: te.training_exercises?.name,
@@ -118,7 +119,8 @@ export function shapePlan(templates) {
 export function shapeSessions(sessions) {
   return sessions.map((s) => ({
     id: s.id, revision: s.revision, template_id: s.template_id, performed_on: s.performed_on, workout: s.template_name, status: s.status,
-    partial: s.partial, notes: s.notes || undefined,
+    partial: s.partial, notes: s.notes || undefined, kind: s.kind || "strength",
+    ...(s.kind === "swimming" && { swim: { ...s.workout_swim_details, pace_per_100m: swimPace(s.workout_swim_details) } }),
     exercises: [...s.workout_session_exercises].sort(byPosition).map((se) => {
       const sets = [...se.workout_sets].sort(byPosition);
       return {

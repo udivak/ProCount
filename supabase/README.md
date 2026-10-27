@@ -221,7 +221,30 @@ Requires an authenticated Supabase CLI. Two independent sessions synchronize bef
 writing the same request ID. The script asserts overlapping execution and one saved
 entry, then removes only its own 1 ml test entry and audit request in `finally`.
 
-## Nutrition chat
+## Pool swimming
+
+Migration `20261027101953_swimming_workouts.sql` adds typed workouts and one-to-one
+swimming summaries. Existing templates/sessions default to `strength`. The PWA uses
+first-party-only atomic `save_swim_workout` and `set_swim_workout_status` RPCs with
+stable request IDs, immutable retry payloads, parent revisions, and owner checks.
+Cancellation retains the summary and can be reversed. Never delete
+`private.swim_requests` during ordinary cleanup: it is the retry audit.
+
+MCP reads include swimming details; existing workout write tools accept strength
+only. Swimming does not expand connector permissions or add a connector write tool.
+
+Run `npm test`, `npm run build`, the MCP Deno checks, and
+`psql <isolated-db-url> -v ON_ERROR_STOP=1 -f supabase/tests/swimming.sql`.
+The SQL test uses synthetic identities and rolls back; use a local test database.
+Also run `supabase/tests/connector_write.sql` with local strength/OAuth fixtures.
+For a local preview, point Vite's Supabase URL/key to the isolated local project;
+never apply the migration to production merely to preview the frontend.
+
+After release approval: apply the migration, deploy the compatible MCP function
+with `--use-api --no-verify-jwt`, then release the frontend. Roll back the frontend
+first; retain schema and request audit. Older strength clients remain compatible.
+
+## Nutrition chat request format
 
 `mode: "chat"` adds `today`, `timezone` (IANA), `selectedDate`, `messages`
 (`role: "user" | "assistant"`, `text`, optional base64 JPEG `images`), and the
