@@ -300,10 +300,13 @@ export function useWorkouts(session, enabled) {
   const [history, setHistory] = useState([]);
   const [hasMore, setHasMore] = useState(false);
   const [progress, setProgress] = useState([]);
+  const [swimProgress, setSwimProgress] = useState([]);
   const [consistency, setConsistency] = useState({ total: 0, partial: 0 });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const progressRequest = useRef(0);
+  const swimProgressRequest = useRef(0);
+  const historyRequest = useRef(0);
 
   const loadCatalog = useCallback(async () => {
     setLoading(true);
@@ -367,18 +370,19 @@ export function useWorkouts(session, enabled) {
   };
 
   const loadSession = async (id) => {
-    const [sessionResult, exercisesResult] = await Promise.all([
+    const [sessionResult, exercisesResult, swimResult] = await Promise.all([
       supabase.from("workout_sessions").select("*").eq("id", id).maybeSingle(),
       supabase.from("workout_session_exercises").select("*").eq("session_id", id).order("position"),
+      supabase.from("workout_swim_details").select("duration_seconds,distance_m,pool_length_m,length_count,stroke").eq("session_id", id).maybeSingle(),
     ]);
-    const failure = sessionResult.error || exercisesResult.error;
+    const failure = sessionResult.error || exercisesResult.error || swimResult.error;
     if (failure || !sessionResult.data) return { error: failure || new Error("missing_session") };
     const exercises = exercisesResult.data || [];
     const setsResult = exercises.length
       ? await supabase.from("workout_sets").select("*").in("session_exercise_id", exercises.map((item) => item.id)).order("position")
       : { data: [], error: null };
     if (setsResult.error) return { error: setsResult.error };
-    const next = { session: sessionResult.data, exercises, sets: setsResult.data || [] };
+    const next = { session: sessionResult.data, exercises, sets: setsResult.data || [], swim: swimResult.data };
     setDetail(next);
     return { data: next, error: null };
   };
@@ -425,11 +429,14 @@ export function useWorkouts(session, enabled) {
     return { data: result.data, error: result.error || (!result.data ? new Error("stale") : null) };
   };
 
-  const loadHistory = async (page = 0) => {
-    const result = await supabase.from("workout_sessions").select("*").eq("status", "completed")
+  const loadHistory = async (page = 0, includeCancelled = false) => {
+    const revision = page === 0 ? ++historyRequest.current : historyRequest.current;
+    const result = await supabase.from("workout_sessions").select("*,workout_swim_details(duration_seconds,distance_m,pool_length_m,length_count,stroke)").in("status", includeCancelled ? ["completed", "cancelled"] : ["completed"])
       .order("performed_on", { ascending: false }).order("created_at", { ascending: false }).range(page * 20, page * 20 + 20);
+    if (revision !== historyRequest.current) return { data: null, error: null };
     if (!result.error) {
-      setHistory((old) => page ? [...old, ...(result.data || []).slice(0, 20)] : (result.data || []).slice(0, 20));
+      const rows = (result.data || []).slice(0, 20).map(({ workout_swim_details, ...row }) => ({ ...row, swim: workout_swim_details }));
+      setHistory((old) => page ? [...old, ...rows] : rows);
       setHasMore((result.data || []).length > 20);
     }
     return result;
@@ -460,9 +467,41 @@ export function useWorkouts(session, enabled) {
     const start = shiftDate(today, -new Date(`${today}T00:00:00`).getDay());
     const base = () => supabase.from("workout_sessions").select("id", { count: "exact", head: true })
       .eq("status", "completed").gte("performed_on", start).lte("performed_on", today);
-    const [all, partial] = await Promise.all([base(), base().eq("partial", true)]);
-    if (!all.error && !partial.error) setConsistency({ total: all.count || 0, partial: partial.count || 0 });
-    return { error: all.error || partial.error };
+    const [all, partial, swimming] = await Promise.all([base(), base().eq("partial", true), base().eq("kind", "swimming")]);
+    if (!all.error && !partial.error && !swimming.error) setConsistency({ total: all.count || 0, partial: partial.count || 0, swimming: swimming.count || 0 });
+    return { error: all.error || partial.error || swimming.error };
+  };
+
+  const findSwimOnDate = async (date) => supabase.from("workout_sessions").select("id")
+    .eq("kind", "swimming").eq("performed_on", date).neq("status", "cancelled").maybeSingle();
+
+  const saveSwim = async (attempt) => {
+    const common = { p_request_id: attempt.requestId, p_session_id: attempt.sessionId, p_expected_revision: attempt.expectedRevision };
+    const result = attempt.status
+      ? await supabase.rpc("set_swim_workout_status", { ...common, p_status: attempt.status })
+      : await supabase.rpc("save_swim_workout", { ...common, p_date: attempt.date, p_swim: attempt.swim, p_notes: attempt.notes, p_timezone: attempt.timezone });
+    if (!result.error && result.data?.session && result.data?.swim) {
+      setDetail({ ...result.data, exercises: [], sets: [] });
+      // The write is confirmed even if a subsequent list refresh fails.
+      await loadCatalog();
+    }
+    return result;
+  };
+
+  const loadSwimProgress = async (since, until) => {
+    const revision = ++swimProgressRequest.current;
+    const rows = [];
+    for (let page = 0; ; page++) {
+      const result = await supabase.from("workout_sessions").select("*,workout_swim_details(duration_seconds,distance_m,pool_length_m,length_count,stroke)")
+        .eq("kind", "swimming").eq("status", "completed").gte("performed_on", since).lte("performed_on", until)
+        .order("performed_on", { ascending: false }).order("id").range(page * 1000, page * 1000 + 999);
+      if (result.error) return result;
+      if (revision !== swimProgressRequest.current) return { data: null, error: null };
+      rows.push(...(result.data || []).map(({ workout_swim_details, ...row }) => ({ ...row, swim: workout_swim_details })));
+      if ((result.data || []).length < 1000) break;
+    }
+    setSwimProgress(rows);
+    return { data: rows, error: null };
   };
 
   const setWeeklyGoal = async (goal) => {
@@ -482,6 +521,7 @@ export function useWorkouts(session, enabled) {
 
   return { ...catalog, detail, history, hasMore, progress, consistency, loading, error, userId: session.user.id,
     loadCatalog, saveExercise, archiveExercise, saveTemplate, archiveTemplate,
+    swimProgress, saveSwim, findSwimOnDate, loadSwimProgress,
     loadSession, startSession, saveSet, setExerciseStatus, finishSession, loadHistory, loadProgress, loadPrevious, changeSessionDate, loadConsistency, setWeeklyGoal };
 }
 

@@ -90,14 +90,14 @@ function buildServer(supabase: any) {
     }));
 
   tool("get_workout_plan",
-    "The active workout plan: each workout (e.g. A/B/C) with its preferred weekday (0=Sunday), exercises in order, target sets (reps_min/reps_max/load_kg), and rest seconds.",
+    "The active workout plan: kind strength/swimming, preferred weekday (0=Sunday). Strength templates include ordered exercises, target sets (reps_min/reps_max/load_kg), and rest seconds. Swimming templates have no strength sets and cannot be logged or edited by connector tools.",
     z.object({}),
     async () => shapePlan(await one(supabase.from("workout_templates")
-      .select("id, revision, name, position, preferred_day, workout_template_exercises(exercise_id, position, target_sets, rest_seconds, notes, training_exercises(name, muscle_group, load_mode, weight_basis, reps_basis, notes))")
+      .select("id, revision, name, kind, position, preferred_day, workout_template_exercises(exercise_id, position, target_sets, rest_seconds, notes, training_exercises(name, muscle_group, load_mode, weight_basis, reps_basis, notes))")
       .is("archived_at", null).order("position"))));
 
   tool("list_workout_sessions",
-    "Performed workouts in a date range (max 92 days) with every exercise and set (load kg × reps, warmup/work) and work-set volume in kg.",
+    "Performed workouts in a date range (max 92 days). Strength: every exercise/set and volume kg. Swimming: duration_seconds (includes rests), optional distance_m, pool length/count and stroke; pace is total time per 100m including rests. Swimming writes are not supported by the connector.",
     z.object({
       from: date, to: date,
       status: z.enum(["completed", "in_progress", "cancelled", "all"]).default("completed"),
@@ -106,7 +106,7 @@ function buildServer(supabase: any) {
       dateRange(from, to, 92);
       const sessions = await readAll(() => {
         const q = supabase.from("workout_sessions")
-          .select("id, revision, template_id, performed_on, template_name, status, partial, notes, created_at, workout_session_exercises(id, revision, exercise_id, position, exercise_name, muscle_group, load_mode, weight_basis, reps_basis, status, target_sets, workout_sets(id, revision, position, kind, load_kg, reps, note))")
+          .select("id, revision, template_id, performed_on, template_name, kind, status, partial, notes, created_at, workout_swim_details(duration_seconds, distance_m, pool_length_m, length_count, stroke), workout_session_exercises(id, revision, exercise_id, position, exercise_name, muscle_group, load_mode, weight_basis, reps_basis, status, target_sets, workout_sets(id, revision, position, kind, load_kg, reps, note))")
           .gte("performed_on", from).lte("performed_on", to).order("performed_on").order("created_at");
         return status === "all" ? q : q.eq("status", status);
       });
@@ -141,7 +141,7 @@ function buildServer(supabase: any) {
   const manualFood = z.object({ name: z.string().trim().min(1).max(200), protein_g: z.number().min(0).max(10000), calories: z.number().min(0).max(100000), grams, source: z.enum(["manual", "ai"]).default("manual") });
   tool("log_meal", "Record foods actually eaten, atomically. Use list_foods IDs and serving quantities where possible. Manual protein/calories/grams are TOTAL per item, not per serving. Never invent missing values or copy estimates without the user's approval; mark approved estimates source=ai. Specify meal_type explicitly. Requires meals write permission.",
     z.object({ ...common, meal_type: z.enum(["breakfast", "lunch", "dinner", "snack"]), items: z.array(z.union([savedFood, manualFood])).min(1).max(50) }), args => write("meals", args), writeHints);
-  tool("log_workout", "Record a completed workout from an existing template, atomically. Fetch get_workout_plan first. Include ONLY performed exercises and actual sets; never assume planned sets were performed. Unreported exercises are skipped and workout is partial. Preserve per-hand/per-side and load_mode meanings; bodyweight may omit load_kg. Requires workouts write permission. Does not edit existing sessions or templates.",
+  tool("log_workout", "Record a completed strength workout from an existing strength template, atomically. Swimming writes are not supported. Fetch get_workout_plan first. Include ONLY performed exercises and actual sets; never assume planned sets were performed. Unreported exercises are skipped and workout is partial. Preserve per-hand/per-side and load_mode meanings; bodyweight may omit load_kg. Requires workouts write permission. Does not edit existing sessions or templates.",
     z.object({ ...common, ...workoutImport, template_id: z.string().uuid(), notes: z.string().max(1000).optional(), exercises: z.array(z.object({ exercise_id: z.string().uuid(), sets: z.array(z.object({ reps: z.number().int().min(1).max(10000), load_kg: z.number().min(0).max(10000).optional(), kind: z.enum(["work", "warmup"]).default("work"), note: z.string().max(1000).optional() })).min(1).max(50) })).min(1).max(50) }), args => write("workouts", args), writeHints);
 
   registerManagementTools(tool, supabase, one, writeHints);

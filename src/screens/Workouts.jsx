@@ -3,6 +3,9 @@ import { todayLocal } from "../lib/date.js";
 import { bestAtLoad, progressPoints, progressSince, groupExercisesByMuscle, targetReps, workoutLoadLabel } from "../lib/workout.js";
 import WorkoutSession from "./WorkoutSession.jsx";
 import WorkoutMuscleGroups from "./WorkoutMuscleGroups.jsx";
+import SwimmingSession from "./SwimmingSession.jsx";
+import SwimmingProgress from "./SwimmingProgress.jsx";
+import { swimLabel, SWIM_STROKES } from "../lib/swimming.js";
 
 const card = { border: "1px solid #27302c", borderRadius: 18, background: "#111512", padding: 16 };
 const input = { width: "100%", minWidth: 0, minHeight: 44, border: "1px solid #354039", borderRadius: 11, background: "#171b18", color: "#f4f7f6", font: "700 15px Heebo, sans-serif", padding: "8px 11px" };
@@ -26,16 +29,31 @@ export default function Workouts({ data, onConfirm }) {
   const [progressExercise, setProgressExercise] = useState("");
   const [progressTemplate, setProgressTemplate] = useState("");
   const [range, setRange] = useState("quarter");
+  const [progressKind, setProgressKind] = useState("strength");
+  const [swimDetail, setSwimDetail] = useState(null);
+  const [swimEditorKey, setSwimEditorKey] = useState(0);
+  const [includeCancelled, setIncludeCancelled] = useState(false);
+  const [swimProgressLoading, setSwimProgressLoading] = useState(false);
+  const [swimProgressError, setSwimProgressError] = useState(false);
   const [progressLoad, setProgressLoad] = useState("auto");
   const [weeklyDraft, setWeeklyDraft] = useState(3);
   const [last, setLast] = useState({});
   const lock = useRef(false);
   const pendingSessionId = useRef(null);
 
-  useEffect(() => { if (!templateId && data.templates[0]) setTemplateId(data.templates[0].id); }, [data.templates, templateId]);
+  const strengthTemplates = data.templates.filter((t) => t.kind !== "swimming");
+  useEffect(() => { if (!templateId && strengthTemplates[0]) setTemplateId(strengthTemplates[0].id); }, [data.templates, templateId]);
   useEffect(() => { if (!progressExercise && data.exercises[0]) setProgressExercise(data.exercises[0].id); }, [data.exercises, progressExercise]);
   useEffect(() => setWeeklyDraft(data.weeklyGoal), [data.weeklyGoal]);
-  useEffect(() => { if (view === "history") { setPage(0); data.loadHistory(0); } }, [view]);
+  useEffect(() => { if (view === "history") { setPage(0); data.loadHistory(0, includeCancelled).then((r) => { if (r.error) setMessage("טעינת ההיסטוריה נכשלה. נסה שוב."); }); } }, [view, includeCancelled]);
+  useEffect(() => {
+    let active = true;
+    if (view === "progress" && progressKind === "swimming") {
+      setSwimProgressLoading(true); setSwimProgressError(false);
+      data.loadSwimProgress(progressSince(range), todayLocal()).then((r) => { if (active) { setSwimProgressError(!!r.error); setSwimProgressLoading(false); } });
+    }
+    return () => { active = false; };
+  }, [view, progressKind, range]);
   useEffect(() => {
     if (view === "progress" && progressExercise) data.loadProgress(progressExercise, progressSince(range), todayLocal(), progressTemplate || null)
       .then((result) => { if (result.error) setMessage("טעינת ההתקדמות נכשלה. נסה שוב."); });
@@ -46,16 +64,17 @@ export default function Workouts({ data, onConfirm }) {
     const refresh = () => {
       if (document.visibilityState === "hidden" || lock.current) return;
       data.loadCatalog();
-      if (view === "history") { setPage(0); data.loadHistory(0); }
+      if (view === "history") { setPage(0); data.loadHistory(0, includeCancelled); }
       if (view === "progress") {
         data.loadConsistency();
+        if (progressKind === "swimming") data.loadSwimProgress(progressSince(range), todayLocal()).then((r) => setSwimProgressError(!!r.error));
         if (progressExercise) data.loadProgress(progressExercise, progressSince(range), todayLocal(), progressTemplate || null);
       }
     };
     window.addEventListener("focus", refresh);
     document.addEventListener("visibilitychange", refresh);
     return () => { window.removeEventListener("focus", refresh); document.removeEventListener("visibilitychange", refresh); };
-  }, [view, progressExercise, progressTemplate, range]);
+  }, [view, progressExercise, progressTemplate, range, progressKind, includeCancelled]);
 
   const run = async (operation, success = "נשמר") => {
     if (lock.current) return;
@@ -76,7 +95,7 @@ export default function Workouts({ data, onConfirm }) {
     }
   };
 
-  const selected = data.templates.find((item) => item.id === templateId) || data.templates[0];
+  const selected = strengthTemplates.find((item) => item.id === templateId) || strengthTemplates[0];
   const selectedItems = data.items.filter((item) => item.template_id === selected?.id).sort((a, b) => a.position - b.position);
   useEffect(() => {
     let alive = true;
@@ -93,7 +112,12 @@ export default function Workouts({ data, onConfirm }) {
     const result = await run(() => data.startSession(selected.id, id, date, date !== todayLocal()), "האימון נפתח");
     if (!result?.error) { pendingSessionId.current = null; setView("session"); }
   };
-  const openSession = async (id) => { const result = await run(() => data.loadSession(id), ""); if (!result?.error) setView("session"); };
+  const openSession = async (id) => {
+    const result = await run(() => data.loadSession(id), "");
+    if (!result || result.error) return;
+    if (result.data.session.kind === "swimming") { setSwimDetail(result.data); setSwimEditorKey((k) => k + 1); setView("swimming"); }
+    else setView("session");
+  };
   const editTemplate = (template, focusIndex = null) => setTemplateEditor(template ? {
     ...template, items: data.items.filter((item) => item.template_id === template.id).sort((a, b) => a.position - b.position)
       .map((item) => ({ exercise_id: item.exercise_id, target_sets: item.target_sets, rest_seconds: item.rest_seconds, notes: item.notes || "" })),
@@ -132,9 +156,12 @@ export default function Workouts({ data, onConfirm }) {
     {data.loading && <div role="status" style={muted}>טוען אימונים…</div>}
 
     {view === "plan" && !data.error && <>
+      <button disabled={busy} style={{ ...card, borderColor: "#315747", color: "#f4f7f6", textAlign: "right", cursor: "pointer", minHeight: 92, fontFamily: "Heebo, sans-serif" }} onClick={() => { setSwimDetail(null); setSwimEditorKey((k) => k + 1); setView("swimming"); }}>
+        <strong style={{ color: "#39e6b2", fontSize: 22 }}>שחייה בבריכה</strong><div style={{ ...muted, marginTop: 4 }}>תיעוד אחרי האימון · זמן, מרחק וסגנון</div>
+      </button>
       {data.open && <button style={button} onClick={() => openSession(data.open.id)}>המשך אימון פתוח: {data.open.template_name}</button>}
       <div style={{ display: "flex", gap: 7, overflowX: "auto" }}>
-        {data.templates.map((template) => <button key={template.id} onClick={() => setTemplateId(template.id)} aria-pressed={selected?.id === template.id}
+        {strengthTemplates.map((template) => <button key={template.id} onClick={() => setTemplateId(template.id)} aria-pressed={selected?.id === template.id}
           style={selected?.id === template.id ? button : quiet}>{template.name}</button>)}
         <button style={quiet} onClick={() => editTemplate(null)}>+ אימון</button>
       </div>
@@ -164,13 +191,19 @@ export default function Workouts({ data, onConfirm }) {
     {view === "session" && data.detail && <WorkoutSession key={data.detail.session.id} data={data} busy={busy} run={run} onBack={() => setView(data.detail.session.status === "completed" ? "history" : "plan")}
       onFinish={async (partial) => { const result = await run(() => data.finishSession(data.detail.session, partial), "האימון נשמר"); if (!result?.error) { localStorage.removeItem(`workout-timer:${data.userId}:${data.detail.session.id}`); await data.loadHistory(0); setView("history"); } }} />}
 
+    {view === "swimming" && <SwimmingSession key={`${swimDetail?.session.id || "new"}-${swimEditorKey}`} detail={swimDetail} userId={data.userId}
+      onSave={data.saveSwim} onFindExisting={data.findSwimOnDate} onOpenExisting={openSession} onReload={openSession} onConfirm={onConfirm}
+      onBack={() => setView(swimDetail ? "history" : "plan")} onSaved={() => { setMessage("אימון השחייה נשמר"); setView("history"); }} />}
+
     {view === "history" && <>
+      <label style={{ ...muted, display: "flex", gap: 8, alignItems: "center", minHeight: 44 }}><input type="checkbox" checked={includeCancelled} onChange={(e) => setIncludeCancelled(e.target.checked)} />הצג גם אימונים מבוטלים</label>
       <button style={quiet} onClick={() => setView("plan")}>+ אימון בתאריך קודם</button>
       {data.history.length === 0 && <div style={{ ...card, color: "#8a9994" }}>אין אימונים שהושלמו עדיין.</div>}
       {data.history.map((session) => <button key={session.id} style={{ ...card, color: "#f4f7f6", textAlign: "right", minHeight: 66, font: "700 15px Heebo, sans-serif", cursor: "pointer" }} onClick={() => openSession(session.id)}>
-        {session.template_name} <span style={muted}>· {session.performed_on} {session.partial ? "· אימון חלקי" : ""}</span>
+        {session.template_name} <span style={muted}>· {session.performed_on} {session.status === "cancelled" ? "· מבוטל" : session.partial ? "· אימון חלקי" : ""}</span>
+        {session.kind === "swimming" && <div style={{ ...muted, marginTop: 5 }}>{swimLabel(session.swim)}{session.swim?.stroke ? ` · ${SWIM_STROKES[session.swim.stroke]}` : ""}</div>}
       </button>)}
-      {data.hasMore && <button style={quiet} onClick={async () => { await data.loadHistory(page + 1); setPage(page + 1); }}>טען אימונים נוספים</button>}
+      {data.hasMore && <button style={quiet} onClick={async () => { const r = await data.loadHistory(page + 1, includeCancelled); if (!r.error && r.data !== null) setPage(page + 1); else if (r.error) setMessage("טעינת ההיסטוריה נכשלה."); }}>טען אימונים נוספים</button>}
     </>}
 
     {view === "progress" && <>
@@ -178,12 +211,19 @@ export default function Workouts({ data, onConfirm }) {
         <strong>עקביות השבוע</strong>
         <div dir="ltr" style={{ fontSize: 24, fontWeight: 900, color: "#39e6b2", textAlign: "right" }}>{data.consistency.total} / {data.weeklyGoal}</div>
         <div style={muted}>{data.consistency.partial} אימונים חלקיים · צפייה בתכנית אינה נספרת</div>
+        <div style={{ ...muted, marginTop: 5 }}>{data.consistency.total - (data.consistency.swimming || 0)} כוח · {data.consistency.swimming || 0} שחייה</div>
         <label style={{ ...muted, display: "block", marginTop: 10 }}>יעד אימונים שבועי<input style={{ ...input, maxWidth: 110 }} type="number" inputMode="numeric" min="1" max="14" value={weeklyDraft} onChange={(event) => setWeeklyDraft(event.target.value)} /></label>
         <button style={{ ...quiet, marginTop: 7 }} onClick={() => { const goal = Number(weeklyDraft); if (Number.isInteger(goal) && goal >= 1 && goal <= 14) run(() => data.setWeeklyGoal(goal), "היעד נשמר"); else setMessage("בחר יעד בין 1 ל־14."); }}>שמור יעד</button>
       </div>
+      <div style={{ display: "flex", gap: 8 }}>{[["strength", "כוח"], ["swimming", "שחייה"]].map(([kind, label]) => <button key={kind} style={progressKind === kind ? button : quiet} aria-pressed={progressKind === kind} onClick={() => setProgressKind(kind)}>{label}</button>)}</div>
+      {progressKind === "swimming" && <>
+        <div style={{ display: "flex", gap: 6 }}>{[["month", "חודש"], ["quarter", "3 חודשים"], ["year", "שנה"]].map(([key, label]) => <button key={key} style={range === key ? button : quiet} aria-pressed={range === key} onClick={() => setRange(key)}>{label}</button>)}</div>
+        {swimProgressLoading ? <div role="status" style={muted}>טוען נתוני שחייה…</div> : swimProgressError ? <div role="alert" style={{ ...card, color: "#fb8b91" }}>טעינת נתוני השחייה נכשלה. החלף תקופה כדי לנסות שוב.</div> : <SwimmingProgress sessions={data.swimProgress} onOpen={openSession} />}
+      </>}
+      {progressKind === "strength" && <>
       <div style={card}>
         <label style={muted}>תרגיל<select value={progressExercise} onChange={(event) => setProgressExercise(event.target.value)} style={input}>{data.exercises.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-        <label style={{ ...muted, display: "block", marginTop: 10 }}>אימון<select value={progressTemplate} onChange={(event) => setProgressTemplate(event.target.value)} style={input}><option value="">כל האימונים</option>{data.templates.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+        <label style={{ ...muted, display: "block", marginTop: 10 }}>אימון<select value={progressTemplate} onChange={(event) => setProgressTemplate(event.target.value)} style={input}><option value="">כל האימונים</option>{strengthTemplates.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
         <div style={{ display: "flex", gap: 6, marginTop: 10 }}>{[["month", "חודש"], ["quarter", "3 חודשים"], ["year", "שנה"]].map(([key, label]) => <button key={key} style={range === key ? button : quiet} aria-pressed={range === key} onClick={() => setRange(key)}>{label}</button>)}</div>
       </div>
       <div style={card}>
@@ -200,6 +240,7 @@ export default function Workouts({ data, onConfirm }) {
           </button>)}</div>
         </>}
       </div>
+      </>}
     </>}
 
     {exerciseEditor && <div role="dialog" aria-modal="true" aria-label="עריכת תרגיל" style={{ ...card, position: "fixed", inset: "8% max(12px, calc((100vw - 456px)/2)) 8%", zIndex: 50, overflowY: "auto", boxShadow: "0 0 0 100vmax rgba(0,0,0,.7)" }}>
