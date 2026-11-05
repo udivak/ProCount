@@ -1,18 +1,22 @@
 import { useEffect, useRef, useState } from "react";
-import { Trash, X } from "./lib/icons.jsx";
+import { Pencil, Trash, X } from "./lib/icons.jsx";
 import { MEAL_TYPES, proteinPer100g } from "./lib/nutrition.js";
 import { withSubmissionLock } from "./lib/submission.js";
 
-// Read-only detail view for a logged entry (clicked from the Today screen). Bottom sheet
+// Detail and edit view for a logged entry (clicked from the Today screen). Bottom sheet
 // matching FoodEditor / AddSheet. Shows name, grams eaten, protein-per-100g (derived),
 // total protein, and calories. Grams is optional — legacy and quick-add entries have none,
 // so amount and per-100g fall back to "—".
 const round = (n) => Math.round(Number(n) || 0);
 const label = { fontSize: 13, fontWeight: 600, color: "#8a8a93" };
+const control = { minHeight: 46, border: "1px solid #34403b", borderRadius: 12, background: "#171b18", color: "#f4f7f6", font: "inherit", padding: "8px 12px", width: "100%" };
+const EDIT_FIELDS = { name: "שם המאכל", grams: "משקל שנאכל (גרם, אופציונלי)", protein_g: "סך חלבון (גרם)", calories: "סך קלוריות" };
 const dash = "—";
 const MEAL_LABELS = { breakfast: "בוקר", lunch: "צהריים", dinner: "ערב", snack: "נשנוש" };
 
-export default function ItemDetailModal({ entry, busy = false, onClose, onDelete, onMove }) {
+export default function ItemDetailModal({ entry, busy = false, onClose, onDelete, onMove, onEdit }) {
+  const [draft, setDraft] = useState(null);
+  const [editError, setEditError] = useState("");
   const [saving, setSaving] = useState(false);
   const [moveError, setMoveError] = useState("");
   const moveLock = useRef(false);
@@ -34,6 +38,17 @@ export default function ItemDetailModal({ entry, busy = false, onClose, onDelete
       setSaving(false);
     }
   });
+  const beginEdit = () => {
+    setEditError("");
+    setDraft(Object.fromEntries(Object.keys(EDIT_FIELDS).map((key) => [key, String(entry.raw[key] ?? "")])));
+  };
+  const saveEdit = async (event) => {
+    event.preventDefault();
+    if (isBusy) return;
+    setEditError("");
+    const result = await onEdit(entry.raw, draft);
+    if (result?.error || !result?.data) setEditError("לא ניתן לשמור את התיקונים. בדוק את הערכים ונסה שוב.");
+  };
   const requestDelete = () => { if (!isBusy && !moveLock.current) onDelete(entry.id); };
   const rows = [
     { k: "כמות שנאכלה", v: entry.grams != null ? `${round(entry.grams)} גרם` : dash },
@@ -56,7 +71,7 @@ export default function ItemDetailModal({ entry, busy = false, onClose, onDelete
       <div className="pc-sheet" role="dialog" aria-modal="true" aria-labelledby="entry-detail-title" aria-busy={isBusy} style={{ position: "relative", background: "rgba(15,19,17,.97)", WebkitBackdropFilter: "blur(24px)", backdropFilter: "blur(24px)", borderTop: "1px solid #34403b", borderRadius: "28px 28px 0 0", maxHeight: "92%", display: "flex", flexDirection: "column", animation: "sheetUp .28s cubic-bezier(.2,.8,.2,1)", boxShadow: "0 -18px 50px rgba(0,0,0,.35)" }}>
         <div style={{ flex: "none", padding: "18px 20px 10px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-            <div id="entry-detail-title" style={{ fontSize: 22, fontWeight: 900 }}>פרטי רישום</div>
+            <div id="entry-detail-title" style={{ fontSize: 22, fontWeight: 900 }}>{draft ? "עריכת רישום" : "פרטי רישום"}</div>
             <button ref={closeRef} disabled={isBusy} onClick={close} aria-label="סגור" style={{ width: 44, height: 44, border: "1px solid #333c38", borderRadius: 14, background: "#202521", color: "#aab5b1", display: "flex", alignItems: "center", justifyContent: "center", cursor: isBusy ? "not-allowed" : "pointer", opacity: isBusy ? .45 : 1 }}>
               <X size={18} />
             </button>
@@ -64,6 +79,21 @@ export default function ItemDetailModal({ entry, busy = false, onClose, onDelete
         </div>
 
         <div className="pc-scroll" style={{ flex: 1, overflowY: "auto", padding: "8px 20px max(28px, env(safe-area-inset-bottom))", display: "flex", flexDirection: "column", gap: 14 }}>
+          {draft ? (
+            <form onSubmit={saveEdit} style={{ display: "grid", gap: 12 }}>
+              {Object.entries(EDIT_FIELDS).map(([key, title]) => (
+                <label key={key} style={{ ...label, display: "grid", gap: 5 }}>
+                  {title}
+                  <input disabled={isBusy} required={key !== "grams"} inputMode={key === "name" ? "text" : "decimal"}
+                    dir={key === "name" ? "rtl" : "ltr"} value={draft[key]}
+                    onChange={(event) => setDraft({ ...draft, [key]: event.target.value })} style={control} />
+                </label>
+              ))}
+              {editError && <div role="alert" style={{ color: "#fb7185" }}>{editError}</div>}
+              <button disabled={isBusy} style={{ ...control, color: "#9ef2d2", fontWeight: 800 }}>{isBusy ? "שומר..." : "שמור תיקונים"}</button>
+              <button type="button" disabled={isBusy} onClick={() => setDraft(null)} style={control}>ביטול</button>
+            </form>
+          ) : <>
           <section style={{ overflow: "hidden", border: "1px solid #2b342f", borderRadius: 20, background: "#111512" }}>
             <div style={{ minHeight: 68, padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, borderBottom: "1px solid #2b342f" }}>
               <div style={{ fontSize: 20, fontWeight: 900, color: "#f4f7f6", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{entry.name}</div>
@@ -89,9 +119,11 @@ export default function ItemDetailModal({ entry, busy = false, onClose, onDelete
             {saving && <div role="status" style={{ color: "#8a8a93", fontSize: 13, fontWeight: 700 }}>מעביר רישום...</div>}
             {moveError && <div role="alert" style={{ color: "#fb7185", fontSize: 13, fontWeight: 700 }}>{moveError}</div>}
           </section>
+          <button type="button" disabled={isBusy} onClick={beginEdit} style={{ ...control, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, color: "#9ef2d2", fontWeight: 800 }}><Pencil size={16} /> ערוך רישום</button>
           <button disabled={isBusy} onClick={requestDelete} style={{ minHeight: 50, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, border: "1px solid #7b3038", borderRadius: 16, fontFamily: "inherit", background: "#201416", color: "#fb7185", fontSize: 14, fontWeight: 800, padding: "10px 8px", cursor: isBusy ? "not-allowed" : "pointer", opacity: isBusy ? .45 : 1 }}>
             <Trash size={16} /> מחק רישום
           </button>
+          </>}
         </div>
       </div>
     </div>

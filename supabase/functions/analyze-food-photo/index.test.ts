@@ -1,4 +1,5 @@
 import { assert, assertEquals } from "jsr:@std/assert";
+import { parseMealItems } from "../../../src/lib/mealEstimate.js";
 import { handleRequest } from "./index.ts";
 const payload = {
   mode: "chat",
@@ -9,7 +10,7 @@ const payload = {
   items: [],
 };
 function harness(
-  { allowed = true, contextError = false, overflow = false } = {},
+  { allowed = true, contextError = false, overflow = false, output = { message: "מה אכלת?", needsClarification: true, items: [] } as unknown } = {},
 ) {
   let calls = 0;
   const captured: Record<string, unknown>[] = [];
@@ -50,11 +51,7 @@ function harness(
               type: "message",
               content: [{
                 type: "output_text",
-                text: JSON.stringify({
-                  message: "מה אכלת?",
-                  needsClarification: true,
-                  items: [],
-                }),
+                text: JSON.stringify(output),
               }],
             }],
           }),
@@ -112,4 +109,84 @@ Deno.test("invalid chat and role injection consume no quota", async () => {
     400,
   );
   assertEquals(h.calls(), 0);
+});
+
+Deno.test("meal sends both portions once and scales provider estimates on the server", async () => {
+  const h = harness({
+    output: {
+      name: "פרגיות ואורז",
+      confidence: "medium",
+      note: "",
+      items: [
+        { index: 0, calories: 200, protein_g: 25 },
+        { index: 1, calories: 120, protein_g: 2 },
+      ],
+    },
+  });
+  const result = await h.run({
+    mode: "meal",
+    items: [
+      { name: "פרגיות", quantity: "200 גרם" },
+      { name: "אורז", quantity: "150 גרם" },
+    ],
+  });
+  assertEquals(result.status, 200);
+  assertEquals(h.calls(), 1);
+  assertEquals(h.captured.length, 1);
+  const request = h.captured[0];
+  const input = request.input as { role: string; content: { type: string; text: string }[] }[];
+  assertEquals(JSON.parse(input[0].content[0].text), [
+    { index: 0, name: "פרגיות", quantity: "200 גרם", grams: 200 },
+    { index: 1, name: "אורז", quantity: "150 גרם", grams: 150 },
+  ]);
+  assert(String(request.instructions).includes("ל-100 גרם בלבד"));
+  assert(String(request.instructions).includes("מציג למשתמש סך חלבון וקלוריות לכל הארוחה"));
+  assert(String(request.instructions).includes("בשדה note כתוב רק הנחות"));
+  assertEquals(await result.json(), {
+    name: "פרגיות ואורז",
+    confidence: "medium",
+    note: "",
+    calories: 580,
+    protein_g: 53,
+  });
+});
+
+Deno.test("form parser to provider preserves preparation and free quantities, ignoring an empty added row", async () => {
+  const items = parseMealItems([
+    { name: " פרגיות על הגריל ", quantity: " 0.2 kg " },
+    { name: "אורז מבושל", quantity: "חצי כוס" },
+    { name: "", quantity: "" },
+  ]);
+  const h = harness({ output: {
+    name: "פרגיות ואורז", confidence: "medium", note: "חצי כוס אורז מבושל",
+    items: [
+      { index: 0, calories: 200, protein_g: 25 },
+      { index: 1, calories: 100, protein_g: 2 },
+    ],
+  } });
+  const result = await h.run({ mode: "meal", items });
+  assertEquals(result.status, 200);
+  const input = h.captured[0].input as { content: { text: string }[] }[];
+  assertEquals(JSON.parse(input[0].content[0].text), [
+    { index: 0, name: "פרגיות על הגריל", quantity: "0.2 kg", grams: 200 },
+    { index: 1, name: "אורז מבושל", quantity: "חצי כוס", grams: null },
+  ]);
+  const meal = await result.json();
+  assertEquals(meal.calories, 500);
+  assertEquals(meal.protein_g, 52);
+});
+
+Deno.test("incomplete portions stop before AI quota; client-provided grams cannot override the quantity", async () => {
+  const invalid = harness();
+  assertEquals((await invalid.run({ mode: "meal", items: [{ name: "אורז", quantity: "" }] })).status, 400);
+  assertEquals(invalid.calls(), 0);
+  assertEquals(invalid.captured.length, 0);
+
+  const forged = harness({ output: {
+    name: "אורז", confidence: "medium", note: "",
+    items: [{ index: 0, calories: 120, protein_g: 2 }],
+  } });
+  const result = await forged.run({ mode: "meal", items: [{ name: "אורז", quantity: "150 גרם", grams: 999 }] });
+  assertEquals(result.status, 200);
+  assertEquals((await result.json()).calories, 180);
 });

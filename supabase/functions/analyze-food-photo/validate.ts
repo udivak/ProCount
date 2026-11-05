@@ -15,7 +15,7 @@ export type ParseResult =
   | { type: "incomplete" }
   | { type: "invalid" };
 
-export function parseOpenAIResponse(response: unknown): ParseResult {
+export function parseOpenAIResponse(response: unknown, validate = coerce): ParseResult {
   if (!isRecord(response)) return { type: "invalid" };
   if (response.status === "incomplete") return { type: "incomplete" };
   if (!Array.isArray(response.output)) return { type: "invalid" };
@@ -29,7 +29,7 @@ export function parseOpenAIResponse(response: unknown): ParseResult {
       if (content.type !== "output_text" || typeof content.text !== "string") continue;
 
       const parsed = tryParseJson(content.text);
-      const estimate = parsed && coerce(parsed);
+      const estimate = parsed && validate(parsed);
       if (estimate) return { type: "estimate", estimate };
     }
   }

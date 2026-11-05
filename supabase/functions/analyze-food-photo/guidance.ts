@@ -1,3 +1,5 @@
+import { parseMealItems } from "../../../src/lib/mealEstimate.js";
+
 export const MAX_GUIDANCE_LENGTH = 1000;
 export const MAX_TEXT_FIELD_LENGTH = 1000;
 const ALLOWED_MEDIA = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
@@ -65,9 +67,15 @@ export function buildTextContent(
   }];
 }
 
+type MealRequest = {
+  mode: "meal";
+  items: NonNullable<ReturnType<typeof parseMealItems>>;
+  content: InputTextContent[];
+};
+
 // Keep request parsing outside the served module so its no-quota validation can
 // be tested without starting the Edge Function.
-export function buildAnalysisRequest(value: unknown): PhotoRequest | TextRequest | null {
+export function buildAnalysisRequest(value: unknown): PhotoRequest | TextRequest | MealRequest | null {
   if (!isRecord(value)) return null;
 
   if (value.mode === undefined || value.mode === "photo") {
@@ -75,6 +83,19 @@ export function buildAnalysisRequest(value: unknown): PhotoRequest | TextRequest
     const content = buildPhotoContent(value.image, mediaType, value.guidance);
     if (!content || typeof value.image !== "string" || typeof mediaType !== "string") return null;
     return { mode: "photo", image: value.image, mediaType, content };
+  }
+
+  if (value.mode === "meal" && !Object.hasOwn(value, "image")) {
+    const items = parseMealItems(value.items);
+    if (!items?.length) return null;
+    return {
+      mode: "meal",
+      items,
+      content: [{
+        type: "input_text",
+        text: JSON.stringify(items.map((item, index) => ({ index, ...item }))),
+      }],
+    };
   }
 
   if (value.mode !== "text" || Object.hasOwn(value, "image")) return null;

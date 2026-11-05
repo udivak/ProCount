@@ -176,18 +176,48 @@ export function useData(session) {
     });
   }, [entries]);
 
-  const updateEntryMeal = useCallback(async (id, mealType) => {
-    if (!isValidEntryMealUpdate(id, mealType)) return { data: null, error: new Error("invalid_write") };
+  const updateEntry = useCallback(async (id, patch, original = null) => {
     let result;
     try {
-      result = await supabase.from("entries").update({ meal_type: mealType }).eq("id", id).select().single();
+      let query = supabase.from("entries").update(patch).eq("id", id).eq("entry_kind", "food");
+      if (original) {
+        for (const field of Object.keys(patch)) {
+          query = original[field] == null ? query.is(field, null) : query.eq(field, original[field]);
+        }
+      }
+      result = await query.select().single();
     } catch (error) {
-      return { data: null, error };
+      result = { data: null, error };
+    }
+    if (original && !result?.data) {
+      try {
+        const readback = await supabase.from("entries").select().eq("id", id).eq("entry_kind", "food").maybeSingle();
+        if (!readback.error && readback.data && Object.entries(patch).every(([field, value]) => readback.data[field] === value)) {
+          result = readback;
+        }
+      } catch { /* Keep the write error so the user can retry. */ }
     }
     if (result?.error || !result?.data) return { data: null, error: result?.error || new Error("update_failed") };
     setEntries((current) => applyReturnedEntry(current, result));
     return { data: result.data, error: null };
   }, []);
+
+  const updateEntryMeal = (id, mealType) => isValidEntryMealUpdate(id, mealType)
+    ? updateEntry(id, { meal_type: mealType }) : Promise.resolve(failedWrite());
+
+  const editFoodEntry = (entry, draft) => {
+    const name = draft.name.trim();
+    const protein_g = nonNegativeNumber(draft.protein_g);
+    const calories = nonNegativeNumber(draft.calories);
+    const grams = draft.grams.trim() === "" ? null : Number(draft.grams);
+    if (!entry?.id || !name || !draft.protein_g.trim() || !draft.calories.trim() ||
+        protein_g == null || calories == null || (grams != null && (!Number.isFinite(grams) || grams < 0))) {
+      return Promise.resolve(failedWrite());
+    }
+    const patch = Object.fromEntries(Object.entries({ name, protein_g, calories, grams })
+      .filter(([field, value]) => value !== entry[field]));
+    return Object.keys(patch).length ? updateEntry(entry.id, patch, entry) : Promise.resolve({ data: entry, error: null });
+  };
 
   const deleteFood = useCallback(async (id) => {
     setFoods((cur) => cur.filter((f) => f.id !== id));
@@ -242,6 +272,19 @@ export function useData(session) {
     return { estimate: body };
   }, [session]);
 
+  const estimateMealNutrition = useCallback(async (items) => {
+    const endpoint = import.meta.env.VITE_MEAL_ESTIMATE_URL || `${FUNCTIONS_URL}/analyze-food-photo`;
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: { "content-type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ mode: "meal", items }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) return { error: body.error || "error" };
+    if (![body.protein_g, body.calories].every((value) => typeof value === "number" && Number.isFinite(value) && value >= 0)) return { error: "error" };
+    return { estimate: body };
+  }, [session]);
+
   const readChatDays = useCallback(async (dates) => {
     try {
       const result = await supabase.from("entries").select(CHAT_ENTRY_FIELDS, {count:"exact"}).in("eaten_on", dates).limit(1001);
@@ -287,9 +330,9 @@ export function useData(session) {
 
   return {
     connectorPermissions, loadConnectorPermissions, saveConnectorPermission, loading, entries, foods, goal, waterGoal, name, today, email: session.user.email,
-    ...Object.fromEntries(Object.entries({ addQuick, addWater, addManual, addAi, addChatEntries, inspectChatRows, deleteEntry, updateEntryMeal }).map(([key, operation]) =>
+    ...Object.fromEntries(Object.entries({ addQuick, addWater, addManual, addAi, addChatEntries, inspectChatRows, deleteEntry, updateEntryMeal, editFoodEntry }).map(([key, operation]) =>
       [key, (...args) => refreshGuard.current.mutate(() => operation(...args))])),
-    readChatDays, sendNutritionChat, compressChatImage: compressToBase64, saveFood, deleteFood, setGoal, setWaterGoal, setName, analyzePhoto, estimateFoodNutrition, signOut,
+    readChatDays, sendNutritionChat, compressChatImage: compressToBase64, saveFood, deleteFood, setGoal, setWaterGoal, setName, analyzePhoto, estimateFoodNutrition, estimateMealNutrition, signOut,
   };
 }
 
