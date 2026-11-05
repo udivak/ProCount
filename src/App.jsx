@@ -1,3 +1,4 @@
+import { mealWeight, parseMealItems } from "./lib/mealEstimate.js";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useData, useWorkouts, RANGE_DAYS } from "./store.js";
 import { headerDate, lastNDates, lastNWeeks, weekdayLabel, weekRangeLabel, shiftDate, dayLabel, greeting } from "./lib/date.js";
@@ -28,7 +29,7 @@ const SOURCE = {
   ai: { tag: "AI", iconBg: "rgba(167,139,250,.14)", iconColor: "#a78bfa", sub: "הערכת AI" },
 };
 const round = (n) => Math.round(Number(n) || 0);
-const blankForm = () => ({ name: "", protein: "", calories: "", grams: "", quantity: "1", unit: "מנה", save: false, entryId: crypto.randomUUID(), foodId: crypto.randomUUID(), entrySaved: false });
+const blankForm = () => ({ items: [{ name: "", quantity: "" }], mealEstimated: false, name: "", protein: "", calories: "", grams: "", quantity: "1", unit: "מנה", save: false, entryId: crypto.randomUUID(), foodId: crypto.randomUUID(), entrySaved: false });
 const isNonNegative = (value) => String(value ?? "").trim() !== "" && Number.isFinite(Number(value)) && Number(value) >= 0;
 
 const newChatState = (selectedDate) => {
@@ -52,6 +53,7 @@ export default function App({ session }) {
   const [photoFile, setPhotoFile] = useState(null);
   const [photoGuidance, setPhotoGuidance] = useState("");
   const [manualEstimate, setManualEstimate] = useState(null);
+  const [manualEstimatePending, setManualEstimatePending] = useState(false);
   const [editFood, setEditFood] = useState(null); // null | {} (new) | foodRow (edit)
   const [selectedEntry, setSelectedEntry] = useState(null); // null | a todayEntries vm item (detail modal)
   const [detailBusy, setDetailBusy] = useState(false);
@@ -224,7 +226,7 @@ export default function App({ session }) {
 
     const todayEntries = todays.filter((e) => e.entry_kind !== "water").map((e) => {
       const s = SOURCE[e.source] || SOURCE.manual;
-      return { ...e, id: e.id, name: e.name || "רישום ללא שם", sub: s.sub, tag: s.tag, iconBg: s.iconBg, iconColor: s.iconColor, protein: round(e.protein_g), calories: round(e.calories), grams: e.grams == null ? null : Number(e.grams), proteinRaw: Number(e.protein_g) || 0 };
+      return { ...e, id: e.id, name: e.name || "רישום ללא שם", sub: s.sub, tag: s.tag, iconBg: s.iconBg, iconColor: s.iconColor, protein: round(e.protein_g), calories: round(e.calories), grams: e.grams == null ? null : Number(e.grams), proteinRaw: Number(e.protein_g) || 0, raw: e };
     });
 
     const dates = lastNDates(7);
@@ -336,7 +338,10 @@ export default function App({ session }) {
     return captureRequestRevision(photoRequestRevision);
   };
   const invalidateManualEstimate = (clearLock = false) => {
-    if (clearLock) clearRequestLock(manualEstimateLock);
+    if (clearLock) {
+      clearRequestLock(manualEstimateLock);
+      setManualEstimatePending(false);
+    }
     captureRequestRevision(manualEstimateRevision);
     setManualEstimate(null);
   };
@@ -364,12 +369,23 @@ export default function App({ session }) {
     invalidatePhotoRequest();
     invalidateManualEstimate(true);
     setAddError("");
+    if ((tab === "photo" || addTab === "photo") && form.items.some((item) => item.name || item.quantity)) setForm(blankForm());
     setAddTab(tab);
     setIsGeneralFood(false);
     setPhoto({ state: "idle", note: "", error: null });
     setPhotoFile(null);
   };
-  const onField = (key, value) => { if (!form.entrySaved) { invalidateManualEstimate(); setAddError(""); setForm((current) => ({ ...current, [key]: value })); } };
+  const onField = (key, value) => {
+    if (form.entrySaved) return;
+    invalidateManualEstimate();
+    setAddError("");
+    const changedMeal = key === "items" && form.mealEstimated;
+    if (changedMeal) setManualEstimate({ state: "stale" });
+    setForm((current) => ({
+      ...current, [key]: value,
+      ...(changedMeal ? { protein: "", calories: "", mealEstimated: false } : {}),
+    }));
+  };
   const onToggleSave = () => { if (!form.entrySaved) { invalidateManualEstimate(); setAddError(""); setForm((current) => ({ ...current, save: !current.save })); } };
   const onDate = (date) => { if (!form.entrySaved) { invalidateManualEstimate(); setAddDate(date); } };
   const onMealType = (type) => { if (!form.entrySaved) { invalidateManualEstimate(); setMealType(type); } };
@@ -405,11 +421,21 @@ export default function App({ session }) {
 
   const submitAdd = () => {
     if (manualEstimateLock.current) return;
-    if (isGeneralFood && (!(form.name || "").trim() || !isNonNegative(form.protein) || !isNonNegative(form.calories))) return;
+    const items = addTab === "manual" ? parseMealItems(form.items) : [];
+    if (!items || (items.length && (!form.protein.trim() || !form.calories.trim() ||
+      !isNonNegative(form.protein) || !isNonNegative(form.calories)))) return;
+    const loggedForm = items.length ? {
+      ...form,
+      name: form.name.trim() || items.map((item) => item.name).join(" ו"),
+      unit: "מנה",
+      quantity: "1",
+      grams: mealWeight(items),
+    } : form;
+    if (isGeneralFood && (!(loggedForm.name || "").trim() || !isNonNegative(form.protein) || !isNonNegative(form.calories))) return;
     return runAddSave(async () => {
-      const finalMealType = resolveAddedMeal(mealType, { name: form.name }, learnedSnacks);
+      const finalMealType = resolveAddedMeal(mealType, { name: loggedForm.name }, learnedSnacks);
       const submitted = { form, tab: addTab, isGeneralFood, date: addDate, mealType: finalMealType, photoGuidance };
-      const result = addTab === "photo" ? await data.addAi(form, addDate, finalMealType) : await data.addManual(form, addDate, finalMealType);
+      const result = addTab === "photo" || form.mealEstimated ? await data.addAi(loggedForm, addDate, finalMealType) : await data.addManual(loggedForm, addDate, finalMealType);
       rememberFoodUndo(foodUndoTarget(result));
       const partial = !!result.food?.error && (!!result.entry?.data || form.entrySaved);
       if (partial) {
@@ -430,6 +456,9 @@ export default function App({ session }) {
 
   const analyzeManualFood = async () => {
     if (form.entrySaved || addSaving) return;
+    const items = parseMealItems(form.items);
+    if (!items) return;
+    const isMeal = items.length > 0;
     const foodName = form.name.trim();
     const unit = form.unit.trim();
     const quantity = Number(form.quantity);
@@ -438,20 +467,24 @@ export default function App({ session }) {
       unit.length > 0 &&
       Number.isFinite(quantity) && quantity > 0 &&
       (totalGrams == null || (Number.isFinite(totalGrams) && totalGrams > 0));
-    if (!valid) return;
+    if (!isMeal && !valid) return;
 
     const lockToken = acquireRequestLock(manualEstimateLock);
     if (!lockToken) return;
+    setManualEstimatePending(true);
     const request = captureFoodEstimateRequest(manualEstimateRevision, foodName, unit, quantity, totalGrams);
     setManualEstimate({ state: "loading", note: "", error: "", unit: request.unit, confidence: "" });
     try {
-      const result = await data.estimateFoodNutrition(request.foodName, request.unit, request.quantity, request.totalGrams);
+      const result = isMeal
+        ? await data.estimateMealNutrition(items)
+        : await data.estimateFoodNutrition(request.foodName, request.unit, request.quantity, request.totalGrams);
       if (!request.isCurrent()) return;
       if (result?.estimate) {
         setForm((current) => ({
           ...current,
-          protein: String(round(result.estimate.protein_g)),
-          calories: String(round(result.estimate.calories)),
+          ...(isMeal ? { mealEstimated: true } : {}),
+          protein: String(isMeal ? result.estimate.protein_g : round(result.estimate.protein_g)),
+          calories: String(isMeal ? result.estimate.calories : round(result.estimate.calories)),
         }));
         setManualEstimate({
           state: "done",
@@ -472,7 +505,10 @@ export default function App({ session }) {
     } catch {
       if (request.isCurrent()) setManualEstimate({ state: "error", note: "", error: "error", unit: request.unit, confidence: "" });
     } finally {
-      releaseRequestLock(manualEstimateLock, lockToken);
+      if (manualEstimateLock.current === lockToken) {
+        releaseRequestLock(manualEstimateLock, lockToken);
+        setManualEstimatePending(false);
+      }
     }
   };
 
@@ -640,7 +676,7 @@ export default function App({ session }) {
         <AddSheet onOpenChat={openChat} tab={addTab} onTab={onTab} onClose={discardAdd} foods={vm.foodVm} form={form} isGeneralFood={isGeneralFood} onOpenGeneral={openGeneralFood} onBackGeneral={backFromGeneralFood} onBackPhoto={backFromPhotoResult} error={addError} saving={addSaving}
           onField={onField} onToggleSave={onToggleSave} locked={form.entrySaved} onBeginQuick={() => setAddError("")} isLearnedSnack={(food) => isLearnedSnack(food, learnedSnacks)}
           onSubmit={submitAdd} onQuickAdd={quickAdd} photo={{ ...photo, quota: vm.aiQuota }} photoFile={photoFile} onPickPhoto={pickPhoto} onAnalyzePhoto={analyzeSelectedPhoto} photoGuidance={photoGuidance} onPhotoGuidance={changePhotoGuidance}
-          manualEstimate={manualEstimate} manualEstimatePending={!!manualEstimateLock.current} onEstimateManual={analyzeManualFood}
+          manualEstimate={manualEstimate} manualEstimatePending={manualEstimatePending} onEstimateManual={analyzeManualFood}
           date={addDate} onDate={onDate} minDate={oldest} maxDate={today} mealType={mealType} onMealType={onMealType} />
       )}
 
@@ -663,7 +699,11 @@ export default function App({ session }) {
 
       {editFood && <FoodEditor food={editFood} onSave={async (v) => { const result = await data.saveFood(v); if (!result.error && !result.reused) setEditFood(null); return result; }} onEstimateNutrition={data.estimateFoodNutrition} onDelete={(id) => setConfirm({ title: "מחיקת מאכל", body: "המאכל יימחק מהרשימה שלך.", confirmLabel: "מחק", onConfirm: async () => { await data.deleteFood(id); setEditFood(null); } })} onClose={() => setEditFood(null)} />}
 
-      {selectedEntry && <ItemDetailModal entry={selectedEntry} busy={detailBusy} onClose={closeEntryDetail} onDelete={(id) => requestEntryDelete(id, true)} onMove={moveSelectedEntry} />}
+      {selectedEntry && <ItemDetailModal entry={selectedEntry} busy={detailBusy} onClose={closeEntryDetail} onDelete={(id) => requestEntryDelete(id, true)} onMove={moveSelectedEntry} onEdit={async (original, draft) => {
+        const result = await runDetailOperation(() => data.editFoodEntry(original, draft));
+        if (result.data) setSelectedEntry(null);
+        return result;
+      }} />}
 
       {confirm && <ConfirmDialog title={confirm.title} body={confirm.body} confirmLabel={confirm.confirmLabel}
         onConfirm={async () => {

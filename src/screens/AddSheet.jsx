@@ -1,3 +1,4 @@
+import { MAX_MEAL_ITEMS, MAX_MEAL_TEXT, mealWeight, parseMealItems } from "../lib/mealEstimate.js";
 import { useEffect, useRef, useState } from "react";
 import { X, Camera, ImageIcon, Info } from "../lib/icons.jsx";
 
@@ -245,27 +246,46 @@ function QtyPanel({ food, qty, setQty, onBack, onAdd, error, disabled }) {
 
 // Shared name/protein/calories form — manual entry and the editable AI result.
 function ManualForm({ form, onField, onToggleSave, onSubmit, cta, showSave, showMeasure = false, showQuantity = false, requireAll = false, error, locked, saving, manualEstimate = null, manualEstimatePending = false, onEstimateManual }) {
+  const items = onEstimateManual ? parseMealItems(form.items) : [];
+  const isMeal = !!onEstimateManual && (!items || items.length > 0);
+  const weight = items ? mealWeight(items) : null;
+  const changeItem = (index, key, value) => onField("items",
+    form.items.map((item, i) => i === index ? { ...item, [key]: value } : item));
   const selectedUnit = MEASURES.includes(form.unit) ? form.unit : "אחר";
-  const customMeasureMissing = showMeasure && form.save && selectedUnit === "אחר" && !(form.unit || "").trim();
+  const customMeasureMissing = showMeasure && !isMeal && form.save && selectedUnit === "אחר" && !(form.unit || "").trim();
   const validNumber = (value) => String(value ?? "").trim() !== "" && Number.isFinite(Number(value)) && Number(value) >= 0;
   const validQuantity = String(form.quantity ?? "").trim() !== "" && Number.isFinite(Number(form.quantity)) && Number(form.quantity) > 0;
   const validGrams = String(form.grams ?? "").trim() === "" || (Number.isFinite(Number(form.grams)) && Number(form.grams) > 0);
   const validUnit = !!String(form.unit ?? "").trim();
-  const quantity = validQuantity ? Number(form.quantity) : 0;
+  const quantity = isMeal ? 1 : validQuantity ? Number(form.quantity) : 0;
   const previewValue = (value) => Number.isFinite(Number(value)) ? Number(value) * quantity : 0;
-  const invalidName = requireAll && !(form.name || "").trim();
-  const invalidProtein = requireAll && !validNumber(form.protein);
-  const invalidCalories = requireAll && !validNumber(form.calories);
-  const invalidQuantity = showQuantity && !validQuantity;
+  const invalidName = requireAll && !isMeal && !(form.name || "").trim();
+  const invalidProtein = (requireAll || isMeal) && !validNumber(form.protein);
+  const invalidCalories = (requireAll || isMeal) && !validNumber(form.calories);
+  const invalidQuantity = showQuantity && !isMeal && !validQuantity;
   const invalidGeneralFood = invalidName || invalidProtein || invalidCalories || invalidQuantity;
   const controlsDisabled = locked || saving;
-  const canEstimate = !!onEstimateManual && showMeasure && showQuantity && !!String(form.name ?? "").trim() && validUnit && validQuantity && validGrams;
-  const submitDisabled = saving || manualEstimatePending || customMeasureMissing || invalidGeneralFood;
+  const canEstimate = !!onEstimateManual && (isMeal ? !!items?.length : !!String(form.name ?? "").trim() && validUnit && validQuantity && validGrams);
+  const submitDisabled = saving || manualEstimatePending || customMeasureMissing || invalidGeneralFood || !items;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      {onEstimateManual && (
+        <section style={{ ...formSection, display: "grid", gap: 8 }}>
+          <div style={label}>רכיבי הארוחה</div>
+          {form.items.map((item, index) => (
+            <div key={index} role="group" aria-label={`רכיב ${index + 1}`} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr) auto", gap: 6 }}>
+              <input disabled={controlsDisabled} value={item.name} onChange={(e) => changeItem(index, "name", e.target.value)} maxLength={MAX_MEAL_TEXT} aria-label="שם או תיאור" placeholder="למשל פרגיות" style={input} />
+              <input disabled={controlsDisabled} value={item.quantity} onChange={(e) => changeItem(index, "quantity", e.target.value)} maxLength={MAX_MEAL_TEXT} aria-label="כמות שנאכלה" placeholder="למשל 200 גרם" style={input} />
+              {form.items.length > 1 && <button type="button" disabled={controlsDisabled} aria-label={`הסר רכיב ${index + 1}`} onClick={() => onField("items", form.items.filter((_, i) => i !== index))} style={{ ...input, width: 44, padding: 0 }}>×</button>}
+            </div>
+          ))}
+          {!items && <div role="alert" style={label}>יש למלא שם וכמות תקינה בכל רכיב.</div>}
+          <button type="button" disabled={controlsDisabled || form.items.length >= MAX_MEAL_ITEMS} onClick={() => onField("items", [...form.items, { name: "", quantity: "" }])} style={{ ...input, color: "#9ef2d2" }}>+ הוסף רכיב</button>
+        </section>
+      )}
       <section style={formSection}>
       <div>
-        <label style={label}>שם {showSave && !requireAll ? "(אופציונלי)" : ""}</label>
+        <label style={label}>{isMeal ? "שם הארוחה" : "שם"} {showSave && !requireAll ? "(אופציונלי)" : ""}</label>
         <input disabled={controlsDisabled} value={form.name} onChange={(e) => onField("name", e.target.value)} placeholder="למשל: חזה עוף" aria-label="שם" style={input} />
         {invalidName && <div style={{ color: "#fb7185", fontSize: 12, fontWeight: 700, marginTop: 7 }}>יש להזין שם למאכל</div>}
       </div>
@@ -283,10 +303,10 @@ function ManualForm({ form, onField, onToggleSave, onSubmit, cta, showSave, show
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12, color: "#75827d", fontSize: 12, fontWeight: 700 }}>
         <span style={{ width: 22, height: 22, display: "grid", placeItems: "center", borderRadius: 7, background: "#1f3831", color: "#39e6b2" }}>1</span>
-        הערכים יישמרו עבור יחידה אחת
+        {isMeal ? "הערכים לכל הארוחה" : "הערכים יישמרו עבור יחידה אחת"}
       </div>
       </section>
-      {showMeasure && (
+      {showMeasure && !isMeal && (
         <section style={formSection}>
           <label style={label}>מידה יומית</label>
           <select disabled={controlsDisabled} value={selectedUnit} onChange={(e) => onField("unit", e.target.value === "אחר" ? "" : e.target.value)} aria-label="מידה יומית" style={input}>
@@ -297,7 +317,7 @@ function ManualForm({ form, onField, onToggleSave, onSubmit, cta, showSave, show
           {customMeasureMissing && <div style={{ color: "#fb7185", fontSize: 12, fontWeight: 700, marginTop: 7 }}>יש להזין מידה מותאמת</div>}
         </section>
       )}
-      {showQuantity && (
+      {showQuantity && !isMeal && (
         <section style={formSection}>
           <div>
             <label style={label}>כמות</label>
@@ -311,20 +331,14 @@ function ManualForm({ form, onField, onToggleSave, onSubmit, cta, showSave, show
           </div>
         </section>
       )}
-      {showQuantity && (
-        <section style={formSection}>
-          <label style={label}>משקל שנאכל (גרם, אופציונלי)</label>
-          <input disabled={controlsDisabled} value={form.grams} onChange={(e) => onField("grams", e.target.value)} inputMode="decimal" aria-label="משקל שנאכל בגרמים" placeholder="למשל: 200" style={input} />
-          <div style={{ color: "#6f6f78", fontSize: 12, marginTop: 6 }}>אם המידה היא בגרמים ולא הוזן משקל, הוא יחושב לפי הכמות.</div>
-        </section>
-      )}
       {onEstimateManual && showMeasure && showQuantity && (
         <section style={{ ...formSection, display: "flex", flexDirection: "column", gap: 10 }}>
-          <div style={{ color: "#8a9994", fontSize: 12, lineHeight: 1.45 }}>ההשלמה ממלאת ערכים ליחידת מידה אחת. הכמות מחושבת בנפרד.</div>
+          <div style={{ color: "#8a9994", fontSize: 12, lineHeight: 1.45 }}>{isMeal ? `החישוב כולל את כל רכיבי הארוחה${weight === null ? "." : ` · ${weight} גרם`}` : "ההשלמה ממלאת ערכים ליחידת מידה אחת. הכמות מחושבת בנפרד."}</div>
           <button type="button" disabled={!canEstimate || manualEstimatePending} onClick={onEstimateManual} style={{ minHeight: 48, border: "1px solid #42675b", fontFamily: "inherit", background: "#15231e", color: "#9ef2d2", fontSize: 14, fontWeight: 800, padding: "12px 14px", borderRadius: 14, cursor: canEstimate && !manualEstimatePending ? "pointer" : "not-allowed", opacity: canEstimate && !manualEstimatePending ? 1 : .45 }}>
             {manualEstimatePending ? "AI מחשב..." : "מלא חלבון וקלוריות עם AI"}
           </button>
-          {manualEstimate?.state === "done" && <div role="status" style={{ color: "#9ef2d2", fontSize: 13, fontWeight: 700, lineHeight: 1.45 }}>הערכת AI עבור יחידה אחת של <bdi>{manualEstimate.unit}</bdi>: {manualEstimate.note}</div>}
+          {manualEstimate?.state === "done" && <div role="status" style={{ color: "#9ef2d2", fontSize: 13, fontWeight: 700, lineHeight: 1.45 }}>{isMeal ? "הערכת AI · החלבון והקלוריות המוצגים הם הסכום לכל הארוחה" : `הערכת AI עבור יחידה אחת של ${manualEstimate.unit}`} · {manualEstimate.note}</div>}
+          {manualEstimate?.state === "stale" && <div role="status" style={label}>הרכיבים השתנו. חשב שוב או הזן ערכים ידנית.</div>}
           {manualEstimate?.state === "error" && <div role="alert" style={{ color: "#fbbf24", fontSize: 13, fontWeight: 700, lineHeight: 1.45 }}>{manualEstimate.error === "daily_limit" ? "נגמרו ההשלמות עם AI להיום — אפשר להמשיך למלא ידנית." : "לא הצלחנו להשלים את הערכים. אפשר להמשיך למלא ידנית."}</div>}
         </section>
       )}
