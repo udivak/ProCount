@@ -36,7 +36,7 @@ const loadProfile = async (supabase: any) => shapeProfile(
 );
 
 function buildServer(supabase: any) {
-  const server = new McpServer({ name: "procount", version: "1.2.0" });
+  const server = new McpServer({ name: "procount", version: "1.3.0" });
   const tool = (name: string, description: string, inputSchema: any, run: (args: any) => Promise<unknown>, annotations = READ_ONLY) =>
     server.registerTool(name, { description, inputSchema, annotations }, async (args: any) => {
       try {

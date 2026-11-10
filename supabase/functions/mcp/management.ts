@@ -1,4 +1,5 @@
 import { z } from "npm:zod@4.3.6";
+import { normalizeFoodText } from "../../../src/lib/write.js";
 
 const uuid = z.string().uuid();
 const revision = z.number().int().positive();
@@ -16,6 +17,12 @@ export const workoutImport = {
   allow_same_day_session: z.boolean().optional().describe("Only true after verifying this is a distinct second workout on the same day."),
 };
 export const schemas = {
+  create_food: z.strictObject({ ...request,
+    name: z.string().trim().max(200).refine(value => normalizeFoodText(value) !== ""),
+    unit: z.string().trim().max(100).refine(value => normalizeFoodText(value) !== ""),
+    protein_g: z.number().min(0).max(10000).describe("Grams of protein in one stated serving."),
+    calories: z.number().min(0).max(100000).describe("Kilocalories in one stated serving."),
+  }),
   save_exercise: z.strictObject({ ...request, id: uuid, expected_revision: z.number().int().min(0),
     name: z.string().trim().min(1).max(120), muscle_group: z.string().trim().min(1).max(80),
     equipment: z.string().max(200).nullable().optional(), notes,
@@ -45,6 +52,7 @@ export function registerManagementTools(tool: any, supabase: any, one: any, writ
   tool("get_workout_session", "Read one owned workout with exact saved sets, occurrence IDs, row revisions and import source. Call before correcting a workout and after saving to verify.", z.strictObject({ session_id: uuid }), (args: any) => read("session", args));
   tool("get_write_result", "Recover a write result after a timeout using its original request_id. Only this user's current client requests are visible, and current permission is required. Not found means retry the SAME ID and payload.", z.strictObject({ request_id: uuid }), (args: any) => read("result", args));
   const descriptions = {
+    create_food: "Save one food to the shared My Foods catalog on explicit user request. Use list_foods to find candidates, but its nutrition is rounded. Submit verified values for one serving so the server can check for an exact match; ask before using estimates. Exact matches are reused; different values for the same name and unit conflict. Requires food_catalog permission. Does not log a meal.",
     save_exercise: "Create (expected_revision=0) or explicitly update an owned exercise. Use list_exercises first; never merge by similar name. Specify actual unit semantics. Requires workout_catalog permission.",
     save_workout_template: "Create (expected_revision=0) or update a strength workout template atomically from existing owned exercise IDs. Fetch get_workout_plan first. Changes affect future sessions only. Requires workout_catalog permission.",
     update_workout_session: "Correct a completed strength workout atomically. Swimming writes are not supported. First read get_workout_session; supply session and affected row revisions. Omitted values are preserved. New sets need stable IDs, expected_revision=0, position, kind and reps. remove=true removes one set with its previous data retained in the result for recovery. Requires workout_edit permission. Never silently overwrite a revision conflict.",
@@ -54,6 +62,6 @@ export function registerManagementTools(tool: any, supabase: any, one: any, writ
     tool(name, descriptions[name as keyof typeof descriptions], schema, (args: any) => {
       const { request_id, ...payload } = args;
       return one(supabase.rpc("connector_write", { p_request_id: request_id, p_action: name, p_payload: payload }));
-    }, { ...writeHints, destructiveHint: true });
+    }, { ...writeHints, destructiveHint: name !== "create_food" });
   }
 }

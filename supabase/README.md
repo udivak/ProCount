@@ -53,7 +53,7 @@ supabase functions deploy mcp --use-api --no-verify-jwt
 `supabase config push`): OAuth server on, dynamic registration on, authorization
 path `/oauth/consent`, site URL = the PWA origin, sign-ups disabled, asymmetric
 (ES256) JWT signing key. Revoke a connector under Authentication → OAuth Apps.
-Direct table writes remain denied for connector tokens. Logging and workout-management tools call a bounded transactional RPC. The
+Direct table writes remain denied for connector tokens. Logging, food creation and workout-management tools call a bounded transactional RPC. The
 private SECURITY DEFINER function validates the JWT user/client, checks the
 current `connector_permissions` grant, and validates every owned resource.
 Permissions default to false; grant or revoke each category through the consent
@@ -62,7 +62,7 @@ screen or Settings. Existing authorized connectors appear in Settings through th
 permissions. Retry with the SAME request_id and payload; changed payloads conflict.
 A meal/workout is all-or-nothing. Free-text nutrition is total per item; saved foods
 use catalog values times quantity. Workout logging uses an existing template;
-unreported exercises are skipped. Workout plan/catalog edits require a separate `workout_catalog` grant; corrections and reversible cancellation require `workout_edit`. Food catalog/profile edits and permanent deletion remain unavailable.
+unreported exercises are skipped. Workout plan/catalog edits require a separate `workout_catalog` grant; corrections and reversible cancellation require `workout_edit`. Food catalog edits, profile edits and permanent deletion remain unavailable.
 
 `private.connector_requests` is a private, default-deny audit/deduplication table.
 Its RLS-with-no-policy advisor notice is intentional: only the bounded private
@@ -126,6 +126,14 @@ It creates disposable user/client fixtures and must run against an isolated
 Supabase-compatible test database. It is not a production diary-write test.
 Schema tests: `deno test --node-modules-dir=none supabase/functions/mcp/management.test.ts`.
 Type check: `deno check --node-modules-dir=none supabase/functions/mcp/index.ts`.
+
+## Food catalog MCP (v1.3.0)
+
+`create_food` adds one item to the shared My Foods catalog. Enable **הוספת מאכלים לקטלוג** for the specific connection in ProCount Settings or at OAuth consent. The grant defaults to off and is independent of the meals grant.
+
+Search for candidates with `list_foods`. Its nutrition values are rounded for display, so let `create_food` decide exact matches using the original values. Send `request_id`, `name`, `unit`, `protein_g` and `calories` for one serving. Name and unit are limited to 200 and 100 characters; protein and calories must be nonnegative and no greater than 10,000 g and 100,000 kcal. A normalized name and unit with identical nutrition reuse an existing row; different nutrition for that name and unit returns `food_values_conflict`. The result includes `food.id` and a `created` or `reused` status. Use `log_meal` with that ID only when the user also asks to log it. Recover an interrupted catalog write with `get_write_result` or retry the original request ID and payload.
+
+Apply the migration before deploying the MCP function and then the permissions UI. Refresh the client tool definitions and verify that `create_food` is exposed. Run `supabase/tests/connector_food_catalog.sql` against an isolated Supabase database to verify permission enforcement, deduplication and use of the saved serving by `log_meal`.
 
 ## Test
 
