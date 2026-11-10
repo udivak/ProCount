@@ -42,8 +42,8 @@ export default function Settings({ goal, waterGoal, name, email, onBack, onName,
           {connectorPermissions.map((grant) => <div key={grant.client_id} style={{ padding: 18 }}>
             <div style={{ color: "#f4f7f6", fontWeight: 700 }}>{grant.client_name || "סוכן AI"}</div>
             <div dir="ltr" style={{ overflowWrap: "anywhere", color: "#8a9994", fontSize: 12 }}>{grant.client_id}</div>
-            {[["food_catalog", "הוספת מאכלים לקטלוג"], ["water", "מים"], ["meals", "ארוחות"], ["workouts", "הוספת אימונים"], ["workout_catalog", "ניהול תרגילים ותבניות"], ["workout_edit", "תיקון, ביטול ושחזור אימונים"]].map(([key, label]) => <label key={key} style={{ display: "inline-flex", alignItems: "center", minHeight: 44, marginInlineEnd: 16, color: "#f4f7f6" }}>
-              <input type="checkbox" disabled={connectorBusy} checked={!!grant[key]} onChange={async (event) => {
+            {[["food_catalog", "הוספת מאכלים לקטלוג"], ["water", "מים"], ["meals", "ארוחות"], ["workouts", "הוספת אימונים"], ["workout_catalog", "ניהול תרגילים ותבניות"], ["workout_edit", "תיקון, ביטול ושחזור אימונים"]].map(([key, label]) => <label key={key} style={{ display: "flex", alignItems: "center", gap: 12, minHeight: 44, color: "#f4f7f6" }}>
+              <input type="checkbox" style={{ WebkitAppearance: "checkbox", appearance: "auto", accentColor: "var(--pc-protein)", width: 22, height: 22, flexShrink: 0, margin: 0 }} disabled={connectorBusy} checked={!!grant[key]} onChange={async (event) => {
                 setConnectorBusy(true); setConnectorError("");
                 try {
                   const result = await onConnectorPermission(grant.client_id, { [key]: event.target.checked });
