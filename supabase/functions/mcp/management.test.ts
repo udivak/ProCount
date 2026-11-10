@@ -23,6 +23,14 @@ Deno.test("catalog definitions require complete unit semantics and reject owners
   assert(!schemas.save_exercise.safeParse({ ...exercise, user_id: id }).success);
 });
 
+const food = { request_id: id, name: "מולר בוטנים", unit: "גביע 169 גרם", protein_g: 22.139, calories: 224.77 };
+Deno.test("create_food accepts per-serving values and rejects invalid or extra fields", () => {
+  assert(schemas.create_food.safeParse(food).success);
+  for (const patch of [{ unit: " " }, { name: "\u200f" }, { protein_g: -1 }, { calories: Infinity }, { calories: "225" }, { date: "2026-11-10" }]) {
+    assert(!schemas.create_food.safeParse({ ...food, ...patch }).success);
+  }
+});
+
 Deno.test("MCP transport advertises all management tools and dispatches bounded RPC arguments", async () => {
   const calls: unknown[] = [];
   const handler = createMcpHandler(() => {
@@ -41,11 +49,14 @@ Deno.test("MCP transport advertises all management tools and dispatches bounded 
   };
   try {
     const list = await request("tools/list", {});
-    assert(list.tools.length === 7);
+    assert(list.tools.find((t: any) => t.name === "create_food")?.annotations.destructiveHint === false);
     assert(list.tools.find((t: any) => t.name === "update_workout_session").annotations.destructiveHint === true);
     await request("tools/call", { name: "get_connector_capabilities", arguments: {} });
     assert(JSON.stringify(calls[0]) === JSON.stringify({ name: "connector_read", args: { p_action: "capabilities", p_payload: {} } }));
     await request("tools/call", { name: "set_workout_session_status", arguments: { request_id: id, session_id: id, expected_revision: 3, status: "cancelled" } });
     assert(JSON.stringify(calls[1]) === JSON.stringify({ name: "connector_write", args: { p_request_id: id, p_action: "set_workout_session_status", p_payload: { session_id: id, expected_revision: 3, status: "cancelled" } } }));
+    await request("tools/call", { name: "create_food", arguments: food });
+    const { request_id, ...payload } = food;
+    assert(JSON.stringify(calls[2]) === JSON.stringify({ name: "connector_write", args: { p_request_id: request_id, p_action: "create_food", p_payload: payload } }));
   } finally { await handler.close(); }
 });

@@ -42,11 +42,11 @@ export default function Settings({ goal, waterGoal, name, email, onBack, onName,
           {connectorPermissions.map((grant) => <div key={grant.client_id} style={{ padding: 18 }}>
             <div style={{ color: "#f4f7f6", fontWeight: 700 }}>{grant.client_name || "סוכן AI"}</div>
             <div dir="ltr" style={{ overflowWrap: "anywhere", color: "#8a9994", fontSize: 12 }}>{grant.client_id}</div>
-            {[["water", "מים"], ["meals", "ארוחות"], ["workouts", "הוספת אימונים"], ["workout_catalog", "ניהול תרגילים ותבניות"], ["workout_edit", "תיקון, ביטול ושחזור אימונים"]].map(([key, label]) => <label key={key} style={{ display: "inline-flex", alignItems: "center", minHeight: 44, marginInlineEnd: 16, color: "#f4f7f6" }}>
+            {[["food_catalog", "הוספת מאכלים לקטלוג"], ["water", "מים"], ["meals", "ארוחות"], ["workouts", "הוספת אימונים"], ["workout_catalog", "ניהול תרגילים ותבניות"], ["workout_edit", "תיקון, ביטול ושחזור אימונים"]].map(([key, label]) => <label key={key} style={{ display: "inline-flex", alignItems: "center", minHeight: 44, marginInlineEnd: 16, color: "#f4f7f6" }}>
               <input type="checkbox" disabled={connectorBusy} checked={!!grant[key]} onChange={async (event) => {
                 setConnectorBusy(true); setConnectorError("");
                 try {
-                  const result = await onConnectorPermission(grant.client_id, { water: grant.water, meals: grant.meals, workouts: grant.workouts, workout_catalog: !!grant.workout_catalog, workout_edit: !!grant.workout_edit, [key]: event.target.checked });
+                  const result = await onConnectorPermission(grant.client_id, { [key]: event.target.checked });
                   if (result.error) setConnectorError("עדכון ההרשאה נכשל. נסה שוב.");
                 } catch { setConnectorError("עדכון ההרשאה נכשל. נסה שוב."); }
                 finally { setConnectorBusy(false); }
